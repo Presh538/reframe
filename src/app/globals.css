@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Theme tokens ── */
+:root {
+  color-scheme: dark;
+  --bg:             #111111;
+  --surface:        #1c1c1c;
+  --surface-2:      #252525;
+  --surface-3:      #2e2e2e;
+  --border:         #303030;
+  --border-subtle:  #252525;
+  --text:           #f0f0f0;
+  --text-soft:      #bbbbbb;   /* inactive items, secondary labels   */
+  --text-faint:     #666666;   /* section headers, meta, separators  */
+  --text-very-faint:#3a3a3a;   /* divider dots, barely-there chrome  */
+  --muted:          #888888;
+  --canvas-tile:    #161616;
+}
+
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Checkerboard canvas pattern ── */
+@layer utilities {
+  .canvas-bg {
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(45deg, var(--canvas-tile) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--canvas-tile) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--canvas-tile) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--canvas-tile) 75%);
+    background-size: 18px 18px;
+    background-position: 0 0, 0 9px, 9px -9px, -9px 0px;
+  }
+}
+
+/* ── Thin scrollbar ── */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface-3) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar { width: 3px; height: 3px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--surface-3);
+    border-radius: 2px;
+  }
+}
+
+/* ── Range input ── */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  background: var(--surface-3);
+  height: 2px;
+  border-radius: 1px;
+}
+input[type='range']::-moz-range-track {
+  background: var(--surface-3);
+  height: 2px;
+  border-radius: 1px;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #7c5cfc;
+  margin-top: -5px;
+  transition: transform 0.1s;
+}
+input[type='range']::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #7c5cfc;
+  border: none;
+}
