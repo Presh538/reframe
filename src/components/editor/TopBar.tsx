@@ -186,17 +186,6 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
           initial="rest"
           whileHover="hover"
         >
-          {/* GIF format icon */}
-          <IconBounce type="pop" className="w-[16px] h-[16px] flex-shrink-0">
-            {exportState.isRunning ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" style={{ animation: 'spin 1s linear infinite' }}>
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-              </svg>
-            ) : (
-              <GifIcon />
-            )}
-          </IconBounce>
-
           {/* Label */}
           <span
             className="whitespace-nowrap"

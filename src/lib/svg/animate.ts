@@ -174,8 +174,11 @@ export function injectClipRect(
 // ── Param helpers ─────────────────────────────────────────────
 
 export function iterationCount(p: AnimParams): string {
-  if (p.loop !== 'once') return 'infinite'
-  // 'in-out' plays forward then backward in a single cycle — needs 2 iterations
+  // JS-managed restart (see scheduleLoop in PreviewStage) plays the sequence
+  // as a single CSS pass so all staggered elements restart in sync — no phase drift.
+  if (p.loop === 'bounce') return '2'   // forward + backward = one clean bounce cycle
+  if (p.loop === 'loop')   return '1'   // one forward pass; JS restarts after sequence ends
+  // 'once' — 'in-out' needs 2 iterations (forward + reverse) within a single play
   if (p.direction === 'in-out') return '2'
   return '1'
 }
@@ -250,4 +253,29 @@ export function restorePlayback(svgEl: SVGSVGElement): void {
     el.style.animationDelay = `${origDelay}s`
     el.style.animationPlayState = 'running'
   })
+}
+
+/**
+ * Computes the total wall-clock duration of the staggered animation sequence
+ * by finding the element with the latest end time: max(delay + duration).
+ *
+ * Used by the JS-managed loop restart in PreviewStage so all elements
+ * restart together once the last element has finished — no phase drift.
+ *
+ * Returns milliseconds.
+ */
+export function computeSequenceDuration(svgEl: SVGSVGElement): number {
+  let maxEnd = 0
+
+  svgEl.querySelectorAll<SVGElement>('[data-rf-anim]').forEach(el => {
+    const delay = parseFloat(el.getAttribute('data-rf-delay') ?? '0')
+    // The animation shorthand is: "name duration timing delay count direction fill"
+    // First <number>s value = duration, second = delay (already stored in data-rf-delay).
+    const timeValues = el.style.animation.match(/(\d+\.?\d*)s/g) ?? []
+    const dur = timeValues.length > 0 ? parseFloat(timeValues[0] as string) : 1
+    maxEnd = Math.max(maxEnd, delay + dur)
+  })
+
+  // Minimum 100 ms to avoid tight spin if something goes wrong
+  return Math.max(maxEnd * 1000, 100)
 }

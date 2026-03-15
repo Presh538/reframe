@@ -4,7 +4,7 @@ import { useRef, useEffect, useCallback, useState, type DragEvent, type ChangeEv
 import { motion, AnimatePresence } from 'motion/react'
 import { useEditorStore, selectSvgReady } from '@/lib/store/editor'
 import { getPreset } from '@/lib/presets'
-import { clearAnimations } from '@/lib/svg/animate'
+import { clearAnimations, computeSequenceDuration } from '@/lib/svg/animate'
 import { validateSvgFile, sanitizeSvgClient, normalizeSvgElement, extractLayerInfo } from '@/lib/svg/sanitize'
 import { useToast } from '@/components/ui/Toast'
 
@@ -43,6 +43,61 @@ export function PreviewStage() {
 
   const [isDragOver, setIsDragOver] = useState(false)
   const dragDepth = useRef(0)
+
+  // Always-current refs so effects and timers avoid stale closures
+  const paramsRef          = useRef(params)
+  const activePresetIdRef  = useRef(activePresetId)
+  const isPlayingRef       = useRef(isPlaying)
+  paramsRef.current        = params
+  activePresetIdRef.current = activePresetId
+  isPlayingRef.current     = isPlaying
+
+  // JS-managed loop restart — fires after the full staggered sequence ends
+  const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearLoopTimer = useCallback(() => {
+    if (loopTimerRef.current !== null) {
+      clearTimeout(loopTimerRef.current)
+      loopTimerRef.current = null
+    }
+  }, [])
+
+  /**
+   * Schedules a clean restart of the current preset once the full staggered
+   * sequence has played out.  All elements restart together — no phase drift.
+   * Only arms itself when loop mode is 'loop' or 'bounce'.
+   */
+  const scheduleLoop = useCallback(() => {
+    clearLoopTimer()
+    if (!svgRef.current) return
+    const loop = paramsRef.current.loop
+    if (loop === 'once') return
+
+    const totalMs = computeSequenceDuration(svgRef.current)
+    // For bounce: CSS plays forward→backward (2 iterations), so wait 2× duration.
+    // computeSequenceDuration captures the per-element duration; we double it here.
+    const waitMs = loop === 'bounce' ? totalMs * 2 : totalMs
+
+    loopTimerRef.current = setTimeout(() => {
+      if (!svgRef.current || !isPlayingRef.current) return
+      const presetId = activePresetIdRef.current
+      if (!presetId) return
+      const preset = getPreset(presetId)
+      if (!preset) return
+
+      // Hard restart: wipe all CSS animations then re-apply from frame 0
+      clearAnimations(svgRef.current)
+      preset.apply(svgRef.current, paramsRef.current)
+
+      // Honour current play-state (should always be playing here, but be safe)
+      svgRef.current.querySelectorAll<SVGElement>('[data-rf-anim]').forEach(el => {
+        el.style.animationPlayState = 'running'
+      })
+
+      // Arm the next loop
+      scheduleLoop()
+    }, waitMs)
+  }, [clearLoopTimer])
 
   // ── Apply CSS transform directly to the canvas div ───────────
   const applyTransform = useCallback(() => {
@@ -187,21 +242,67 @@ export function PreviewStage() {
   useEffect(() => {
     if (!svgSource || !containerRef.current) return
     injectSvg(svgSource)
+    clearLoopTimer()
     if (!activePresetId) return
     const preset = getPreset(activePresetId)
     if (!preset || !svgRef.current) return
     clearAnimations(svgRef.current)
     preset.apply(svgRef.current, params)
     setPlaying(true)
+    // Arm JS-managed loop restart for 'loop' and 'bounce' modes
+    scheduleLoop()
+    return () => { clearLoopTimer() }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [svgSource, activePresetId, params, injectSvg, setPlaying])
+
+  // ── Detect animation completion (once mode only) ───────────────
+  // For loop/bounce the JS timer handles restart; for 'once' we stop playback.
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    const check = () => {
+      if (!svgRef.current) return
+      if (paramsRef.current.loop !== 'once') return  // loop/bounce handled by JS timer
+      const els = Array.from(svgRef.current.querySelectorAll<SVGElement>('[data-rf-anim]'))
+      if (!els.length) return
+      const allDone = els.every(el => el.getAnimations().every(a => a.playState === 'finished' || a.playState === 'idle'))
+      if (allDone) setPlaying(false)
+    }
+    container.addEventListener('animationend', check)
+    return () => container.removeEventListener('animationend', check)
+  }, [setPlaying])
 
   // ── Play / pause ──────────────────────────────────────────────
   useEffect(() => {
     if (!svgRef.current) return
-    svgRef.current.querySelectorAll<SVGElement>('[data-rf-anim]').forEach(el => {
-      el.style.animationPlayState = isPlaying ? 'running' : 'paused'
-    })
-  }, [isPlaying])
+    const els = Array.from(svgRef.current.querySelectorAll<SVGElement>('[data-rf-anim]'))
+    if (isPlaying) {
+      // Check if all animations have already finished (once mode — user hit play again)
+      const allDone = els.length > 0 && els.every(
+        el => el.getAnimations().every(a => a.playState === 'finished' || a.playState === 'idle')
+      )
+      if (allDone) {
+        // Hard restart from frame 0
+        const preset = activePresetIdRef.current ? getPreset(activePresetIdRef.current) : null
+        if (preset && svgRef.current) {
+          clearAnimations(svgRef.current)
+          preset.apply(svgRef.current, paramsRef.current)
+          scheduleLoop()
+        }
+      } else {
+        els.forEach(el => { el.style.animationPlayState = 'running' })
+        // Re-arm loop timer if it was cleared by a pause
+        if (paramsRef.current.loop !== 'once' && loopTimerRef.current === null) {
+          scheduleLoop()
+        }
+      }
+    } else {
+      // Pause: freeze animations and disarm the loop timer so it doesn't
+      // fire and restart while the user has explicitly paused.
+      clearLoopTimer()
+      els.forEach(el => { el.style.animationPlayState = 'paused' })
+    }
+  }, [isPlaying, scheduleLoop, clearLoopTimer])
 
   // ── File upload ───────────────────────────────────────────────
   const handleFile = useCallback(async (file: File) => {

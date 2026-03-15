@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { motion } from 'motion/react'
+import { motion, AnimatePresence } from 'motion/react'
 import { PRESETS, CATEGORIES, getPresetsByCategory } from '@/lib/presets'
 import { useEditorStore } from '@/lib/store/editor'
 import type { PresetCategory } from '@/types'
@@ -255,23 +255,32 @@ function Row({ preset, isActive, onSelect, index = 0 }: {
         textAlign: 'left',
       }}
     >
-      {/* Layout-animated hover/active highlight — slides smoothly between rows */}
-      {(hovered || isActive) && (
-        <motion.span
-          layoutId="row-highlight"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 500, damping: 36 }}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: 8,
-            background: isActive ? 'rgba(63,55,201,0.08)' : 'rgba(0,0,0,0.04)',
-            zIndex: 0,
-          }}
-        />
+      {/* Active state — static background, no animation (always present when active) */}
+      {isActive && (
+        <span style={{
+          position: 'absolute', inset: 0, borderRadius: 8,
+          background: 'rgba(63,55,201,0.08)', zIndex: 0,
+        }} />
       )}
+
+      {/* Hover highlight — layoutId makes it slide between rows as cursor moves.
+          Only one row is hovered at a time so there is never a duplicate layoutId.
+          AnimatePresence handles the fade-out when leaving all rows.           */}
+      <AnimatePresence>
+        {hovered && !isActive && (
+          <motion.span
+            layoutId="preset-hover"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 36 }}
+            style={{
+              position: 'absolute', inset: 0, borderRadius: 8,
+              background: 'rgba(0,0,0,0.04)', zIndex: 0,
+            }}
+          />
+        )}
+      </AnimatePresence>
       {/* Animated icon chip — z-index above the highlight */}
       <span style={{
         position: 'relative', zIndex: 1,
