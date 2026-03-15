@@ -31,6 +31,12 @@ interface EditorActions {
   setPlaying: (playing: boolean) => void
   /** Update export progress state */
   setExportState: (state: Partial<EditorState['export']>) => void
+  /** Update the canvas zoom level (for display in the UI) */
+  setZoom: (zoom: number) => void
+  /** Reset zoom to 100 % and signal PreviewStage to reset pan offset */
+  resetView: () => void
+  /** Toggle the persistent pan (hand) mode */
+  setPanMode: (isPanMode: boolean) => void
   /**
    * Fragment the current SVG into individually animatable elements.
    * Splits compound paths and promotes nested groups to the top level.
@@ -47,8 +53,11 @@ const INITIAL_STATE: EditorState = {
   activePresetId: null,
   params: DEFAULT_PARAMS,
   format: 'gif',
-  isPlaying: true,
+  isPlaying: false,
   isFragmented: false,
+  zoom: 1,
+  viewResetTick: 0,
+  isPanMode: false,
   export: {
     isRunning: false,
     progress: 0,
@@ -94,6 +103,13 @@ export const useEditorStore = create<EditorState & EditorActions>()(
           false,
           'setExportState'
         ),
+
+      setZoom: (zoom) => set({ zoom }, false, 'setZoom'),
+
+      resetView: () =>
+        set(s => ({ zoom: 1, viewResetTick: s.viewResetTick + 1 }), false, 'resetView'),
+
+      setPanMode: (isPanMode) => set({ isPanMode }, false, 'setPanMode'),
 
       fragmentElements: () => {
         const { svgSource } = get()

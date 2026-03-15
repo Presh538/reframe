@@ -7,9 +7,6 @@
  * gif.js is loaded from the local npm package. The worker script is
  * served from /public/gif.worker.js (same-origin) to avoid the
  * cross-origin Web Worker restriction browsers enforce on CDN URLs.
- *
- * Server-side watermark enforcement lives in /api/export/gif.
- * This client module adds the watermark too — defence in depth.
  */
 
 import { stepToTime, restorePlayback } from '@/lib/svg/animate'
@@ -36,8 +33,8 @@ interface GifInstance {
 // ── Config ────────────────────────────────────────────────────
 // Worker served from /public so it's same-origin (CDN workers are blocked)
 const GIF_WORKER_LOCAL = '/gif.worker.js'
-const FPS = 12
-const MAX_EXPORT_PX = 480
+const FPS = 24
+const MAX_EXPORT_PX = 800
 
 // ── Public API ────────────────────────────────────────────────
 
@@ -46,11 +43,10 @@ export interface GifExportOptions {
   animationDuration: number  // seconds
   speed: number
   onProgress?: (pct: number) => void
-  watermark?: boolean
 }
 
 export async function exportGif(opts: GifExportOptions): Promise<Blob> {
-  const { svgEl, animationDuration, speed, onProgress, watermark = true } = opts
+  const { svgEl, animationDuration, speed, onProgress } = opts
 
   // Compute export dimensions (capped + preserving aspect ratio)
   const vb = svgEl.viewBox?.baseVal
@@ -77,10 +73,7 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
     await nextFrame() // Two rAFs to ensure the browser has repainted
 
     const canvas = await svgToCanvas(svgEl, W, H)
-    if (canvas) {
-      if (watermark) applyWatermark(canvas)
-      frames.push(canvas)
-    }
+    if (canvas) frames.push(canvas)
 
     onProgress?.(Math.round((i / frameCount) * 75)) // 0-75% for capture
   }
@@ -135,18 +128,6 @@ function svgToCanvas(svgEl: SVGSVGElement, W: number, H: number): Promise<HTMLCa
   })
 }
 
-function applyWatermark(canvas: HTMLCanvasElement): void {
-  const ctx = canvas.getContext('2d')!
-  ctx.save()
-  ctx.globalAlpha = 0.42
-  ctx.fillStyle = '#555555'
-  const fontSize = Math.max(9, canvas.width / 32)
-  ctx.font = `bold ${fontSize}px sans-serif`
-  ctx.textAlign = 'right'
-  ctx.textBaseline = 'bottom'
-  ctx.fillText('thereframe.app', canvas.width - 5, canvas.height - 4)
-  ctx.restore()
-}
 
 function encodeGif(
   frames: HTMLCanvasElement[],
@@ -157,8 +138,8 @@ function encodeGif(
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const gif = new GIF({
-      workers: 2,
-      quality: 8,
+      workers: 4,
+      quality: 2,   // 1 = best, 30 = worst; 2 gives excellent quality
       width: W,
       height: H,
       workerScript: GIF_WORKER_LOCAL,

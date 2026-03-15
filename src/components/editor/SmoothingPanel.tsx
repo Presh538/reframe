@@ -1,5 +1,6 @@
 'use client'
 
+import { motion } from 'motion/react'
 import { useEditorStore } from '@/lib/store/editor'
 import type { EasingType } from '@/types'
 
@@ -35,9 +36,13 @@ export function SmoothingPanel({ onClose }: Props) {
       <div className="fixed inset-0 z-20" onClick={onClose} />
 
       {/* Panel */}
-      <div
-        className="fixed left-4 z-30 pointer-events-auto animate-panel-in"
+      <motion.div
+        className="fixed left-4 z-30 pointer-events-auto"
         style={{ top: 92 }}
+        initial={{ opacity: 0, y: -10, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -6, scale: 0.97 }}
+        transition={{ type: 'spring', stiffness: 420, damping: 32, mass: 0.8 }}
       >
         <div
           style={{
@@ -133,7 +138,7 @@ export function SmoothingPanel({ onClose }: Props) {
             {EASING_DESCRIPTIONS[easing] ?? ''}
           </div>
         </div>
-      </div>
+      </motion.div>
     </>
   )
 }

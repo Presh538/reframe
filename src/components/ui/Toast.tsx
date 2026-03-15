@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import { clsx } from 'clsx'
 
 // ── Types ─────────────────────────────────────────────────────
@@ -36,25 +37,36 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      {/* Toast container */}
-      <div className="fixed left-1/2 -translate-x-1/2 flex flex-col gap-2 z-50 pointer-events-none" style={{ bottom: 88 }}>
-        {toasts.map(t => (
-          <div
-            key={t.id}
-            className={clsx(
-              'px-4 py-2.5 rounded-lg text-[12px] font-medium border whitespace-nowrap',
-              'animate-slide-up shadow-lg backdrop-blur-sm',
-              'bg-surface-2/95 text-[var(--text)]',
-              t.type === 'success' && 'border-success/40',
-              t.type === 'error'   && 'border-danger/40',
-              t.type === 'info'    && 'border-border'
-            )}
-          >
-            {t.type === 'success' && <span className="mr-1.5 text-success">✓</span>}
-            {t.type === 'error'   && <span className="mr-1.5 text-danger">✕</span>}
-            {t.message}
-          </div>
-        ))}
+
+      {/* Toast container — sits just above the bottom bar */}
+      <div
+        className="fixed left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-50 pointer-events-none"
+        style={{ bottom: 88 }}
+      >
+        <AnimatePresence mode="popLayout">
+          {toasts.map(t => (
+            <motion.div
+              key={t.id}
+              layout
+              initial={{ opacity: 0, y: 12, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 30, mass: 0.7 }}
+              className={clsx(
+                'px-4 py-2.5 rounded-lg text-[12px] font-medium border whitespace-nowrap',
+                'shadow-lg backdrop-blur-sm',
+                'bg-surface-2/95 text-[var(--text)]',
+                t.type === 'success' && 'border-success/40',
+                t.type === 'error'   && 'border-danger/40',
+                t.type === 'info'    && 'border-border',
+              )}
+            >
+              {t.type === 'success' && <span className="mr-1.5 text-success">✓</span>}
+              {t.type === 'error'   && <span className="mr-1.5 text-danger">✕</span>}
+              {t.message}
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
     </ToastContext.Provider>
   )

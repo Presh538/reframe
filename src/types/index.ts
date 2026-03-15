@@ -91,6 +91,12 @@ export interface EditorState {
   isPlaying: boolean
   /** Whether the current SVG has been fragmented into individually animatable elements */
   isFragmented: boolean
+  /** Canvas zoom level (1 = 100%) */
+  zoom: number
+  /** Increments each time resetView is called — PreviewStage watches this to reset pan */
+  viewResetTick: number
+  /** Whether the hand / pan tool is locked on */
+  isPanMode: boolean
   /** Export state */
   export: {
     isRunning: boolean

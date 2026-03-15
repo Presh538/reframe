@@ -2,6 +2,12 @@
 
 import { useState, useMemo } from 'react'
 import { motion } from 'motion/react'
+import {
+  Pencil, ArrowUp, Zap, Wind, Scissors, Paintbrush2, Layers,
+  Activity, Heart, RotateCcw, PenLine, Target, Sparkles, Palette,
+  LayoutGrid, AlignLeft, CheckCircle2, Loader2,
+  ArrowRight, CloudFog, Keyboard, Expand, Droplets, LucideIcon,
+} from 'lucide-react'
 import { PRESETS, CATEGORIES, getPresetsByCategory } from '@/lib/presets'
 import { useEditorStore } from '@/lib/store/editor'
 import type { PresetCategory } from '@/types'
@@ -10,7 +16,45 @@ interface PresetPanelProps {
   onClose: () => void
 }
 
-const font: React.CSSProperties = {
+// ── Icon mapping per preset ID ───────────────────────────────────
+const PRESET_ICONS: Record<string, LucideIcon> = {
+  // Logo presets
+  'draw-on':        Pencil,
+  'fade-up-scale':  ArrowUp,
+  'bounce-in':      Zap,
+  'blur-rise':      CloudFog,
+  'skew-reveal':    Scissors,
+  'fill-reveal':    Paintbrush2,
+  'cascade':        Layers,
+  // Icon presets
+  'wiggle':         Activity,
+  'pulse-breathe':  Heart,
+  'spin-loop':      RotateCcw,
+  'path-in':        PenLine,
+  'pop-settle':     Target,
+  'glow-pulse':     Sparkles,
+  'color-pop':      Palette,
+  // Illustration presets
+  'float-loop':     Wind,
+  'shake':          Activity,
+  'wave-path':      Activity,
+  'scale-stagger':  LayoutGrid,
+  'stagger-reveal': AlignLeft,
+  // UI presets
+  'checkmark-draw': CheckCircle2,
+  'loading-spin':   Loader2,
+  'arrow-slide-in': ArrowRight,
+  'fade-blur':      CloudFog,
+  // Premium presets
+  'typewriter':     Keyboard,
+  'elastic-unfold': Expand,
+  'liquid-morph':   Droplets,
+  'hue-sweep':      Palette,
+}
+
+const PANEL_HEIGHT = 480
+
+const f: React.CSSProperties = {
   fontFamily: 'var(--font-geist-sans), sans-serif',
 }
 
@@ -35,53 +79,56 @@ export function PresetPanel({ onClose }: PresetPanelProps) {
       {/* Backdrop */}
       <div className="fixed inset-0 z-20" onClick={onClose} />
 
-      {/* Panel — centered below the top tabs */}
+      {/* Panel — centered horizontally, 4px below the tab bar */}
       <motion.div
-        className="fixed left-1/2 -translate-x-1/2 z-30 pointer-events-auto"
-        style={{ top: 88 }}
-        initial={{ opacity: 0, y: -10, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -6, scale: 0.97 }}
+        className="fixed left-1/2 z-30"
+        style={{ top: 72, translateX: '-50%' }}
+        initial={{ opacity: 0, scale: 0.96, y: -8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: -6 }}
         transition={{ type: 'spring', stiffness: 420, damping: 32, mass: 0.8 }}
       >
         <div style={{
-          width: 300,
-          background: 'rgba(251,251,251,0.6)',
-          border: '1px solid rgba(255,255,255,0.9)',
-          borderRadius: 14,
-          boxShadow: '0 8px 40px rgba(0,0,0,0.10)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
+          width: 396,
+          height: PANEL_HEIGHT,
           padding: 8,
           display: 'flex',
           flexDirection: 'column',
           gap: 8,
+          borderRadius: 14,
+          background: 'rgba(251,251,251,0.80)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06)',
         }}>
 
-          {/* Search */}
+          {/* Search bar */}
           <div style={{
+            flexShrink: 0,
             display: 'flex',
             alignItems: 'center',
-            gap: 4,
-            background: 'rgba(255,255,255,0.4)',
-            border: '1px solid white',
+            gap: 6,
+            background: 'rgba(255,255,255,0.55)',
+            border: '1px solid rgba(255,255,255,0.9)',
             borderRadius: 9,
-            padding: '6px 8px',
+            padding: '7px 10px',
           }}>
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0, opacity: 0.45 }}>
-              <path fillRule="evenodd" clipRule="evenodd" d="M8.25 3C5.3505 3 3 5.3505 3 8.25C3 11.1495 5.3505 13.5 8.25 13.5C9.546 13.5 10.7325 13.023 11.646 12.234L14.457 15.045C14.748 15.336 15.219 15.336 15.51 15.045C15.801 14.754 15.801 14.283 15.51 13.992L12.699 11.181C13.4895 10.2675 14.4 9.03 14.4 8.25C14.4 5.3505 12.1497 3 9.25 3H8.25ZM4.5 8.25C4.5 6.1785 6.1785 4.5 8.25 4.5C10.3215 4.5 12 6.1785 12 8.25C12 10.3215 10.3215 12 8.25 12C6.1785 12 4.5 10.3215 4.5 8.25Z" fill="#111111"/>
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ flexShrink: 0, opacity: 0.38 }}>
+              <circle cx="6.5" cy="6.5" r="4" stroke="#111" strokeWidth="1.4"/>
+              <path d="M9.5 9.5L12.5 12.5" stroke="#111" strokeWidth="1.4" strokeLinecap="round"/>
             </svg>
             <input
-              placeholder="Search..."
+              placeholder="Search presets…"
               value={query}
               onChange={e => setQuery(e.target.value)}
               autoFocus
               style={{
-                ...font,
+                ...f,
                 border: 'none',
                 background: 'transparent',
                 outline: 'none',
-                fontSize: 12,
+                fontSize: 13,
+                lineHeight: '20px',
                 color: '#111',
                 width: '100%',
                 caretColor: '#3f37c9',
@@ -90,26 +137,25 @@ export function PresetPanel({ onClose }: PresetPanelProps) {
             {query && (
               <button
                 onClick={() => setQuery('')}
-                style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: '#aaa', lineHeight: 1, flexShrink: 0 }}
+                style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, flexShrink: 0, display: 'flex' }}
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M3 3L11 11M11 3L3 11" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M3 3L11 11M11 3L3 11" stroke="#bbb" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
               </button>
             )}
           </div>
 
-          {/* List */}
+          {/* Scrollable list */}
           <div
             className="scrollbar-thin"
-            style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}
+            style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
           >
             {searchResults ? (
-              /* ── Search results ── */
               searchResults.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {searchResults.map(preset => (
-                    <MenuItem
+                    <Row
                       key={preset.id}
                       preset={preset}
                       isActive={activePresetId === preset.id}
@@ -118,14 +164,13 @@ export function PresetPanel({ onClose }: PresetPanelProps) {
                   ))}
                 </div>
               ) : (
-                <p style={{ ...font, textAlign: 'center', fontSize: 12, color: '#aaa', padding: '16px 0' }}>
+                <p style={{ ...f, textAlign: 'center', fontSize: 12, color: '#aaa', padding: '20px 0' }}>
                   No presets found
                 </p>
               )
             ) : (
-              /* ── Categorised list ── */
               CATEGORIES.map(cat => (
-                <CategorySection
+                <Group
                   key={cat}
                   category={cat}
                   activeId={activePresetId}
@@ -141,9 +186,9 @@ export function PresetPanel({ onClose }: PresetPanelProps) {
   )
 }
 
-// ── Category section ────────────────────────────────────────────
+// ── Category group ───────────────────────────────────────────────
 
-function CategorySection({
+function Group({
   category, activeId, onSelect,
 }: {
   category: PresetCategory
@@ -154,33 +199,33 @@ function CategorySection({
   if (!presets.length) return null
 
   return (
-    <div style={{ marginBottom: 8 }}>
+    <div style={{ marginBottom: 4 }}>
       <p style={{
-        fontFamily: 'var(--font-geist-sans), sans-serif',
+        ...f,
+        fontSize: 11,
         fontWeight: 400,
-        fontSize: 12,
+        lineHeight: '16px',
         color: '#afafaf',
-        padding: '2px 8px 6px',
+        padding: '6px 8px 2px',
+        margin: 0,
       }}>
-        {category} presets
+        {category}
       </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {presets.map(preset => (
-          <MenuItem
-            key={preset.id}
-            preset={preset}
-            isActive={activeId === preset.id}
-            onSelect={onSelect}
-          />
-        ))}
-      </div>
+      {presets.map(preset => (
+        <Row
+          key={preset.id}
+          preset={preset}
+          isActive={activeId === preset.id}
+          onSelect={onSelect}
+        />
+      ))}
     </div>
   )
 }
 
-// ── Menu item row ───────────────────────────────────────────────
+// ── Row ─────────────────────────────────────────────────────────
 
-function MenuItem({
+function Row({
   preset,
   isActive,
   onSelect,
@@ -190,6 +235,7 @@ function MenuItem({
   onSelect: (id: string) => void
 }) {
   const [hovered, setHovered] = useState(false)
+  const Icon = PRESET_ICONS[preset.id]
 
   return (
     <button
@@ -200,11 +246,11 @@ function MenuItem({
         width: '100%',
         display: 'flex',
         alignItems: 'center',
-        gap: 6,
-        padding: 8,
+        gap: 8,
+        padding: '6px 8px',
         borderRadius: 8,
         border: 'none',
-        background: isActive ? '#eeeeee' : hovered ? 'rgba(0,0,0,0.04)' : 'transparent',
+        background: isActive ? 'rgba(63,55,201,0.08)' : hovered ? 'rgba(0,0,0,0.04)' : 'transparent',
         cursor: 'pointer',
         textAlign: 'left',
         transition: 'background 0.1s',
@@ -212,29 +258,31 @@ function MenuItem({
     >
       {/* Icon */}
       <span style={{
-        width: 16,
-        height: 16,
+        width: 20,
+        height: 20,
         flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: 13,
-        lineHeight: 1,
+        color: isActive ? '#3f37c9' : '#888',
       }}>
-        {preset.icon}
+        {Icon
+          ? <Icon size={14} strokeWidth={1.8} />
+          : <span style={{ fontSize: 13, lineHeight: 1 }}>{preset.icon}</span>
+        }
       </span>
 
       {/* Name */}
       <span style={{
-        fontFamily: 'var(--font-geist-sans), sans-serif',
-        fontWeight: 500,
-        fontSize: 14,
-        color: isActive ? '#111111' : '#545454',
+        ...f,
+        fontWeight: isActive ? 500 : 400,
+        fontSize: 13,
+        lineHeight: '20px',
+        color: isActive ? '#111' : '#3d3d3d',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
         flex: 1,
-        transition: 'color 0.1s',
       }}>
         {preset.name}
       </span>
@@ -242,15 +290,16 @@ function MenuItem({
       {/* PRO badge */}
       {preset.pro && (
         <span style={{
+          ...f,
           flexShrink: 0,
-          fontSize: 8,
-          fontWeight: 700,
+          fontSize: 9,
+          fontWeight: 600,
           padding: '2px 5px',
           borderRadius: 4,
-          background: 'rgba(245,166,35,0.15)',
-          color: '#c77c1a',
-          letterSpacing: '0.05em',
-          fontFamily: 'var(--font-geist-sans), sans-serif',
+          background: 'rgba(245,166,35,0.12)',
+          color: '#c07a12',
+          letterSpacing: '0.04em',
+          lineHeight: '14px',
         }}>
           PRO
         </span>

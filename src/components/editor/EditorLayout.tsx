@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { AnimatePresence } from 'motion/react'
 import { PreviewStage } from './PreviewStage'
 import { TopBar } from './TopBar'
 import { BottomBar } from './BottomBar'
@@ -29,8 +30,11 @@ export function EditorLayout() {
         onTabChange={handleTabChange}
       />
 
-      {activeTab === 'presets'    && <PresetPanel    onClose={closePanel} />}
-      {activeTab === 'smoothing'  && <SmoothingPanel onClose={closePanel} />}
+      {/* Panels with spring enter + exit */}
+      <AnimatePresence>
+        {activeTab === 'presets'   && <PresetPanel    key="presets"   onClose={closePanel} />}
+        {activeTab === 'smoothing' && <SmoothingPanel key="smoothing" onClose={closePanel} />}
+      </AnimatePresence>
 
       <BottomBar />
     </div>

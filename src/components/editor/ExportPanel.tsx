@@ -51,7 +51,6 @@ export function ExportPanel() {
           svgEl,
           animationDuration: preset.baseDuration,
           speed: params.speed,
-          watermark: true,
           onProgress: (pct) => setExportState({ progress: pct }),
         })
         triggerDownload(blob, `reframe-${preset.id}.gif`)

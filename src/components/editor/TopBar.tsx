@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { motion } from 'motion/react'
 import { clsx } from 'clsx'
+import { IconBounce, type IconAnimType } from '@/components/ui/IconBounce'
 import { useEditorStore, selectCanExport } from '@/lib/store/editor'
 import { getPreset } from '@/lib/presets'
 import { exportGif } from '@/lib/export/gif'
@@ -48,7 +50,7 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
       if (format === 'gif') {
         const blob = await exportGif({
           svgEl, animationDuration: preset.baseDuration, speed: params.speed,
-          watermark: true, onProgress: p => setExportState({ progress: p }),
+          onProgress: p => setExportState({ progress: p }),
         })
         triggerDownload(blob, `reframe-${preset.id}.gif`)
         toast('GIF downloaded ✓', 'success')
@@ -74,14 +76,19 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
     : `Export ${format.toUpperCase()}`
 
   return (
-    <div className="absolute top-0 left-0 right-0 flex items-start justify-between px-4 pt-6 pointer-events-none z-30">
+    <motion.div
+      className="absolute top-0 left-0 right-0 flex items-start justify-between px-4 pt-6 pointer-events-none z-30"
+      initial={{ opacity: 0, y: -14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 320, damping: 28, delay: 0.03 }}
+    >
 
       {/* ── Logo pill — Figma 297:10656 ────────────────────────────
            bg: rgba(229,229,229,0.6), radius: 34px, px-12 py-13
            logo (spinning) | divider | file icon + name + Change  */}
       <div className="pointer-events-auto">
         <div
-          className="flex items-center gap-[13px] px-[12px] py-[13px] backdrop-blur-md"
+          className="flex items-center gap-[10px] px-[10px] py-[9px] backdrop-blur-md"
           style={{ borderRadius: 34, background: 'rgba(229,229,229,0.60)' }}
         >
           {/* Reframe logo mark — spins continuously */}
@@ -91,21 +98,21 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
           {svgFileName && (
             <>
               {/* Vertical divider */}
-              <div style={{ width: 1, height: 26, background: 'rgba(0,0,0,0.1)', flexShrink: 0 }} />
+              <div style={{ width: 1, height: 20, background: 'rgba(0,0,0,0.1)', flexShrink: 0 }} />
 
               {/* File icon */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
                   <path d="M15.8333 8.33333H4.16667C3.2475 8.33333 2.5 9.08083 2.5 10V16.6667C2.5 17.5858 3.2475 18.3333 4.16667 18.3333H15.8333C16.7525 18.3333 17.5 17.5858 17.5 16.6667V10C17.5 9.08083 16.7525 8.33333 15.8333 8.33333ZM4.16667 5H15.8333V6.66667H4.16667V5ZM5.83333 1.66667H14.1667V3.33333H5.83333V1.66667Z" fill="#AFAFAF"/>
                 </svg>
                 <span style={{
                   fontFamily: 'var(--font-geist-sans), sans-serif',
                   fontWeight: 500,
-                  fontSize: 16,
-                  lineHeight: '24px',
+                  fontSize: 14,
+                  lineHeight: '20px',
                   color: '#545454',
                   whiteSpace: 'nowrap',
-                  maxWidth: 200,
+                  maxWidth: 180,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                 }}>
@@ -146,13 +153,14 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
            each pill: rgba(255,255,255,0.6), border-white, radius 34px  */}
       <div className="pointer-events-auto absolute left-1/2 -translate-x-1/2 top-6">
         <div
-          className="flex items-center px-[8px] py-[6px] backdrop-blur-md gap-[8px]"
+          className="flex items-center px-[6px] py-[5px] backdrop-blur-md gap-[6px]"
           style={{ borderRadius: 74, background: 'rgba(251,251,251,0.6)' }}
         >
           <TabBtn
             active={activeTab === 'presets'}
             onClick={() => onTabChange('presets')}
             icon={<PresetsIcon />}
+            iconAnim="pop"
           >
             Presets
           </TabBtn>
@@ -160,8 +168,9 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
             active={activeTab === 'smoothing'}
             onClick={() => onTabChange('smoothing')}
             icon={<SmoothingIcon />}
+            iconAnim="squeeze"
           >
-            Smoothing
+            Easing
           </TabBtn>
         </div>
       </div>
@@ -170,13 +179,15 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
            bg: #3f37c9, radius: 74px, px-18 py-16
            icon + label + chevron, all white                       */}
       <div className="pointer-events-auto relative">
-        <div
-          className="flex items-center gap-[8px] px-[18px] py-[16px] backdrop-blur-sm cursor-pointer"
+        <motion.div
+          className="flex items-center gap-[6px] px-[14px] py-[9px] backdrop-blur-sm cursor-pointer"
           style={{ borderRadius: 74, background: '#3f37c9' }}
           onClick={exportState.isRunning ? undefined : handleExport}
+          initial="rest"
+          whileHover="hover"
         >
           {/* GIF format icon */}
-          <div className="w-[20px] h-[20px] flex items-center justify-center flex-shrink-0">
+          <IconBounce type="pop" className="w-[16px] h-[16px] flex-shrink-0">
             {exportState.isRunning ? (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" style={{ animation: 'spin 1s linear infinite' }}>
                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
@@ -184,26 +195,26 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
             ) : (
               <GifIcon />
             )}
-          </div>
+          </IconBounce>
 
           {/* Label */}
           <span
             className="whitespace-nowrap"
-            style={{ fontFamily: 'var(--font-geist-sans), sans-serif', fontWeight: 500, fontSize: 16, lineHeight: '24px', color: 'white' }}
+            style={{ fontFamily: 'var(--font-geist-sans), sans-serif', fontWeight: 500, fontSize: 14, lineHeight: '20px', color: 'white' }}
           >
             {canExport ? exportLabel : 'Export GIF'}
           </span>
 
           {/* Dropdown chevron — opens format picker */}
           <div
-            className="w-[20px] h-[20px] flex items-center justify-center flex-shrink-0"
+            className="w-[16px] h-[16px] flex items-center justify-center flex-shrink-0"
             onClick={e => { e.stopPropagation(); setFormatOpen(o => !o) }}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M3 5L7 9L11 5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-        </div>
+        </motion.div>
 
         {/* Format dropdown */}
         {formatOpen && (
@@ -228,47 +239,50 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
           </>
         )}
       </div>
-    </div>
+    </motion.div>
   )
 }
 
 // ── Tab button ─────────────────────────────────────────────────
 function TabBtn({
-  children, active, onClick, icon,
+  children, active, onClick, icon, iconAnim,
 }: {
   children: React.ReactNode
   active: boolean
   onClick: () => void
   icon: React.ReactNode
+  iconAnim: IconAnimType
 }) {
   return (
-    <button
+    <motion.button
       onClick={onClick}
-      className="flex items-center gap-[8px] px-[12px] py-[10px] transition-all duration-150 cursor-pointer"
+      className="flex items-center gap-[6px] px-[10px] py-[7px] transition-all duration-150 cursor-pointer"
       style={{
         borderRadius: 34,
         background: active ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.6)',
         border: '1px solid white',
         fontFamily: 'var(--font-geist-sans), sans-serif',
         fontWeight: 500,
-        fontSize: 16,
-        lineHeight: '24px',
+        fontSize: 14,
+        lineHeight: '20px',
         color: '#545454',
         whiteSpace: 'nowrap',
       }}
+      initial="rest"
+      whileHover="hover"
     >
-      <span className="w-[20px] h-[20px] flex items-center justify-center flex-shrink-0">
+      <IconBounce type={iconAnim} className="w-[16px] h-[16px] flex-shrink-0">
         {icon}
-      </span>
+      </IconBounce>
       {children}
-    </button>
+    </motion.button>
   )
 }
 
 // ── Icons ──────────────────────────────────────────────────────
 function PresetsIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none">
       <path d="M14.9999 14.1667C15.9191 14.1667 16.6666 13.4192 16.6666 12.5V4.16667C16.6666 3.2475 15.9191 2.5 14.9999 2.5H4.99992C4.08075 2.5 3.33325 3.2475 3.33325 4.16667V12.5C3.33325 13.4192 4.08075 14.1667 4.99992 14.1667H14.9999ZM3.33325 15.8333H16.6666V17.5H3.33325V15.8333Z" fill="#00C945"/>
     </svg>
   )
@@ -276,7 +290,7 @@ function PresetsIcon() {
 
 function SmoothingIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none">
       <path d="M13.3334 2.5H6.66675C5.74758 2.5 5.00008 3.2475 5.00008 4.16667V15.8333C5.00008 16.7525 5.74758 17.5 6.66675 17.5H13.3334C14.2526 17.5 15.0001 16.7525 15.0001 15.8333V4.16667C15.0001 3.2475 14.2526 2.5 13.3334 2.5ZM1.66675 5.83333V14.1667C1.66675 15.0858 2.41425 15.8333 3.33341 15.8333V4.16667C2.41425 4.16667 1.66675 4.91417 1.66675 5.83333ZM16.6667 4.16667V15.8333C17.5859 15.8333 18.3334 15.0858 18.3334 14.1667V5.83333C18.3334 4.91417 17.5859 4.16667 16.6667 4.16667Z" fill="#854BE2"/>
     </svg>
   )

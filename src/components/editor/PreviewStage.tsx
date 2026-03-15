@@ -1,33 +1,168 @@
 'use client'
 
 import { useRef, useEffect, useCallback, useState, type DragEvent, type ChangeEvent } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import { useEditorStore, selectSvgReady } from '@/lib/store/editor'
 import { getPreset } from '@/lib/presets'
 import { clearAnimations } from '@/lib/svg/animate'
 import { validateSvgFile, sanitizeSvgClient, normalizeSvgElement, extractLayerInfo } from '@/lib/svg/sanitize'
 import { useToast } from '@/components/ui/Toast'
 
-export function PreviewStage() {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const svgRef       = useRef<SVGSVGElement | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const { toast }    = useToast()
+const ZOOM_MIN = 0.1
+const ZOOM_MAX = 1        // never scale past original 100%
+const ZOOM_FACTOR = 1.08  // per scroll tick
 
+export function PreviewStage() {
+  const containerRef  = useRef<HTMLDivElement>(null)
+  const canvasRef     = useRef<HTMLDivElement>(null)   // receives the CSS transform
+  const sectionRef    = useRef<HTMLElement>(null)
+  const svgRef        = useRef<SVGSVGElement | null>(null)
+  const fileInputRef  = useRef<HTMLInputElement>(null)
+  const { toast }     = useToast()
+
+  // ── View transform (managed via DOM refs — no React re-render per frame) ──
+  const view  = useRef({ zoom: 1, panX: 0, panY: 0 })
+  const isPanning   = useRef(false)
+  const panStart    = useRef({ x: 0, y: 0 })
+  const isSpaceDown = useRef(false)
+
+  // ── Store subscriptions ───────────────────────────────────────
   const svgSource      = useEditorStore(s => s.svgSource)
   const activePresetId = useEditorStore(s => s.activePresetId)
   const params         = useEditorStore(s => s.params)
   const isPlaying      = useEditorStore(s => s.isPlaying)
   const svgReady       = useEditorStore(selectSvgReady)
+  const viewResetTick  = useEditorStore(s => s.viewResetTick)
+
+  const isPanMode      = useEditorStore(s => s.isPanMode)
 
   const setSvgSource    = useEditorStore(s => s.setSvgSource)
   const setActivePreset = useEditorStore(s => s.setActivePreset)
   const setPlaying      = useEditorStore(s => s.setPlaying)
+  const setZoom         = useEditorStore(s => s.setZoom)
 
   const [isDragOver, setIsDragOver] = useState(false)
-  // Track drag enter/leave depth to avoid flicker from child elements
   const dragDepth = useRef(0)
 
-  // ── SVG injection ────────────────────────────────────────────
+  // ── Apply CSS transform directly to the canvas div ───────────
+  const applyTransform = useCallback(() => {
+    const el = canvasRef.current
+    if (!el) return
+    const { zoom, panX, panY } = view.current
+    el.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`
+  }, [])
+
+  // ── Reset view when store signals it ─────────────────────────
+  useEffect(() => {
+    view.current = { zoom: 1, panX: 0, panY: 0 }
+    applyTransform()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewResetTick])
+
+  // ── Wheel → zoom to cursor ────────────────────────────────────
+  useEffect(() => {
+    const section = sectionRef.current
+    if (!section) return
+
+    const handler = (e: WheelEvent) => {
+      // Only zoom when an SVG is loaded
+      if (!svgReady) return
+      e.preventDefault()
+
+      const rect = section.getBoundingClientRect()
+      // Mouse position relative to viewport centre (which is our transform origin)
+      const mouseX = e.clientX - rect.left - rect.width  / 2
+      const mouseY = e.clientY - rect.top  - rect.height / 2
+
+      const { zoom, panX, panY } = view.current
+      const delta    = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR
+      const newZoom  = Math.min(Math.max(zoom * delta, ZOOM_MIN), ZOOM_MAX)
+      const ratio    = newZoom / zoom
+
+      view.current = {
+        zoom: newZoom,
+        panX: mouseX + (panX - mouseX) * ratio,
+        panY: mouseY + (panY - mouseY) * ratio,
+      }
+
+      applyTransform()
+      setZoom(newZoom)
+    }
+
+    section.addEventListener('wheel', handler, { passive: false })
+    return () => section.removeEventListener('wheel', handler)
+  }, [applyTransform, setZoom, svgReady])
+
+  // ── isPanMode → persistent cursor ─────────────────────────────
+  useEffect(() => {
+    if (!sectionRef.current) return
+    if (isPanMode) {
+      sectionRef.current.style.cursor = 'grab'
+    } else if (!isSpaceDown.current && !isPanning.current) {
+      sectionRef.current.style.cursor = ''
+    }
+  }, [isPanMode])
+
+  // ── Space key → pan cursor ────────────────────────────────────
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.code === 'Space' && !e.repeat &&
+        !(e.target instanceof HTMLInputElement) &&
+        !(e.target instanceof HTMLTextAreaElement)
+      ) {
+        e.preventDefault()
+        isSpaceDown.current = true
+        if (sectionRef.current) sectionRef.current.style.cursor = 'grab'
+      }
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        isSpaceDown.current = false
+        if (sectionRef.current && !isPanning.current) {
+          // Keep grab cursor if pan mode is still on
+          sectionRef.current.style.cursor = isPanMode ? 'grab' : ''
+        }
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup',   onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup',   onKeyUp)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPanMode])
+
+  // ── Mouse pan ─────────────────────────────────────────────────
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!svgReady) return
+    const isMiddle  = e.button === 1
+    const isSpace   = isSpaceDown.current && e.button === 0
+    const isPanBtn  = isPanMode && e.button === 0
+    if (!isMiddle && !isSpace && !isPanBtn) return
+    e.preventDefault()
+    isPanning.current = true
+    panStart.current  = { x: e.clientX - view.current.panX, y: e.clientY - view.current.panY }
+    if (sectionRef.current) sectionRef.current.style.cursor = 'grabbing'
+  }, [isPanMode])
+
+  const onMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isPanning.current) return
+    view.current.panX = e.clientX - panStart.current.x
+    view.current.panY = e.clientY - panStart.current.y
+    applyTransform()
+  }, [applyTransform])
+
+  const onMouseUp = useCallback(() => {
+    if (!isPanning.current) return
+    isPanning.current = false
+    if (sectionRef.current) {
+      sectionRef.current.style.cursor = (isSpaceDown.current || isPanMode) ? 'grab' : ''
+    }
+  }, [isPanMode, svgReady])
+
+  // ── SVG injection ─────────────────────────────────────────────
   const injectSvg = useCallback((source: string) => {
     if (!containerRef.current) return
     const doc = new DOMParser().parseFromString(source, 'image/svg+xml')
@@ -40,7 +175,7 @@ export function PreviewStage() {
     svgRef.current = containerRef.current.querySelector('svg')
   }, [toast])
 
-  // ── Apply preset ─────────────────────────────────────────────
+  // ── Apply preset ──────────────────────────────────────────────
   useEffect(() => {
     if (!svgSource || !containerRef.current) return
     injectSvg(svgSource)
@@ -52,7 +187,7 @@ export function PreviewStage() {
     setPlaying(true)
   }, [svgSource, activePresetId, params, injectSvg, setPlaying])
 
-  // ── Play / pause ─────────────────────────────────────────────
+  // ── Play / pause ──────────────────────────────────────────────
   useEffect(() => {
     if (!svgRef.current) return
     svgRef.current.querySelectorAll<SVGElement>('[data-rf-anim]').forEach(el => {
@@ -60,7 +195,7 @@ export function PreviewStage() {
     })
   }, [isPlaying])
 
-  // ── File upload ──────────────────────────────────────────────
+  // ── File upload ───────────────────────────────────────────────
   const handleFile = useCallback(async (file: File) => {
     const validation = validateSvgFile(file)
     if (!validation.ok) { toast(validation.error!, 'error'); return }
@@ -95,19 +230,17 @@ export function PreviewStage() {
     e.target.value = ''
   }
 
-  const onDragEnter = (e: DragEvent<HTMLDivElement>) => {
+  const onDragEnter = (e: DragEvent<HTMLElement>) => {
     e.preventDefault()
     dragDepth.current++
     if (dragDepth.current === 1) setIsDragOver(true)
   }
-
-  const onDragLeave = (e: DragEvent<HTMLDivElement>) => {
+  const onDragLeave = (e: DragEvent<HTMLElement>) => {
     e.preventDefault()
     dragDepth.current--
     if (dragDepth.current === 0) setIsDragOver(false)
   }
-
-  const onDrop = (e: DragEvent<HTMLDivElement>) => {
+  const onDrop = (e: DragEvent<HTMLElement>) => {
     e.preventDefault()
     dragDepth.current = 0
     setIsDragOver(false)
@@ -117,7 +250,12 @@ export function PreviewStage() {
 
   return (
     <section
-      className="absolute inset-0 flex items-center justify-center"
+      ref={sectionRef}
+      className="absolute inset-0 overflow-hidden"
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
       onDragOver={e => e.preventDefault()}
       onDragEnter={onDragEnter}
       onDragLeave={onDragLeave}
@@ -125,78 +263,72 @@ export function PreviewStage() {
       style={{
         transition: 'background 0.15s',
         background: isDragOver ? 'rgba(63,55,201,0.06)' : 'transparent',
-        borderRadius: isDragOver ? 16 : 0,
         outline: isDragOver ? '2px dashed rgba(63,55,201,0.35)' : '2px dashed transparent',
         outlineOffset: -8,
       }}
     >
-      {svgReady ? (
-        <div
-          ref={containerRef}
-          className="rf-preview-container flex items-center justify-center"
-          style={{ width: '100%', height: '100%', padding: '100px 48px' }}
-        />
-      ) : (
-        /* Empty state — Figma 297:5830 "Dash" */
-        <div
-          className="flex flex-col items-center gap-[16px] text-center cursor-pointer select-none"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          {/* Empty state file icon */}
-          <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50" fill="none">
-            <path d="M39.5833 20.8333H10.4167C8.11875 20.8333 6.25 22.7021 6.25 25V41.6667C6.25 43.9646 8.11875 45.8333 10.4167 45.8333H39.5833C41.8812 45.8333 43.75 43.9646 43.75 41.6667V25C43.75 22.7021 41.8812 20.8333 39.5833 20.8333ZM10.4167 12.5H39.5833V16.6667H10.4167V12.5ZM14.5833 4.16666H35.4167V8.33332H14.5833V4.16666Z" fill="#545454"/>
-          </svg>
-
-          {/* Text block */}
-          <div className="flex flex-col gap-[8px] items-center w-full">
-            <p
-              style={{
-                fontFamily: 'var(--font-geist-sans), sans-serif',
-                fontWeight: 500,
-                fontSize: 22,
-                lineHeight: '24px',
-                color: '#111111',
-              }}
+      {/* ── Zoomable / pannable canvas ────────────────────────── */}
+      <div
+        ref={canvasRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          transformOrigin: 'center center',
+          willChange: 'transform',
+        }}
+      >
+        <AnimatePresence mode="wait">
+          {svgReady ? (
+            <motion.div
+              key="preview"
+              ref={containerRef}
+              className="rf-preview-container flex items-center justify-center"
+              style={{ width: '100%', height: '100%', padding: '100px 48px' }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2 }}
+            />
+          ) : (
+            /* Empty state — Figma 297:5830 */
+            <motion.div
+              key="empty"
+              className="flex flex-col items-center gap-[16px] text-center cursor-pointer select-none absolute inset-0 justify-center"
+              onClick={() => fileInputRef.current?.click()}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8, scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
             >
-              Drop an SVG to get started
-            </p>
-            <p
-              style={{
-                fontFamily: 'var(--font-geist-sans), sans-serif',
-                fontWeight: 500,
-                fontSize: 16,
-                lineHeight: '24px',
-                color: '#545454',
-              }}
-            >
-              or click to browse
-            </p>
-          </div>
+              <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50" fill="none">
+                <path d="M39.5833 20.8333H10.4167C8.11875 20.8333 6.25 22.7021 6.25 25V41.6667C6.25 43.9646 8.11875 45.8333 10.4167 45.8333H39.5833C41.8812 45.8333 43.75 43.9646 43.75 41.6667V25C43.75 22.7021 41.8812 20.8333 39.5833 20.8333ZM10.4167 12.5H39.5833V16.6667H10.4167V12.5ZM14.5833 4.16666H35.4167V8.33332H14.5833V4.16666Z" fill="#545454"/>
+              </svg>
 
-          {/* Upload button — Figma 297:5811 */}
-          <button
-            onClick={e => { e.stopPropagation(); fileInputRef.current?.click() }}
-            style={{
-              background: '#3f37c9',
-              borderRadius: 74,
-              padding: '16px 18px',
-              fontFamily: 'var(--font-geist-sans), sans-serif',
-              fontWeight: 500,
-              fontSize: 16,
-              lineHeight: '24px',
-              color: 'white',
-              whiteSpace: 'nowrap',
-              border: 'none',
-              cursor: 'pointer',
-              transition: 'opacity 0.15s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
-            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-          >
-            Upload SVG File
-          </button>
-        </div>
-      )}
+              <div className="flex flex-col gap-[8px] items-center w-full">
+                <p style={{ fontFamily: 'var(--font-geist-sans), sans-serif', fontWeight: 500, fontSize: 22, lineHeight: '24px', color: '#111111' }}>
+                  Drop an SVG to get started
+                </p>
+                <p style={{ fontFamily: 'var(--font-geist-sans), sans-serif', fontWeight: 500, fontSize: 16, lineHeight: '24px', color: '#545454' }}>
+                  or click to browse
+                </p>
+              </div>
+
+              <button
+                onClick={e => { e.stopPropagation(); fileInputRef.current?.click() }}
+                style={{
+                  background: '#3f37c9', borderRadius: 74, padding: '16px 18px',
+                  fontFamily: 'var(--font-geist-sans), sans-serif', fontWeight: 500,
+                  fontSize: 16, lineHeight: '24px', color: 'white', whiteSpace: 'nowrap',
+                  border: 'none', cursor: 'pointer', transition: 'opacity 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+              >
+                Upload SVG File
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       <input
         ref={fileInputRef}
