@@ -21,7 +21,7 @@ export const uiPresets: Preset[] = [
         e.style.strokeDashoffset = String(L)
         if (!e.getAttribute('stroke')) e.setAttribute('stroke', 'currentColor')
         const delay = p.delay + i * 0.12
-        B.anim(e, `rf-ck ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ease-in-out`, delay)
+        B.anim(e, `rf-ck ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ${B.ease(p)}`, delay)
       })
     },
   },
@@ -87,7 +87,7 @@ export const uiPresets: Preset[] = [
       B.targets(el, p.scope).forEach((e, i) => {
         const kf = p.direction === 'out' ? 'rf-fb-r' : 'rf-fb'
         const delay = p.delay + i * 0.07
-        B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ease-out`, delay)
+        B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ${B.ease(p)}`, delay)
       })
     },
   },

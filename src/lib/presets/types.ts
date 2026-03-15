@@ -1,4 +1,5 @@
 import type { AnimParams, Preset, PresetCategory } from '@/types'
+import { EASING_CSS } from '@/types'
 import {
   getTargets,
   getStrokeTargets,
@@ -23,6 +24,8 @@ export type PresetBuilder = {
   plen: typeof pathLength
   iter: typeof iterationCount
   dir: typeof animationDirection
+  /** CSS timing function from params */
+  ease: (p: AnimParams) => string
   /** Computed duration: baseDuration / speed */
   dur: (base: number, p: AnimParams) => string
   /** Formatted delay for element i with stagger */
@@ -38,6 +41,7 @@ export const B: PresetBuilder = {
   plen: pathLength,
   iter: iterationCount,
   dir: animationDirection,
+  ease: (p) => EASING_CSS[p.easing] ?? 'ease-in-out',
   dur: (base, p) => (base / p.speed).toFixed(3) + 's',
   delay: (p, i = 0, stagger = 0) => (p.delay + i * stagger).toFixed(3) + 's',
 }

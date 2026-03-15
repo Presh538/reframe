@@ -23,9 +23,9 @@ const config: Config = {
         'very-faint':'var(--text-very-faint)',
         // Fixed accent / semantic colours (same in both themes)
         accent: {
-          DEFAULT: '#7c5cfc',
-          hover:   '#9b84ff',
-          muted:   'rgba(124,92,252,0.14)',
+          DEFAULT: '#3f37c9',
+          hover:   '#4f46e5',
+          muted:   'rgba(63,55,201,0.14)',
         },
         success: '#3ddc84',
         warning: '#f5a623',

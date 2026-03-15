@@ -1,50 +1,33 @@
 'use client'
 
-import {
-  useRef,
-  useEffect,
-  useCallback,
-  type DragEvent,
-  type ChangeEvent,
-} from 'react'
-import { clsx } from 'clsx'
+import { useRef, useEffect, useCallback, type DragEvent, type ChangeEvent } from 'react'
 import { useEditorStore, selectSvgReady } from '@/lib/store/editor'
 import { getPreset } from '@/lib/presets'
 import { clearAnimations } from '@/lib/svg/animate'
-import { countFragments } from '@/lib/svg/fragment'
-import {
-  validateSvgFile,
-  sanitizeSvgClient,
-  normalizeSvgElement,
-  extractLayerInfo,
-} from '@/lib/svg/sanitize'
+import { validateSvgFile, sanitizeSvgClient, normalizeSvgElement, extractLayerInfo } from '@/lib/svg/sanitize'
 import { useToast } from '@/components/ui/Toast'
 
 export function PreviewStage() {
   const containerRef = useRef<HTMLDivElement>(null)
-  const svgRef = useRef<SVGSVGElement | null>(null)
+  const svgRef       = useRef<SVGSVGElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { toast } = useToast()
+  const { toast }    = useToast()
 
   const svgSource      = useEditorStore(s => s.svgSource)
   const activePresetId = useEditorStore(s => s.activePresetId)
   const params         = useEditorStore(s => s.params)
   const isPlaying      = useEditorStore(s => s.isPlaying)
-  const isFragmented   = useEditorStore(s => s.isFragmented)
   const svgReady       = useEditorStore(selectSvgReady)
 
-  const setSvgSource     = useEditorStore(s => s.setSvgSource)
-  const setActivePreset  = useEditorStore(s => s.setActivePreset)
-  const setPlaying       = useEditorStore(s => s.setPlaying)
-  const fragmentElements = useEditorStore(s => s.fragmentElements)
+  const setSvgSource    = useEditorStore(s => s.setSvgSource)
+  const setActivePreset = useEditorStore(s => s.setActivePreset)
+  const setPlaying      = useEditorStore(s => s.setPlaying)
 
-  const elementCount = svgSource ? countFragments(svgSource) : 0
-
+  // ── SVG injection ────────────────────────────────────────────
   const injectSvg = useCallback((source: string) => {
     if (!containerRef.current) return
     const doc = new DOMParser().parseFromString(source, 'image/svg+xml')
-    const parseError = doc.querySelector('parsererror')
-    if (parseError) { toast('Could not parse SVG', 'error'); return }
+    if (doc.querySelector('parsererror')) { toast('Could not parse SVG', 'error'); return }
     const svgEl = doc.querySelector('svg') as SVGSVGElement | null
     if (!svgEl) { toast('No <svg> element found', 'error'); return }
     normalizeSvgElement(svgEl)
@@ -53,6 +36,7 @@ export function PreviewStage() {
     svgRef.current = containerRef.current.querySelector('svg')
   }, [toast])
 
+  // ── Apply preset ─────────────────────────────────────────────
   useEffect(() => {
     if (!svgSource || !containerRef.current) return
     injectSvg(svgSource)
@@ -64,6 +48,7 @@ export function PreviewStage() {
     setPlaying(true)
   }, [svgSource, activePresetId, params, injectSvg, setPlaying])
 
+  // ── Play / pause ─────────────────────────────────────────────
   useEffect(() => {
     if (!svgRef.current) return
     svgRef.current.querySelectorAll<SVGElement>('[data-rf-anim]').forEach(el => {
@@ -71,6 +56,7 @@ export function PreviewStage() {
     })
   }, [isPlaying])
 
+  // ── File upload ──────────────────────────────────────────────
   const handleFile = useCallback(async (file: File) => {
     const validation = validateSvgFile(file)
     if (!validation.ok) { toast(validation.error!, 'error'); return }
@@ -111,114 +97,77 @@ export function PreviewStage() {
     if (file) handleFile(file)
   }
 
-  const handleFragment = () => {
-    fragmentElements()
-    toast('SVG fragmented — pick a preset to animate', 'success')
-  }
-
   return (
     <section
-      className="flex-1 flex flex-col canvas-bg overflow-hidden relative"
+      className="absolute inset-0 flex items-center justify-center"
       onDragOver={e => e.preventDefault()}
       onDrop={onDrop}
     >
-      <div className="flex-1 flex items-center justify-center overflow-hidden relative">
-        {svgReady ? (
-          <div
-            ref={containerRef}
-            className="rf-preview-container flex items-center justify-center"
-            style={{ width: '100%', height: '100%', padding: '48px' }}
-          />
-        ) : (
-          <div
-            className="flex flex-col items-center gap-4 text-center cursor-pointer"
-            onClick={() => fileInputRef.current?.click()}
+      {svgReady ? (
+        <div
+          ref={containerRef}
+          className="rf-preview-container flex items-center justify-center"
+          style={{ width: '100%', height: '100%', padding: '100px 48px' }}
+        />
+      ) : (
+        /* Empty state — Figma 297:5830 "Dash" */
+        <div
+          className="flex flex-col items-center gap-[16px] text-center cursor-pointer select-none"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          {/* Empty state file icon */}
+          <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50" fill="none">
+            <path d="M39.5833 20.8333H10.4167C8.11875 20.8333 6.25 22.7021 6.25 25V41.6667C6.25 43.9646 8.11875 45.8333 10.4167 45.8333H39.5833C41.8812 45.8333 43.75 43.9646 43.75 41.6667V25C43.75 22.7021 41.8812 20.8333 39.5833 20.8333ZM10.4167 12.5H39.5833V16.6667H10.4167V12.5ZM14.5833 4.16666H35.4167V8.33332H14.5833V4.16666Z" fill="#545454"/>
+          </svg>
+
+          {/* Text block */}
+          <div className="flex flex-col gap-[8px] items-center w-full">
+            <p
+              style={{
+                fontFamily: 'var(--font-geist-sans), sans-serif',
+                fontWeight: 500,
+                fontSize: 22,
+                lineHeight: '24px',
+                color: '#111111',
+              }}
+            >
+              Drop an SVG to get started
+            </p>
+            <p
+              style={{
+                fontFamily: 'var(--font-geist-sans), sans-serif',
+                fontWeight: 500,
+                fontSize: 16,
+                lineHeight: '24px',
+                color: '#545454',
+              }}
+            >
+              or click to browse
+            </p>
+          </div>
+
+          {/* Upload button — Figma 297:5811 */}
+          <button
+            onClick={e => { e.stopPropagation(); fileInputRef.current?.click() }}
+            style={{
+              background: '#3f37c9',
+              borderRadius: 74,
+              padding: '16px 18px',
+              fontFamily: 'var(--font-geist-sans), sans-serif',
+              fontWeight: 500,
+              fontSize: 16,
+              lineHeight: '24px',
+              color: 'white',
+              whiteSpace: 'nowrap',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'opacity 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
           >
-            <div
-              className="w-[56px] h-[56px] rounded-xl border border-dashed border-border flex items-center justify-center text-muted"
-              style={{ background: 'rgba(124,92,252,0.06)' }}
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M10 3v10M6 7l4-4 4 4" stroke="#7c5cfc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-[var(--text)]">Drop an SVG to get started</p>
-              <p className="text-xs text-muted mt-0.5">or click to browse</p>
-            </div>
-            <button
-              onClick={e => { e.stopPropagation(); fileInputRef.current?.click() }}
-              className="h-[30px] px-4 text-xs font-medium bg-accent hover:bg-accent-hover text-white rounded transition-colors"
-            >
-              Choose SVG
-            </button>
-          </div>
-        )}
-      </div>
-
-      {svgReady && (
-        <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 border-t border-border bg-surface/80 backdrop-blur-sm">
-          <div className="flex items-center gap-1">
-            <ToolBtn onClick={() => setPlaying(!isPlaying)} title={isPlaying ? 'Pause' : 'Play'}>
-              {isPlaying ? (
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                  <rect x="2" y="1.5" width="3" height="9" rx="1"/>
-                  <rect x="7" y="1.5" width="3" height="9" rx="1"/>
-                </svg>
-              ) : (
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                  <path d="M2.5 1.5l8 4.5-8 4.5V1.5z"/>
-                </svg>
-              )}
-              <span>{isPlaying ? 'Pause' : 'Play'}</span>
-            </ToolBtn>
-
-            <ToolBtn
-              onClick={() => useEditorStore.getState().updateParam('speed', params.speed)}
-              title="Restart"
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
-                <path d="M2 6a4 4 0 1 1 1 2.8"/>
-                <path d="M2 4v2h2"/>
-              </svg>
-              <span>Restart</span>
-            </ToolBtn>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={handleFragment}
-              title="Fragment vectors into individually animatable elements"
-              className={clsx(
-                'flex items-center gap-1.5 h-[26px] px-2.5 rounded text-xs transition-all',
-                isFragmented
-                  ? 'bg-success/10 text-success border border-success/25 cursor-default'
-                  : 'text-muted hover:text-[var(--text)] hover:bg-surface-2 border border-transparent'
-              )}
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <circle cx="2.5" cy="2.5" r="1.5" stroke="currentColor" strokeWidth="1.2"/>
-                <circle cx="9.5" cy="2.5" r="1.5" stroke="currentColor" strokeWidth="1.2"/>
-                <circle cx="2.5" cy="9.5" r="1.5" stroke="currentColor" strokeWidth="1.2"/>
-                <circle cx="9.5" cy="9.5" r="1.5" stroke="currentColor" strokeWidth="1.2"/>
-                <path d="M4 2.5h4M4 9.5h4M2.5 4v4M9.5 4v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-              </svg>
-              <span>{isFragmented ? `${elementCount} elements` : 'Fragment'}</span>
-            </button>
-
-            {!isFragmented && elementCount > 0 && (
-              <span className="text-xs text-muted">{elementCount} elements</span>
-            )}
-          </div>
-
-          <ToolBtn onClick={() => fileInputRef.current?.click()} title="Open SVG">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 2v6M3.5 4.5L6 2l2.5 2.5"/>
-              <path d="M2 8.5V10h8V8.5"/>
-            </svg>
-            <span>Open</span>
-          </ToolBtn>
+            Upload SVG File
+          </button>
         </div>
       )}
 
@@ -230,25 +179,5 @@ export function PreviewStage() {
         onChange={onInputChange}
       />
     </section>
-  )
-}
-
-function ToolBtn({
-  children,
-  onClick,
-  title,
-}: {
-  children: React.ReactNode
-  onClick: () => void
-  title?: string
-}) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      className="flex items-center gap-1.5 h-[26px] px-2.5 rounded text-xs text-muted hover:text-[var(--text)] hover:bg-surface-2 transition-colors"
-    >
-      {children}
-    </button>
   )
 }

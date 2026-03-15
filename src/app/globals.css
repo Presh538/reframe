@@ -4,19 +4,19 @@
 
 /* ── Theme tokens ── */
 :root {
-  color-scheme: dark;
-  --bg:             #111111;
-  --surface:        #1c1c1c;
-  --surface-2:      #252525;
-  --surface-3:      #2e2e2e;
-  --border:         #303030;
-  --border-subtle:  #252525;
-  --text:           #f0f0f0;
-  --text-soft:      #bbbbbb;   /* inactive items, secondary labels   */
-  --text-faint:     #666666;   /* section headers, meta, separators  */
-  --text-very-faint:#3a3a3a;   /* divider dots, barely-there chrome  */
-  --muted:          #888888;
-  --canvas-tile:    #161616;
+  color-scheme: light;
+  --bg:             #e8e8e8;
+  --surface:        #ffffff;
+  --surface-2:      #f4f4f4;
+  --surface-3:      #ebebeb;
+  --border:         #dcdcdc;
+  --border-subtle:  #eaeaea;
+  --text:           #111111;
+  --text-soft:      #555555;   /* inactive items, secondary labels   */
+  --text-faint:     #999999;   /* section headers, meta, separators  */
+  --text-very-faint:#cccccc;   /* divider dots, barely-there chrome  */
+  --muted:          #777777;
+  --canvas-tile:    #e0e0e0;
 }
 
 
@@ -30,17 +30,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Checkerboard canvas pattern ── */
+/* ── Dot-grid canvas pattern (matches Figma "Dots" layer) ── */
 @layer utilities {
   .canvas-bg {
     background-color: var(--bg);
-    background-image:
-      linear-gradient(45deg, var(--canvas-tile) 25%, transparent 25%),
-      linear-gradient(-45deg, var(--canvas-tile) 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, var(--canvas-tile) 75%),
-      linear-gradient(-45deg, transparent 75%, var(--canvas-tile) 75%);
-    background-size: 18px 18px;
-    background-position: 0 0, 0 9px, 9px -9px, -9px 0px;
+    background-image: radial-gradient(circle, var(--canvas-tile) 1.5px, transparent 1.5px);
+    background-size: 27px 27px;
   }
 }
 
@@ -56,6 +51,12 @@ body {
     background: var(--surface-3);
     border-radius: 2px;
   }
+}
+
+/* ── Logo spin keyframe (used in SVG <g> inline style) ── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 /* ── Range input ── */
@@ -82,7 +83,7 @@ input[type='range']::-webkit-slider-thumb {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #7c5cfc;
+  background: #3f37c9;
   margin-top: -5px;
   transition: transform 0.1s;
 }
@@ -93,6 +94,6 @@ input[type='range']::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #7c5cfc;
+  background: #3f37c9;
   border: none;
 }

@@ -16,7 +16,7 @@ export const premiumPresets: Preset[] = [
       `)
       B.targets(el, p.scope).forEach(e => {
         e.style.transformOrigin = 'center'
-        B.anim(e, `rf-morph ${d} ${p.delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} ease-in-out`, p.delay)
+        B.anim(e, `rf-morph ${d} ${p.delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} ${B.ease(p)}`, p.delay)
       })
     },
   },
@@ -61,7 +61,7 @@ export const premiumPresets: Preset[] = [
       B.targets(el, p.scope).forEach((e, i) => {
         e.style.transformOrigin = 'center'
         const delay = p.delay + i * 0.04
-        B.anim(e, `rf-c${i % 5} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} ease-out both`, delay)
+        B.anim(e, `rf-c${i % 5} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} ${B.ease(p)} both`, delay)
       })
     },
   },

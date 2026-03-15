@@ -50,7 +50,7 @@ export const logoPresets: Preset[] = [
 
         const delay = p.delay + i * 0.1
         const kf = p.direction === 'out' ? 'rf-draw-r' : 'rf-draw'
-        B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ease-in-out`, delay)
+        B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ${B.ease(p)}`, delay)
       })
     },
   },

@@ -76,7 +76,7 @@ export const illustrationPresets: Preset[] = [
         e.style.transformOrigin = 'center'
         e.style.opacity = '0'
         const delay = p.delay + i * 0.11
-        B.anim(e, `rf-stag ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ease-out`, delay)
+        B.anim(e, `rf-stag ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ${B.ease(p)}`, delay)
       })
     },
   },

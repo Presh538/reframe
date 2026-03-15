@@ -1,3 +1,26 @@
+// ── Easing ────────────────────────────────────────────────────
+export type EasingType =
+  | 'linear'
+  | 'ease'
+  | 'ease-in'
+  | 'ease-out'
+  | 'ease-in-out'
+  | 'spring'
+  | 'back'
+  | 'snappy'
+
+/** Maps EasingType to CSS timing-function values */
+export const EASING_CSS: Record<EasingType, string> = {
+  'linear':      'linear',
+  'ease':        'ease',
+  'ease-in':     'ease-in',
+  'ease-out':    'ease-out',
+  'ease-in-out': 'ease-in-out',
+  'spring':      'cubic-bezier(0.34, 1.56, 0.64, 1)',
+  'back':        'cubic-bezier(0.36, 0, 0.66, -0.56)',
+  'snappy':      'cubic-bezier(0.2, 0, 0, 1)',
+}
+
 // ── Animation parameters ──────────────────────────────────────
 export interface AnimParams {
   /** Playback speed multiplier (0.25 – 3) */
@@ -10,6 +33,8 @@ export interface AnimParams {
   direction: 'in' | 'out' | 'in-out'
   /** Which SVG elements to animate */
   scope: 'all' | 'groups' | 'paths'
+  /** CSS timing function for the animation */
+  easing: EasingType
 }
 
 export const DEFAULT_PARAMS: AnimParams = {
@@ -18,6 +43,7 @@ export const DEFAULT_PARAMS: AnimParams = {
   loop: 'once',
   direction: 'in',
   scope: 'all',
+  easing: 'ease-in-out',
 }
 
 // ── Preset ────────────────────────────────────────────────────
