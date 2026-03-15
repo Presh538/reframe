@@ -50,7 +50,8 @@ export function fragmentSvg(svgSource: string): FragmentResult {
   flattenSingleWrapper(svg)
 
   // Pass 3 — wrap any bare shape elements in a <g> so every direct child is a group
-  wrapBareShapes(svg)
+  // Pass the owning document so new elements are created in the correct namespace context
+  wrapBareShapes(svg, doc)
 
   const count = directAnimatables(svg).length
 
@@ -99,12 +100,13 @@ function flattenSingleWrapper(svg: Element): void {
   wrapper.remove()
 }
 
-function wrapBareShapes(svg: Element): void {
+function wrapBareShapes(svg: Element, doc: Document): void {
   for (const child of [...svg.children]) {
     const tag = child.tagName.toLowerCase()
     if (META_TAGS.has(tag) || tag === 'g') continue
-    // It's a bare shape — wrap in <g>
-    const g = document.createElementNS(SVG_NS, 'g')
+    // It's a bare shape — wrap in <g> created in the same document to avoid
+    // cross-document node adoption (which can drop SVG namespace attributes)
+    const g = doc.createElementNS(SVG_NS, 'g')
     svg.insertBefore(g, child)
     g.appendChild(child)
   }

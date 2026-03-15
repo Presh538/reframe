@@ -165,14 +165,22 @@ export function PreviewStage() {
   // ── SVG injection ─────────────────────────────────────────────
   const injectSvg = useCallback((source: string) => {
     if (!containerRef.current) return
-    const doc = new DOMParser().parseFromString(source, 'image/svg+xml')
-    if (doc.querySelector('parsererror')) { toast('Could not parse SVG', 'error'); return }
-    const svgEl = doc.querySelector('svg') as SVGSVGElement | null
-    if (!svgEl) { toast('No <svg> element found', 'error'); return }
+
+    // Quick structural check before touching the DOM
+    const probe = new DOMParser().parseFromString(source, 'image/svg+xml')
+    if (probe.querySelector('parsererror')) { toast('Could not parse SVG', 'error'); return }
+    if (!probe.querySelector('svg')) { toast('No <svg> element found', 'error'); return }
+
+    // innerHTML injection is far more reliable than DOMParser + appendChild:
+    //   • <style> blocks apply correctly (same document context)
+    //   • url(#id) references inside <defs> resolve without issues
+    //   • No namespace adoption step that can silently drop attributes
+    containerRef.current.innerHTML = source
+    const svgEl = containerRef.current.querySelector('svg') as SVGSVGElement | null
+    if (!svgEl) { toast('Could not render SVG', 'error'); return }
+
     normalizeSvgElement(svgEl)
-    containerRef.current.querySelectorAll('svg').forEach(el => el.remove())
-    containerRef.current.appendChild(svgEl)
-    svgRef.current = containerRef.current.querySelector('svg')
+    svgRef.current = svgEl
   }, [toast])
 
   // ── Apply preset ──────────────────────────────────────────────
@@ -198,7 +206,11 @@ export function PreviewStage() {
   // ── File upload ───────────────────────────────────────────────
   const handleFile = useCallback(async (file: File) => {
     const validation = validateSvgFile(file)
-    if (!validation.ok) { toast(validation.error!, 'error'); return }
+    if (!validation.ok) {
+      // TODO (pricing): swap this for a Pro upgrade modal once billing is live
+      toast(validation.requiresPro ? '✦ Pro plan required — files over 10 MB' : validation.error!, 'error')
+      return
+    }
     const raw = await file.text()
     const sanitized = await sanitizeSvgClient(raw)
     try {
@@ -277,22 +289,23 @@ export function PreviewStage() {
           willChange: 'transform',
         }}
       >
-        <AnimatePresence mode="wait">
-          {svgReady ? (
-            <motion.div
-              key="preview"
-              ref={containerRef}
-              className="rf-preview-container flex items-center justify-center"
-              style={{ width: '100%', height: '100%', padding: '100px 48px' }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.2 }}
-            />
-          ) : (
+        {/* Preview container — always mounted so containerRef is never null
+            when the inject useEffect fires after svgSource changes.
+            With AnimatePresence mode="wait" the ref would be null during the
+            empty-state exit animation, causing silent injection failures.     */}
+        <div
+          ref={containerRef}
+          className="rf-preview-container flex items-center justify-center"
+          style={{ width: '100%', height: '100%', padding: '100px 48px' }}
+        />
+
+        <AnimatePresence>
+          {!svgReady && (
             /* Empty state — Figma 297:5830 */
             <motion.div
               key="empty"
               className="flex flex-col items-center gap-[16px] text-center cursor-pointer select-none absolute inset-0 justify-center"
+              style={{ background: 'transparent' }}
               onClick={() => fileInputRef.current?.click()}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -315,7 +328,7 @@ export function PreviewStage() {
               <button
                 onClick={e => { e.stopPropagation(); fileInputRef.current?.click() }}
                 style={{
-                  background: '#3f37c9', borderRadius: 74, padding: '16px 18px',
+                  background: '#3f37c9', borderRadius: 74, padding: '12px 18px',
                   fontFamily: 'var(--font-geist-sans), sans-serif', fontWeight: 500,
                   fontSize: 16, lineHeight: '24px', color: 'white', whiteSpace: 'nowrap',
                   border: 'none', cursor: 'pointer', transition: 'opacity 0.15s',

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'motion/react'
+import { motion, AnimatePresence } from 'motion/react'
 import { clsx } from 'clsx'
 import { IconBounce, type IconAnimType } from '@/components/ui/IconBounce'
 import { useEditorStore, selectCanExport } from '@/lib/store/editor'
@@ -217,27 +217,39 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
         </motion.div>
 
         {/* Format dropdown */}
-        {formatOpen && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setFormatOpen(false)} />
-            <div className="absolute right-0 top-[calc(100%+8px)] bg-white border border-[#e5e5e5] rounded-2xl shadow-xl py-1 min-w-[160px] z-50">
-              {FORMATS.map(f => (
-                <button
-                  key={f.value}
-                  onClick={() => { setFormat(f.value); setFormatOpen(false) }}
-                  className={clsx(
-                    'w-full text-left px-4 py-2.5 text-[14px] font-medium transition-colors',
-                    format === f.value
-                      ? 'text-[#3f37c9] bg-[#3f37c9]/8'
-                      : 'text-[#545454] hover:bg-[#f5f5f5]'
-                  )}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
+        <AnimatePresence>
+          {formatOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setFormatOpen(false)} />
+              <motion.div
+                className="absolute right-0 top-[calc(100%+8px)] bg-white border border-[#e5e5e5] rounded-2xl shadow-xl overflow-hidden min-w-[160px] z-50"
+                initial={{ opacity: 0, scale: 0.90, y: -8, filter: 'blur(6px)' }}
+                animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, scale: 0.95, y: -4, filter: 'blur(3px)' }}
+                transition={{ type: 'spring', stiffness: 480, damping: 28, mass: 0.55 }}
+                style={{ transformOrigin: 'top right' }}
+              >
+                {FORMATS.map((fmt, idx) => (
+                  <motion.button
+                    key={fmt.value}
+                    onClick={() => { setFormat(fmt.value); setFormatOpen(false) }}
+                    initial={{ opacity: 0, x: -6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 28, delay: idx * 0.05 }}
+                    className={clsx(
+                      'w-full text-left px-4 py-2.5 text-[14px] font-medium transition-colors block',
+                      format === fmt.value
+                        ? 'text-[#3f37c9] bg-[#3f37c9]/8'
+                        : 'text-[#545454] hover:bg-[#f5f5f5]'
+                    )}
+                  >
+                    {fmt.label}
+                  </motion.button>
+                ))}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   )

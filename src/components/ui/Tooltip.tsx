@@ -8,18 +8,21 @@ interface TooltipProps {
   label: string
   /** Space-separated key tokens e.g. "⌘ K" or "H" */
   kbd?: string
+  /** Suppress the tooltip entirely — use when the trigger already shows a popover */
+  disabled?: boolean
   children: ReactNode
 }
 
 interface Pos { x: number; y: number }
 
-export function Tooltip({ label, kbd, children }: TooltipProps) {
+export function Tooltip({ label, kbd, children, disabled }: TooltipProps) {
   const [visible, setVisible] = useState(false)
   const [pos, setPos]         = useState<Pos>({ x: 0, y: 0 })
   const wrapRef  = useRef<HTMLDivElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const show = useCallback(() => {
+    if (disabled) return
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
       if (!wrapRef.current) return
@@ -27,7 +30,7 @@ export function Tooltip({ label, kbd, children }: TooltipProps) {
       setPos({ x: r.left + r.width / 2, y: r.top })
       setVisible(true)
     }, 140)
-  }, [])
+  }, [disabled])
 
   const hide = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current)

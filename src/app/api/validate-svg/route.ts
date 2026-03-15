@@ -17,7 +17,7 @@ import type { ValidateSvgResponse, SvgLayerInfo } from '@/types'
 
 // ── Request schema ────────────────────────────────────────────
 const RequestSchema = z.object({
-  svg: z.string().min(1).max(2 * 1024 * 1024), // 2 MB string limit
+  svg: z.string().min(1).max(10 * 1024 * 1024), // 10 MB free-tier string limit
 })
 
 // ── Forbidden patterns (server-side defence) ──────────────────
