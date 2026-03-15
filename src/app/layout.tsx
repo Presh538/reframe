@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     locale: 'en_US',
     images: [
       {
-        url: '/og.png',
+        url: 'https://ik.imagekit.io/legacystudio/Reframe/Meta%20Image.png',
         width: 2400,
         height: 1260,
         alt: 'Reframe — Animate your SVGs in seconds',
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: TITLE,
     description: DESCRIPTION,
-    images: ['/og.png'],
+    images: ['https://ik.imagekit.io/legacystudio/Reframe/Meta%20Image.png'],
   },
 
   // ── Icons ────────────────────────────────────────────────────────
