@@ -11,8 +11,6 @@ export const logoPresets: Preset[] = [
     description: 'Traces each path outline first, then fills — a cinematic hand-drawn reveal.',
     apply(el, p) {
       const d = B.dur(1.4, p)
-      // Phase 1 (0–60%): stroke traces the outline via dashoffset
-      // Phase 2 (60–100%): fill fades in while stroke stays drawn
       B.css(el, `
         @keyframes rf-draw {
           0%   { stroke-dashoffset: var(--rf-L); fill-opacity: 0 }
@@ -31,13 +29,10 @@ export const logoPresets: Preset[] = [
         e.style.strokeDasharray = String(L)
         e.style.strokeDashoffset = String(L)
 
-        // If this element has no stroke, inject one matching its fill color
-        // so the tracing phase is visible. Mark it for cleanup on clearAnimations.
         const hasFill   = e.getAttribute('fill') !== 'none'
         const hasStroke = e.getAttribute('stroke') || e.style.stroke
         if (hasFill && !hasStroke) {
           const fill = e.getAttribute('fill') ?? 'currentColor'
-          // Skip gradient fills — they can't be used directly as stroke
           if (!fill.startsWith('url(')) {
             e.setAttribute('stroke', fill)
             e.setAttribute('data-rf-stroke-added', '1')
@@ -66,7 +61,7 @@ export const logoPresets: Preset[] = [
     apply(el, p) {
       const d = B.dur(0.8, p)
       B.css(el, `
-        @keyframes rf-fus { from { opacity: 0; transform: translateY(16px) scale(.88) } to { opacity: 1; transform: translateY(0) scale(1) } }
+        @keyframes rf-fus   { from { opacity: 0; transform: translateY(16px) scale(.88) } to { opacity: 1; transform: translateY(0) scale(1) } }
         @keyframes rf-fus-r { from { opacity: 1; transform: translateY(0) scale(1) } to { opacity: 0; transform: translateY(16px) scale(.88) } }
       `)
       B.targets(el, p.scope).forEach((e, i) => {
@@ -100,20 +95,47 @@ export const logoPresets: Preset[] = [
   },
 
   {
-    id: 'glitch-flash',
-    name: 'Glitch Flash',
+    id: 'blur-rise',
+    name: 'Blur Rise',
     category: 'Logo',
-    icon: '⚡',
+    icon: '🌫️',
     pro: false,
-    baseDuration: 1.0,
-    description: 'Chromatic aberration flicker — high energy, very on-brand for tech.',
+    baseDuration: 0.7,
+    description: 'Materialises from a soft blur — motion.dev\'s signature entrance effect.',
     apply(el, p) {
-      const d = B.dur(1.0, p)
+      const d = B.dur(0.7, p)
       B.css(el, `
-        @keyframes rf-gl { 0%,100% { transform: translate(0); filter: none; opacity: 1 } 10% { transform: translate(-3px,1px); filter: hue-rotate(90deg) saturate(2) } 22% { transform: translate(3px,-1px); filter: hue-rotate(180deg) } 35% { transform: translate(-2px,2px); filter: hue-rotate(270deg) saturate(3); opacity: .8 } 48% { transform: translate(2px,-2px); filter: none } 60% { transform: translate(-4px,0); filter: hue-rotate(45deg) } 75% { transform: translate(0); filter: none } 86% { transform: translate(1px,-1px); filter: saturate(2); opacity: .9 } }
+        @keyframes rf-blur-in  { from { opacity: 0; filter: blur(10px); transform: translateY(8px) scale(.97) } to { opacity: 1; filter: blur(0px); transform: translateY(0) scale(1) } }
+        @keyframes rf-blur-out { from { opacity: 1; filter: blur(0px);  transform: translateY(0) scale(1) } to { opacity: 0; filter: blur(10px); transform: translateY(8px) scale(.97) } }
       `)
-      B.targets(el, p.scope).forEach(e => {
-        B.anim(e, `rf-gl ${d} ${p.delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)}`, p.delay)
+      B.targets(el, p.scope).forEach((e, i) => {
+        e.style.transformOrigin = 'center'
+        const delay = p.delay + i * 0.07
+        const kf = p.direction === 'out' ? 'rf-blur-out' : 'rf-blur-in'
+        B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ${B.ease(p)}`, delay)
+      })
+    },
+  },
+
+  {
+    id: 'skew-reveal',
+    name: 'Skew Reveal',
+    category: 'Logo',
+    icon: '📐',
+    pro: false,
+    baseDuration: 0.65,
+    description: 'Each element slides in with a snap skew — motion.dev\'s slide + perspective variant.',
+    apply(el, p) {
+      const d = B.dur(0.65, p)
+      B.css(el, `
+        @keyframes rf-skew-in  { from { opacity: 0; transform: skewY(-6deg) translateY(20px) } to { opacity: 1; transform: skewY(0deg) translateY(0) } }
+        @keyframes rf-skew-out { from { opacity: 1; transform: skewY(0deg) translateY(0) } to { opacity: 0; transform: skewY(-6deg) translateY(20px) } }
+      `)
+      B.targets(el, p.scope).forEach((e, i) => {
+        e.style.transformOrigin = 'bottom center'
+        const delay = p.delay + i * 0.06
+        const kf = p.direction === 'out' ? 'rf-skew-out' : 'rf-skew-in'
+        B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ${B.ease(p)}`, delay)
       })
     },
   },
@@ -128,30 +150,17 @@ export const logoPresets: Preset[] = [
     description: 'Wipes each element into view left-to-right — a cinematic character reveal.',
     apply(el, p) {
       const d = B.dur(0.7, p)
-
-      // Single keyframe — B.dir(p) drives all three directions correctly:
-      //   'in'     → animation-direction: normal    (hidden → revealed)
-      //   'out'    → animation-direction: reverse   (revealed → hidden)
-      //   'in-out' → animation-direction: alternate (hidden → revealed → hidden)
-      // Using a '-r' keyframe AND B.dir('out')='reverse' would double-reverse
-      // back to 'in', so we let B.dir do the work exclusively.
       B.css(el, `
         @keyframes rf-fr { from { clip-path: inset(0 100% 0 0) } to { clip-path: inset(0 0% 0 0) } }
       `)
 
-      // Honour the user's scope selection precisely:
-      //   paths  → individual <path>/<shape> elements (fine-grained, letter strokes)
-      //   groups → direct <g> children only (one per character / layer group)
-      //   all    → smart fallback: direct groups, drilling one level in for wrapper SVGs
       let targets: SVGElement[]
-
       if (p.scope === 'paths') {
         targets = B.targets(el, 'paths')
       } else if (p.scope === 'groups') {
         targets = [...el.querySelectorAll<SVGElement>(':scope > g')]
         if (!targets.length) targets = B.targets(el, 'groups')
       } else {
-        // 'all' — prefer top-level <g>s, drill one level deeper for single-wrapper SVGs
         targets = [...el.querySelectorAll<SVGElement>(':scope > g')]
         if (targets.length === 1) {
           const inner = [...targets[0].querySelectorAll<SVGElement>(':scope > g')]
@@ -160,14 +169,40 @@ export const logoPresets: Preset[] = [
         if (targets.length <= 1) targets = B.targets(el, p.scope)
       }
 
-      // 120 ms stagger gives a natural, readable cadence
       targets.forEach((e, i) => {
         const delay = p.delay + i * 0.12
-        B.anim(
-          e,
-          `rf-fr ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both cubic-bezier(0.4,0,0.2,1)`,
-          delay,
-        )
+        B.anim(e, `rf-fr ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both cubic-bezier(0.4,0,0.2,1)`, delay)
+      })
+    },
+  },
+
+  // ── motion.dev Batch 1 — Cascade ────────────────────────────
+
+  {
+    id: 'cascade',
+    name: 'Cascade',
+    category: 'Logo',
+    icon: '🌊',
+    pro: false,
+    baseDuration: 0.55,
+    description: 'Scroll-trigger-style: each element wipes in from its bottom edge, tight stagger.',
+    apply(el, p) {
+      const d = B.dur(0.55, p)
+      B.css(el, `
+        @keyframes rf-casc-in  {
+          from { clip-path: inset(0 0 100% 0); opacity: 0; transform: translateY(6px) }
+          8%   { opacity: 1 }
+          to   { clip-path: inset(0 0 0% 0);   opacity: 1; transform: translateY(0) }
+        }
+        @keyframes rf-casc-out {
+          from { clip-path: inset(0 0 0% 0);   opacity: 1; transform: translateY(0) }
+          to   { clip-path: inset(0 0 100% 0); opacity: 0; transform: translateY(6px) }
+        }
+      `)
+      B.targets(el, p.scope).forEach((e, i) => {
+        const delay = p.delay + i * 0.08
+        const kf = p.direction === 'out' ? 'rf-casc-out' : 'rf-casc-in'
+        B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ${B.ease(p)}`, delay)
       })
     },
   },

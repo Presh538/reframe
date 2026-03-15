@@ -59,6 +59,32 @@ export const illustrationPresets: Preset[] = [
     },
   },
 
+  // ── motion.dev Batch 1 ──────────────────────────────────────
+
+  {
+    id: 'scale-stagger',
+    name: 'Scale Stagger',
+    category: 'Illustration',
+    icon: '🔲',
+    pro: false,
+    baseDuration: 0.5,
+    description: 'Each element scales in from 0 with a spring overshoot — motion.dev\'s staggerChildren showcase.',
+    apply(el, p) {
+      const d = B.dur(0.5, p)
+      // Spring-like cubic-bezier: overshoots to 1.15 then settles
+      B.css(el, `
+        @keyframes rf-ss-in  { 0% { opacity: 0; transform: scale(0) } 60% { opacity: 1; transform: scale(1.14) } 80% { transform: scale(.96) } 100% { opacity: 1; transform: scale(1) } }
+        @keyframes rf-ss-out { 0% { opacity: 1; transform: scale(1) } 40% { transform: scale(1.06); opacity: 1 } 100% { opacity: 0; transform: scale(0) } }
+      `)
+      B.allTargets(el).forEach((e, i) => {
+        e.style.transformOrigin = 'center'
+        const delay = p.delay + i * 0.05   // tight 50 ms stagger
+        const kf = p.direction === 'out' ? 'rf-ss-out' : 'rf-ss-in'
+        B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both`, delay)
+      })
+    },
+  },
+
   {
     id: 'stagger-reveal',
     name: 'Stagger Reveal',

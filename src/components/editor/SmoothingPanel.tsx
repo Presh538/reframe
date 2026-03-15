@@ -36,7 +36,7 @@ export function SmoothingPanel({ onClose }: Props) {
 
       {/* Panel */}
       <div
-        className="absolute left-4 z-30 pointer-events-auto"
+        className="fixed left-4 z-30 pointer-events-auto animate-panel-in"
         style={{ top: 92 }}
       >
         <div

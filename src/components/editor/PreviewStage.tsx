@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect, useCallback, type DragEvent, type ChangeEvent } from 'react'
+import { useRef, useEffect, useCallback, useState, type DragEvent, type ChangeEvent } from 'react'
 import { useEditorStore, selectSvgReady } from '@/lib/store/editor'
 import { getPreset } from '@/lib/presets'
 import { clearAnimations } from '@/lib/svg/animate'
@@ -22,6 +22,10 @@ export function PreviewStage() {
   const setSvgSource    = useEditorStore(s => s.setSvgSource)
   const setActivePreset = useEditorStore(s => s.setActivePreset)
   const setPlaying      = useEditorStore(s => s.setPlaying)
+
+  const [isDragOver, setIsDragOver] = useState(false)
+  // Track drag enter/leave depth to avoid flicker from child elements
+  const dragDepth = useRef(0)
 
   // ── SVG injection ────────────────────────────────────────────
   const injectSvg = useCallback((source: string) => {
@@ -91,8 +95,22 @@ export function PreviewStage() {
     e.target.value = ''
   }
 
+  const onDragEnter = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    dragDepth.current++
+    if (dragDepth.current === 1) setIsDragOver(true)
+  }
+
+  const onDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    dragDepth.current--
+    if (dragDepth.current === 0) setIsDragOver(false)
+  }
+
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
+    dragDepth.current = 0
+    setIsDragOver(false)
     const file = e.dataTransfer.files[0]
     if (file) handleFile(file)
   }
@@ -101,7 +119,16 @@ export function PreviewStage() {
     <section
       className="absolute inset-0 flex items-center justify-center"
       onDragOver={e => e.preventDefault()}
+      onDragEnter={onDragEnter}
+      onDragLeave={onDragLeave}
       onDrop={onDrop}
+      style={{
+        transition: 'background 0.15s',
+        background: isDragOver ? 'rgba(63,55,201,0.06)' : 'transparent',
+        borderRadius: isDragOver ? 16 : 0,
+        outline: isDragOver ? '2px dashed rgba(63,55,201,0.35)' : '2px dashed transparent',
+        outlineOffset: -8,
+      }}
     >
       {svgReady ? (
         <div

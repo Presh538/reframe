@@ -61,6 +61,49 @@ export const iconPresets: Preset[] = [
     },
   },
 
+  // ── motion.dev Batch 1 ──────────────────────────────────────
+
+  {
+    id: 'path-in',
+    name: 'Path In',
+    category: 'Icon',
+    icon: '🖊️',
+    pro: false,
+    baseDuration: 1.0,
+    description: 'Pure stroke-trace per element — faithful to motion.dev\'s pathLength: 0 → 1 technique.',
+    apply(el, p) {
+      const d = B.dur(1.0, p)
+      B.css(el, `
+        @keyframes rf-path-in  { from { stroke-dashoffset: var(--rf-L) } to { stroke-dashoffset: 0 } }
+        @keyframes rf-path-out { from { stroke-dashoffset: 0 } to { stroke-dashoffset: var(--rf-L) } }
+      `)
+      B.strokeTargets(el, p.scope).forEach((e, i) => {
+        const L = B.plen(e)
+        e.style.setProperty('--rf-L', String(L))
+        e.style.strokeDasharray = String(L)
+        e.style.strokeDashoffset = String(L)
+
+        const hasStroke = e.getAttribute('stroke') && e.getAttribute('stroke') !== 'none'
+        if (!hasStroke) {
+          const fill = e.getAttribute('fill') ?? ''
+          if (fill && fill !== 'none' && !fill.startsWith('url(')) {
+            e.setAttribute('stroke', fill)
+            e.setAttribute('fill', 'none')
+            e.setAttribute('data-rf-stroke-added', '1')
+          }
+          if (!e.getAttribute('stroke-width')) {
+            e.setAttribute('stroke-width', '1.5')
+            e.setAttribute('data-rf-sw-added', '1')
+          }
+        }
+
+        const delay = p.delay + i * 0.12
+        const kf = p.direction === 'out' ? 'rf-path-out' : 'rf-path-in'
+        B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ${B.ease(p)}`, delay)
+      })
+    },
+  },
+
   {
     id: 'pop-settle',
     name: 'Pop + Settle',
@@ -78,6 +121,62 @@ export const iconPresets: Preset[] = [
         e.style.transformOrigin = 'center'
         const delay = p.delay + i * 0.05
         B.anim(e, `rf-pop ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both cubic-bezier(.34,1.56,.64,1)`, delay)
+      })
+    },
+  },
+
+  // ── filter-based effects ────────────────────────────────────
+
+  {
+    id: 'glow-pulse',
+    name: 'Glow Pulse',
+    category: 'Icon',
+    icon: '✨',
+    pro: false,
+    baseDuration: 1.8,
+    description: 'Continuous drop-shadow glow loop — great for active states and highlights.',
+    apply(el, p) {
+      const d = B.dur(1.8, p)
+      B.css(el, `
+        @keyframes rf-glow {
+          0%, 100% { filter: drop-shadow(0 0 0px currentColor) brightness(1) }
+          50%       { filter: drop-shadow(0 0 10px currentColor) brightness(1.25) }
+        }
+      `)
+      B.targets(el, p.scope).forEach((e, i) => {
+        const delay = p.delay + i * 0.12
+        B.anim(e, `rf-glow ${d} ${delay.toFixed(3)}s infinite ease-in-out`, delay)
+      })
+    },
+  },
+
+  {
+    id: 'color-pop',
+    name: 'Color Pop',
+    category: 'Icon',
+    icon: '🎨',
+    pro: false,
+    baseDuration: 0.75,
+    description: 'Starts desaturated and pops to full color with a scale — filter-based entrance.',
+    apply(el, p) {
+      const d = B.dur(0.75, p)
+      B.css(el, `
+        @keyframes rf-cpop-in  {
+          0%   { filter: saturate(0) brightness(0.85); transform: scale(0.88); opacity: 0 }
+          55%  { filter: saturate(2) brightness(1.15); transform: scale(1.06); opacity: 1 }
+          100% { filter: saturate(1) brightness(1);    transform: scale(1);    opacity: 1 }
+        }
+        @keyframes rf-cpop-out {
+          0%   { filter: saturate(1) brightness(1);    transform: scale(1);    opacity: 1 }
+          45%  { filter: saturate(2) brightness(1.15); transform: scale(1.06); opacity: 1 }
+          100% { filter: saturate(0) brightness(0.85); transform: scale(0.88); opacity: 0 }
+        }
+      `)
+      B.targets(el, p.scope).forEach((e, i) => {
+        e.style.transformOrigin = 'center'
+        const delay = p.delay + i * 0.07
+        const kf = p.direction === 'out' ? 'rf-cpop-out' : 'rf-cpop-in'
+        B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ${B.ease(p)}`, delay)
       })
     },
   },
