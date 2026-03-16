@@ -35,8 +35,9 @@ export async function sanitizeSvgClient(raw: string): Promise<string> {
 
 // ── File validation ───────────────────────────────────────────
 
-const FREE_MAX_BYTES = 10 * 1024 * 1024   // 10 MB — free tier
-const PRO_MAX_BYTES  = 50 * 1024 * 1024   // 50 MB — pro tier (TODO: enforce server-side once billing is live)
+// Pro tier limits — hidden until billing is live. Re-enable FREE_MAX_BYTES check when ready.
+// const FREE_MAX_BYTES = 10 * 1024 * 1024   // 10 MB — free tier
+const PRO_MAX_BYTES  = 50 * 1024 * 1024   // 50 MB — hard cap (pro tier, TODO: enforce server-side)
 
 export interface FileValidationResult {
   ok: boolean
@@ -47,15 +48,12 @@ export interface FileValidationResult {
 
 export function validateSvgFile(file: File): FileValidationResult {
   if (file.size > PRO_MAX_BYTES) {
-    return { ok: false, error: `File too large (max 50 MB — even for Pro). Got ${(file.size / 1024 / 1024).toFixed(1)} MB.` }
+    return { ok: false, error: `File too large (max 50 MB). Got ${(file.size / 1024 / 1024).toFixed(1)} MB.` }
   }
-  if (file.size > FREE_MAX_BYTES) {
-    return {
-      ok: false,
-      requiresPro: true,
-      error: `Files over 10 MB require a Pro plan. Got ${(file.size / 1024 / 1024).toFixed(1)} MB.`,
-    }
-  }
+  // Pro gate hidden — re-enable when billing is live:
+  // if (file.size > FREE_MAX_BYTES) {
+  //   return { ok: false, requiresPro: true, error: `Files over 10 MB require a Pro plan.` }
+  // }
 
   const isSvgMime = file.type === 'image/svg+xml'
   const isSvgExt = file.name.toLowerCase().endsWith('.svg')
@@ -107,10 +105,17 @@ export function normalizeSvgElement(svgEl: SVGSVGElement): void {
     svgEl.setAttribute('viewBox', `0 0 ${vw} ${vh}`)
   }
 
-  // 2. Remove fixed dimensions — the container CSS handles sizing
+  // 2. Remove fixed dimensions — the container CSS handles sizing.
+  //    We set aspect-ratio from the viewBox so that when max-height kicks in,
+  //    CSS automatically reduces the width proportionally (letterbox/pillarbox).
+  //    Without aspect-ratio, max-height only clips vertically — causing the
+  //    bottom of tall SVGs to be cut off inside the padded preview container.
   svgEl.removeAttribute('width')
   svgEl.removeAttribute('height')
-  svgEl.style.cssText = 'max-width:100%;max-height:100%;display:block'
+  const vbParts = svgEl.getAttribute('viewBox')?.trim().split(/[\s,]+/) ?? []
+  const vbW = parseFloat(vbParts[2] ?? '') || 1
+  const vbH = parseFloat(vbParts[3] ?? '') || 1
+  svgEl.style.cssText = `width:100%;max-width:100%;max-height:100%;aspect-ratio:${vbW}/${vbH};display:block`
 
   // 3. xlink:href → href on <use> elements so older Illustrator/Figma exports resolve
   const XLINK = 'http://www.w3.org/1999/xlink'

@@ -9,7 +9,7 @@
  * cross-origin Web Worker restriction browsers enforce on CDN URLs.
  */
 
-import { stepToTime, restorePlayback } from '@/lib/svg/animate'
+import { stepToTime, restorePlayback, computeSequenceDuration } from '@/lib/svg/animate'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const GIF = (typeof window !== 'undefined' ? require('gif.js') : null) as new (options: GifOptions) => GifInstance
 
@@ -40,13 +40,11 @@ const MAX_EXPORT_PX = 800
 
 export interface GifExportOptions {
   svgEl: SVGSVGElement
-  animationDuration: number  // seconds
-  speed: number
   onProgress?: (pct: number) => void
 }
 
 export async function exportGif(opts: GifExportOptions): Promise<Blob> {
-  const { svgEl, animationDuration, speed, onProgress } = opts
+  const { svgEl, onProgress } = opts
 
   // Compute export dimensions (capped + preserving aspect ratio)
   const vb = svgEl.viewBox?.baseVal
@@ -56,7 +54,9 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
   const W = Math.round(srcW * scale)
   const H = Math.round(srcH * scale)
 
-  const duration = animationDuration / speed
+  // Use the true sequence end time: max(delay + duration) across all animated
+  // elements. This correctly accounts for stagger so no frames get cut off.
+  const duration = computeSequenceDuration(svgEl) / 1000
   const frameCount = Math.ceil(duration * FPS)
   const frameDelay = Math.round(1000 / FPS)
 

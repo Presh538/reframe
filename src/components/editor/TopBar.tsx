@@ -49,7 +49,7 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
     try {
       if (format === 'gif') {
         const blob = await exportGif({
-          svgEl, animationDuration: preset.baseDuration, speed: params.speed,
+          svgEl,
           onProgress: p => setExportState({ progress: p }),
         })
         triggerDownload(blob, `reframe-${preset.id}.gif`)

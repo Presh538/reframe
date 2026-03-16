@@ -302,7 +302,7 @@ function Row({ preset, isActive, onSelect, index = 0 }: {
         {preset.name}
       </span>
 
-      {/* PRO badge */}
+      {/* PRO badge — hidden until billing is live
       {preset.pro && (
         <span style={{
           ...f, flexShrink: 0, position: 'relative', zIndex: 1,
@@ -313,6 +313,7 @@ function Row({ preset, isActive, onSelect, index = 0 }: {
           PRO
         </span>
       )}
+      */}
     </motion.button>
   )
 }

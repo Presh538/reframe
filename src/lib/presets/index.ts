@@ -7,7 +7,7 @@ import { logoPresets } from './logo'
 import { iconPresets } from './icon'
 import { illustrationPresets } from './illustration'
 import { uiPresets } from './ui'
-import { premiumPresets } from './premium'
+// import { premiumPresets } from './premium'   // hidden — re-enable when billing is live
 import type { Preset, PresetCategory } from '@/types'
 
 export const PRESETS: Preset[] = [
@@ -15,7 +15,7 @@ export const PRESETS: Preset[] = [
   ...iconPresets,
   ...illustrationPresets,
   ...uiPresets,
-  ...premiumPresets,
+  // ...premiumPresets,   // hidden — re-enable when billing is live
 ]
 
 export const PRESET_MAP = new Map<string, Preset>(
@@ -27,7 +27,7 @@ export const CATEGORIES: PresetCategory[] = [
   'Icon',
   'Illustration',
   'UI',
-  'Premium',
+  // 'Premium',   // hidden — re-enable when billing is live
 ]
 
 export function getPreset(id: string): Preset | undefined {

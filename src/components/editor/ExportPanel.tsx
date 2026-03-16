@@ -49,8 +49,6 @@ export function ExportPanel() {
       if (format === 'gif') {
         const blob = await exportGif({
           svgEl,
-          animationDuration: preset.baseDuration,
-          speed: params.speed,
           onProgress: (pct) => setExportState({ progress: pct }),
         })
         triggerDownload(blob, `reframe-${preset.id}.gif`)

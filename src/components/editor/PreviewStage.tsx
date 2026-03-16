@@ -397,7 +397,7 @@ export function PreviewStage() {
         <div
           ref={containerRef}
           className="rf-preview-container flex items-center justify-center"
-          style={{ width: '100%', height: '100%', padding: '100px 48px' }}
+          style={{ width: '100%', height: '100%', padding: '100px 48px', overflow: 'hidden' }}
         />
 
         <AnimatePresence>
