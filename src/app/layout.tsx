@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import { Analytics } from '@vercel/analytics/next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import { ToastProvider } from '@/components/ui/Toast'
 import { MobileGate } from '@/components/ui/MobileGate'
 import './globals.css'
@@ -110,6 +111,7 @@ export default function RootLayout({
         <MobileGate />
         <ToastProvider>{children}</ToastProvider>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
