@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useEditorStore } from '@/lib/store/editor'
+import { SPRING } from '@/lib/motion'
 import { IconBounce } from '@/components/ui/IconBounce'
 import { Tooltip } from '@/components/ui/Tooltip'
 import type { AnimParams } from '@/types'
@@ -63,6 +64,7 @@ export function BottomBar() {
   const resetView   = useEditorStore(s => s.resetView)
   const setPanMode  = useEditorStore(s => s.setPanMode)
 
+  const restartAnimation = useEditorStore(s => s.restartAnimation)
   const set = <K extends keyof AnimParams>(key: K) => (value: AnimParams[K]) => updateParam(key, value)
 
   useEffect(() => {
@@ -75,27 +77,29 @@ export function BottomBar() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  // H key → toggle pan mode (Figma-style shortcut)
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (
-        e.key === 'h' || e.key === 'H' &&
-        !(e.target instanceof HTMLInputElement) &&
-        !(e.target instanceof HTMLTextAreaElement)
-      ) {
+      const inInput =
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+
+      // H — toggle pan mode (Figma-style)
+      if ((e.key === 'h' || e.key === 'H') && !inInput) {
         setPanMode(!isPanMode)
+      }
+
+      // Space — play / pause (media-player convention)
+      if (e.code === 'Space' && !e.repeat && !inInput && svgSource) {
+        e.preventDefault() // prevent page scroll
+        setPlaying(!isPlaying)
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [isPanMode, setPanMode])
+  }, [isPanMode, setPanMode, isPlaying, setPlaying, svgSource])
 
   const toggle = (c: ActiveControl) => setActive(prev => prev === c ? null : c)
-
-  const handleRestart = () => {
-    const cur = params.speed
-    updateParam('speed', cur)
-  }
 
   return (
     // Outer div owns the centering transform — motion must not touch it
@@ -104,7 +108,7 @@ export function BottomBar() {
       ref={barRef}
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 320, damping: 28, delay: 0.05 }}
+      transition={{ ...SPRING.entrance, delay: 0.05 }}
     >
       {/* Popovers — rendered as portals fixed above the bar */}
       <AnimatePresence>
@@ -128,7 +132,7 @@ export function BottomBar() {
                     onClick={() => { set('speed')(val); setActive(null) }}
                     initial={{ opacity: 0, y: 6, scale: 0.88 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ type: 'spring', stiffness: 560, damping: 26, delay: idx * 0.04 }}
+                    transition={{ ...SPRING.stagger, delay: idx * 0.04 }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -304,7 +308,7 @@ export function BottomBar() {
         <Tooltip label="Restart animation">
           <motion.button
             style={iconPillStyle}
-            onClick={handleRestart}
+            onClick={restartAnimation}
             disabled={!svgSource}
             initial="rest" whileHover="hover"
           >
@@ -321,7 +325,7 @@ export function BottomBar() {
             disabled={!svgSource}
             initial="rest" whileHover="hover"
             whileTap={svgSource ? { scale: 0.84 } : {}}
-            transition={{ type: 'spring', stiffness: 600, damping: 18 }}
+            transition={SPRING.snappy}
           >
             <IconBounce type="beat" className="w-[16px] h-[16px]">
               {isPlaying ? <PauseIcon /> : <PlayIcon />}
@@ -353,7 +357,7 @@ function Popover({ children, bare }: { children: React.ReactNode; bare?: boolean
         initial={{ opacity: 0, y: 12, scale: 0.90, filter: 'blur(8px)' }}
         animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
         exit={{ opacity: 0, y: 8, scale: 0.94, filter: 'blur(4px)' }}
-        transition={{ type: 'spring', stiffness: 480, damping: 28, mass: 0.55 }}
+        transition={SPRING.dropdown}
         style={{
           transformOrigin: 'center bottom',
           ...(bare ? {} : {
@@ -498,14 +502,15 @@ const chipF: React.CSSProperties = {
 }
 
 // Wraps a lucide icon in a motion.span that responds to parent hover variants
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function HoverIcon({
   children,
   anim,
   transition,
 }: {
   children: React.ReactNode
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   anim: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   transition?: any
 }) {
   return (
@@ -548,7 +553,7 @@ function ChipPanel({
             // Staggered entrance — initial obj + animate obj coexist fine with whileHover string
             initial={{ opacity: 0, y: 6, scale: 0.88 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: 'spring', stiffness: 560, damping: 26, delay: idx * 0.04 }}
+            transition={{ ...SPRING.stagger, delay: idx * 0.04 }}
             whileHover="hover"
             style={{
               display: 'flex',
@@ -713,7 +718,7 @@ function DelaySlider({ value, onChange }: { value: number; onChange: (v: number)
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: 'spring', stiffness: 520, damping: 28 }}
+      transition={{ ...SPRING.dropdown, stiffness: 520 }}
       style={{
         display: 'flex',
         alignItems: 'center',

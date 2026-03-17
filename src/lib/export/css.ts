@@ -60,6 +60,10 @@ export function triggerDownload(blob: Blob, filename: string): void {
   const a = document.createElement('a')
   a.href = url
   a.download = filename
+  // Must be in the document before .click() — Firefox silently ignores
+  // programmatic clicks on detached anchor elements.
+  document.body.appendChild(a)
   a.click()
+  document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(url), 5000)
 }

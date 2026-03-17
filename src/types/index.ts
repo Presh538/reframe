@@ -95,6 +95,8 @@ export interface EditorState {
   zoom: number
   /** Increments each time resetView is called — PreviewStage watches this to reset pan */
   viewResetTick: number
+  /** Increments each time restartAnimation is called — PreviewStage watches this for hard restarts */
+  restartTick: number
   /** Whether the hand / pan tool is locked on */
   isPanMode: boolean
   /** Export state */

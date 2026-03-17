@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { motion } from 'motion/react'
 import { useEditorStore } from '@/lib/store/editor'
 import type { EasingType } from '@/types'
+import { SPRING } from '@/lib/motion'
 
 // Maps each easing to a motion-compatible cubic-bezier array
 // (cx is always linear; cy uses this to trace the actual curve)
@@ -120,7 +121,7 @@ export function EasingPanel({ onClose }: EasingPanelProps) {
         initial={{ opacity: 0, scale: 0.96, y: -8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: -6 }}
-        transition={{ type: 'spring', stiffness: 420, damping: 32, mass: 0.8 }}
+        transition={SPRING.panel}
       >
         <div style={{
           width: 396,
@@ -239,8 +240,6 @@ function Row({
 
   return (
     <motion.button
-      initial="rest"
-      whileHover="hover"
       onClick={() => onSelect(item.id)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

@@ -31,6 +31,7 @@ export function PreviewStage() {
   const activePresetId = useEditorStore(s => s.activePresetId)
   const params         = useEditorStore(s => s.params)
   const isPlaying      = useEditorStore(s => s.isPlaying)
+  const restartTick    = useEditorStore(s => s.restartTick)
   const svgReady       = useEditorStore(selectSvgReady)
   const viewResetTick  = useEditorStore(s => s.viewResetTick)
 
@@ -74,9 +75,11 @@ export function PreviewStage() {
     if (loop === 'once') return
 
     const totalMs = computeSequenceDuration(svgRef.current)
-    // For bounce: CSS plays forward→backward (2 iterations), so wait 2× duration.
+    // 'bounce' plays forward→backward (2 CSS iterations), so wait 2× duration.
+    // 'in-out' also runs 2 iterations (forward + reverse in once mode), so same rule.
     // computeSequenceDuration captures the per-element duration; we double it here.
-    const waitMs = loop === 'bounce' ? totalMs * 2 : totalMs
+    const direction = paramsRef.current.direction
+    const waitMs = (loop === 'bounce' || direction === 'in-out') ? totalMs * 2 : totalMs
 
     loopTimerRef.current = setTimeout(() => {
       if (!svgRef.current || !isPlayingRef.current) return
@@ -85,12 +88,21 @@ export function PreviewStage() {
       const preset = getPreset(presetId)
       if (!preset) return
 
-      // Hard restart: wipe all CSS animations then re-apply from frame 0
-      clearAnimations(svgRef.current)
-      preset.apply(svgRef.current, paramsRef.current)
+      // CSS animation restart trick — avoids the clear→unanimated-state flash.
+      // Briefly set animation to 'none' on each element to reset the iteration
+      // counter, force a style recalculation (not a visual repaint), then restore.
+      // Since all DOM writes happen in one synchronous JS task the browser never
+      // paints the intermediate 'none' state.
+      const svgEl = svgRef.current
+      const animEls = Array.from(svgEl.querySelectorAll<SVGElement>('[data-rf-anim]'))
+      const savedAnimations = animEls.map(el => el.style.animation)
+      const savedDelays     = animEls.map(el => parseFloat(el.getAttribute('data-rf-delay') ?? '0'))
 
-      // Honour current play-state (should always be playing here, but be safe)
-      svgRef.current.querySelectorAll<SVGElement>('[data-rf-anim]').forEach(el => {
+      animEls.forEach(el => { el.style.animation = 'none' })
+      void svgEl.getBoundingClientRect() // force layout flush to reset the animation iteration counter
+      animEls.forEach((el, i) => {
+        el.style.animation          = savedAnimations[i]
+        el.style.animationDelay     = `${savedDelays[i]}s`
         el.style.animationPlayState = 'running'
       })
 
@@ -304,7 +316,32 @@ export function PreviewStage() {
     }
   }, [isPlaying, scheduleLoop, clearLoopTimer])
 
+  // ── Restart button (restartTick increments) ───────────────────
+  // Fires when the user presses the Restart button in BottomBar.
+  // Does a full clear + re-apply so the animation always starts from frame 0,
+  // even when params haven't changed (unlike the loop restart trick above).
+  useEffect(() => {
+    if (!restartTick || !svgRef.current || !activePresetId) return
+    const preset = getPreset(activePresetId)
+    if (!preset) return
+    clearLoopTimer()
+    clearAnimations(svgRef.current)
+    preset.apply(svgRef.current, paramsRef.current)
+    setPlaying(true)
+    scheduleLoop()
+  // restartTick intentionally omitted from dep array — effect is only needed on increment
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restartTick])
+
   // ── File upload ───────────────────────────────────────────────
+
+  /** Shows an info toast if the SVG contains <image> elements (raster embeds). */
+  const warnIfHasImages = useCallback((svgStr: string) => {
+    if (/<image[\s>]/i.test(svgStr)) {
+      toast("Contains images — those layers won't animate", 'info')
+    }
+  }, [toast])
+
   const handleFile = useCallback(async (file: File) => {
     const validation = validateSvgFile(file)
     if (!validation.ok) {
@@ -325,6 +362,7 @@ export function PreviewStage() {
       setSvgSource(data.sanitized, file.name, data.layers)
       setActivePreset(null)
       toast(`${file.name} loaded`, 'success')
+      warnIfHasImages(data.sanitized)
     } catch {
       const doc = new DOMParser().parseFromString(sanitized, 'image/svg+xml')
       const svgEl = doc.querySelector('svg') as SVGSVGElement | null
@@ -333,9 +371,10 @@ export function PreviewStage() {
         setSvgSource(sanitized, file.name, extractLayerInfo(svgEl))
         setActivePreset(null)
         toast(`${file.name} loaded`, 'success')
+        warnIfHasImages(sanitized)
       }
     }
-  }, [toast, setSvgSource, setActivePreset])
+  }, [toast, setSvgSource, setActivePreset, warnIfHasImages])
 
   const onInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -374,9 +413,12 @@ export function PreviewStage() {
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       style={{
-        transition: 'background 0.15s',
+        // Both background and outlineColor transition at the same speed — previously
+        // the border snapped on/off while the background faded, creating two-speed feedback.
+        transition: 'background 0.15s, outline-color 0.15s',
         background: isDragOver ? 'rgba(63,55,201,0.06)' : 'transparent',
-        outline: isDragOver ? '2px dashed rgba(63,55,201,0.35)' : '2px dashed transparent',
+        outline: '2px dashed',
+        outlineColor: isDragOver ? 'rgba(63,55,201,0.35)' : 'transparent',
         outlineOffset: -8,
       }}
     >

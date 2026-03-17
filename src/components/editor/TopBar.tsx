@@ -7,6 +7,7 @@ import { IconBounce, type IconAnimType } from '@/components/ui/IconBounce'
 import { useEditorStore, selectCanExport } from '@/lib/store/editor'
 import { getPreset } from '@/lib/presets'
 import { triggerDownload } from '@/lib/export/css'
+import { SPRING } from '@/lib/motion'
 import { useToast } from '@/components/ui/Toast'
 import type { ExportFormat } from '@/types'
 
@@ -81,7 +82,7 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
       className="absolute top-0 left-0 right-0 flex items-start justify-between px-4 pt-6 pointer-events-none z-30"
       initial={{ opacity: 0, y: -14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 320, damping: 28, delay: 0.03 }}
+      transition={{ ...SPRING.entrance, delay: 0.03 }}
     >
 
       {/* ── Logo pill — Figma 297:10656 ────────────────────────────
@@ -182,10 +183,15 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
       <div className="pointer-events-auto relative">
         <motion.div
           className="flex items-center gap-[6px] px-[14px] py-[9px] backdrop-blur-sm cursor-pointer"
-          style={{ borderRadius: 74, background: '#3f37c9' }}
-          onClick={exportState.isRunning ? undefined : handleExport}
-          initial="rest"
-          whileHover="hover"
+          style={{
+            borderRadius: 74,
+            background: '#3f37c9',
+            opacity: canExport ? 1 : 0.45,
+            cursor: canExport && !exportState.isRunning ? 'pointer' : canExport ? 'default' : 'not-allowed',
+            transition: 'opacity 0.2s',
+          }}
+          onClick={canExport && !exportState.isRunning ? handleExport : undefined}
+          whileHover={canExport ? { scale: 1.02 } : undefined}
         >
           {/* Label */}
           <span
@@ -216,7 +222,7 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
                 initial={{ opacity: 0, scale: 0.90, y: -8, filter: 'blur(6px)' }}
                 animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
                 exit={{ opacity: 0, scale: 0.95, y: -4, filter: 'blur(3px)' }}
-                transition={{ type: 'spring', stiffness: 480, damping: 28, mass: 0.55 }}
+                transition={SPRING.dropdown}
                 style={{ transformOrigin: 'top right' }}
               >
                 {FORMATS.map((fmt, idx) => (
@@ -225,7 +231,7 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
                     onClick={() => { setFormat(fmt.value); setFormatOpen(false) }}
                     initial={{ opacity: 0, x: -6 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 28, delay: idx * 0.05 }}
+                    transition={{ ...SPRING.stagger, delay: idx * 0.05 }}
                     className={clsx(
                       'w-full text-left px-4 py-2.5 text-[14px] font-medium transition-colors block',
                       format === fmt.value

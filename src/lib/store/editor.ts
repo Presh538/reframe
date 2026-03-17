@@ -35,6 +35,8 @@ interface EditorActions {
   setZoom: (zoom: number) => void
   /** Reset zoom to 100 % and signal PreviewStage to reset pan offset */
   resetView: () => void
+  /** Hard-restart the current animation from frame 0 */
+  restartAnimation: () => void
   /** Toggle the persistent pan (hand) mode */
   setPanMode: (isPanMode: boolean) => void
   /**
@@ -57,6 +59,7 @@ const INITIAL_STATE: EditorState = {
   isFragmented: false,
   zoom: 1,
   viewResetTick: 0,
+  restartTick: 0,
   isPanMode: false,
   export: {
     isRunning: false,
@@ -109,6 +112,9 @@ export const useEditorStore = create<EditorState & EditorActions>()(
 
       resetView: () =>
         set(s => ({ zoom: 1, viewResetTick: s.viewResetTick + 1 }), false, 'resetView'),
+
+      restartAnimation: () =>
+        set(s => ({ restartTick: s.restartTick + 1 }), false, 'restartAnimation'),
 
       setPanMode: (isPanMode) => set({ isPanMode }, false, 'setPanMode'),
 
