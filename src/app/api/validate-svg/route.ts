@@ -73,7 +73,8 @@ export async function POST(request: Request) {
     return error('SVG contains forbidden elements (script, foreignObject, etc.)', 400)
   }
 
-  // Reset lastIndex after global regex test
+  // Reset lastIndex after global regex tests (required for /g and /gi flags)
+  FORBIDDEN_ELEMENTS.lastIndex = 0
   FORBIDDEN_ATTRS.lastIndex = 0
   EXTERNAL_REFS.lastIndex = 0
 

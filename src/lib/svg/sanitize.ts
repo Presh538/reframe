@@ -117,7 +117,10 @@ export function normalizeSvgElement(svgEl: SVGSVGElement): void {
   const vbH = parseFloat(vbParts[3] ?? '') || 1
   svgEl.style.cssText = `width:100%;max-width:100%;max-height:100%;aspect-ratio:${vbW}/${vbH};display:block`
 
-  // 3. xlink:href → href on <use> elements so older Illustrator/Figma exports resolve
+  // 3. xlink:href → href on <use> elements so older Illustrator/Figma exports resolve.
+  //    After normalisation, enforce that every <use href> is a same-document fragment
+  //    reference (e.g. "#icon-id"). External URLs are a known SVG injection vector —
+  //    strip any href that doesn't start with "#" to prevent cross-origin resource loads.
   const XLINK = 'http://www.w3.org/1999/xlink'
   svgEl.querySelectorAll('use').forEach(useEl => {
     const xlink = useEl.getAttributeNS(XLINK, 'href')
@@ -125,6 +128,12 @@ export function normalizeSvgElement(svgEl: SVGSVGElement): void {
       useEl.setAttribute('href', xlink)
     }
     useEl.removeAttributeNS(XLINK, 'href')
+
+    // Guard: only allow fragment-only hrefs — strip anything external or data: URI
+    const href = useEl.getAttribute('href')
+    if (href !== null && !href.startsWith('#')) {
+      useEl.removeAttribute('href')
+    }
   })
 
   // 4. Scope CSS class names to this SVG so .cls-1, .st0 etc. don't collide
