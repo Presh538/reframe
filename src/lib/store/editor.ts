@@ -70,6 +70,7 @@ const INITIAL_STATE: EditorState = {
 export const useEditorStore = create<EditorState & EditorActions>()(
   devtools(
     (set, get) => ({
+
       ...INITIAL_STATE,
 
       setSvgSource: (source, fileName, layers) =>
@@ -136,7 +137,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         set({ svgSource: result.svg, isFragmented: true, activePresetId: null }, false, 'fragmentElements')
       },
     }),
-    { name: 'reframe-editor' }
+    { name: 'reframe-editor', enabled: process.env.NODE_ENV !== 'production' }
   )
 )
 

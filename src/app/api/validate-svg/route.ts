@@ -15,6 +15,26 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { ValidateSvgResponse, SvgLayerInfo } from '@/types'
 
+// ── Rate limiter ──────────────────────────────────────────────
+// Simple in-memory sliding window — 10 requests per IP per minute.
+// Serverless instances are ephemeral so this is per-instance, but
+// it still blocks trivial burst abuse from a single IP.
+const rateMap = new Map<string, { count: number; reset: number }>()
+const RATE_LIMIT   = 10
+const RATE_WINDOW  = 60_000 // ms
+
+function isRateLimited(ip: string): boolean {
+  const now   = Date.now()
+  const entry = rateMap.get(ip)
+  if (!entry || now > entry.reset) {
+    rateMap.set(ip, { count: 1, reset: now + RATE_WINDOW })
+    return false
+  }
+  if (entry.count >= RATE_LIMIT) return true
+  entry.count++
+  return false
+}
+
 // ── Request schema ────────────────────────────────────────────
 const RequestSchema = z.object({
   svg: z.string().min(1).max(10 * 1024 * 1024), // 10 MB free-tier string limit
@@ -27,6 +47,12 @@ const EXTERNAL_REFS = /\s(href|src|xlink:href)\s*=\s*["'](?!#|data:image\/(png|j
 
 // ── Handler ───────────────────────────────────────────────────
 export async function POST(request: Request) {
+  // Rate limiting — extract IP from Vercel's forwarded header
+  const ip = (request.headers.get('x-forwarded-for') ?? '').split(',')[0]?.trim() || 'unknown'
+  if (isRateLimited(ip)) {
+    return error('Too many requests — please wait a moment', 429)
+  }
+
   let body: unknown
   try {
     body = await request.json()

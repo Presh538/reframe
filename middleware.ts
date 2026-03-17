@@ -31,14 +31,14 @@ export function middleware(request: NextRequest) {
       "default-src 'self'",
       // Allow inline styles (Tailwind + injected SVG animations)
       "style-src 'self' 'unsafe-inline'",
-      // Scripts: self + gif.js CDN worker
-      "script-src 'self' 'unsafe-eval' https://cdnjs.cloudflare.com",
-      // Worker: blob: for gif.js inline workers
+      // Scripts: self only — gif.js is bundled via npm, worker served from /public
+      "script-src 'self' 'unsafe-eval'",
+      // Worker: blob: for gif.js web worker + self for /public/gif.worker.js
       "worker-src blob: 'self'",
       // Images: self, data URIs (canvas export), blob: (download links)
-      "img-src 'self' data: blob:",
-      // No external connections except the gif.js CDN
-      "connect-src 'self' https://cdnjs.cloudflare.com",
+      "img-src 'self' data: blob: https://ik.imagekit.io",
+      // Vercel Analytics + Speed Insights send data to vitals.vercel-insights.com
+      "connect-src 'self' https://vitals.vercel-insights.com",
       "font-src 'self'",
       "object-src 'none'",
       "base-uri 'self'",
