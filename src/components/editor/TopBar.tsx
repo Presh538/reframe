@@ -6,9 +6,7 @@ import { clsx } from 'clsx'
 import { IconBounce, type IconAnimType } from '@/components/ui/IconBounce'
 import { useEditorStore, selectCanExport } from '@/lib/store/editor'
 import { getPreset } from '@/lib/presets'
-import { exportGif } from '@/lib/export/gif'
-import { exportCss, downloadText, triggerDownload } from '@/lib/export/css'
-import { exportLottie } from '@/lib/export/lottie'
+import { triggerDownload } from '@/lib/export/css'
 import { useToast } from '@/components/ui/Toast'
 import type { ExportFormat } from '@/types'
 
@@ -48,6 +46,7 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
     setExportState({ isRunning: true, progress: 0, error: null })
     try {
       if (format === 'gif') {
+        const { exportGif } = await import('@/lib/export/gif')
         const blob = await exportGif({
           svgEl,
           onProgress: p => setExportState({ progress: p }),
@@ -55,10 +54,12 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
         triggerDownload(blob, `reframe-${preset.id}.gif`)
         toast('GIF downloaded ✓', 'success')
       } else if (format === 'css') {
+        const { exportCss, downloadText } = await import('@/lib/export/css')
         const css = exportCss(svgEl, preset)
         downloadText(css, `reframe-${preset.id}.css`, 'text/css')
         toast('CSS exported ✓', 'success')
       } else if (format === 'lottie') {
+        const { exportLottie } = await import('@/lib/export/lottie')
         exportLottie(svgEl, preset, params)
         toast('Lottie JSON exported ✓', 'success')
       }

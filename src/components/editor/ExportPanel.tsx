@@ -3,11 +3,8 @@
 import { clsx } from 'clsx'
 import { useEditorStore, selectCanExport } from '@/lib/store/editor'
 import { getPreset } from '@/lib/presets'
-import { exportGif } from '@/lib/export/gif'
-import { exportCss, downloadText } from '@/lib/export/css'
-import { exportLottie } from '@/lib/export/lottie'
-import { useToast } from '@/components/ui/Toast'
 import { triggerDownload } from '@/lib/export/css'
+import { useToast } from '@/components/ui/Toast'
 import type { ExportFormat } from '@/types'
 
 const FORMAT_OPTIONS: { value: ExportFormat; label: string; tier: 'free' | 'pro' }[] = [
@@ -47,6 +44,7 @@ export function ExportPanel() {
 
     try {
       if (format === 'gif') {
+        const { exportGif } = await import('@/lib/export/gif')
         const blob = await exportGif({
           svgEl,
           onProgress: (pct) => setExportState({ progress: pct }),
@@ -55,11 +53,13 @@ export function ExportPanel() {
         toast('GIF downloaded ✓', 'success')
 
       } else if (format === 'css') {
+        const { exportCss, downloadText } = await import('@/lib/export/css')
         const css = exportCss(svgEl, preset)
         downloadText(css, `reframe-${preset.id}.css`, 'text/css')
         toast('CSS exported ✓', 'success')
 
       } else if (format === 'lottie') {
+        const { exportLottie } = await import('@/lib/export/lottie')
         exportLottie(svgEl, preset, params)
         toast('Lottie JSON exported ✓', 'success')
       }
