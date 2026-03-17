@@ -4,7 +4,9 @@ import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import { AnimatePresence } from 'motion/react'
 import { PreviewStage } from './PreviewStage'
-import { TopBar } from './TopBar'
+
+// Lazy-load TopBar — motion/react + IconBounce + Zustand bundle, not needed for initial paint
+const TopBar = dynamic(() => import('./TopBar').then(m => ({ default: m.TopBar })), { ssr: false })
 
 // Lazy-load heavy panels — only needed when the user opens them
 const PresetPanel    = dynamic(() => import('./PresetPanel').then(m => ({ default: m.PresetPanel })),       { ssr: false })

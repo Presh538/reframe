@@ -343,14 +343,3 @@ function ReframeLogo() {
   )
 }
 
-// gif-format export icon
-function GifIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-      <rect x="2" y="4" width="16" height="12" rx="2" stroke="white" strokeWidth="1.5"/>
-      <path d="M7 10.5a1.5 1.5 0 1 1-2 0V9h2" stroke="white" strokeWidth="1.3" strokeLinecap="round"/>
-      <path d="M10 8v4" stroke="white" strokeWidth="1.3" strokeLinecap="round"/>
-      <path d="M13 8h2v2h-2v2h2" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  )
-}
