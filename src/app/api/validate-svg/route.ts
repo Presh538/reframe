@@ -15,10 +15,21 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { ValidateSvgResponse, SvgLayerInfo } from '@/types'
 
+// ── Route segment config ──────────────────────────────────────
+// Raise the default 4 MB body limit so large SVG files can pass through.
+// The middleware and Zod schema independently enforce the final 50 MB cap.
+export const dynamic = 'force-dynamic'
+export const maxDuration = 30 // seconds (generous for large file processing)
+// Next.js App Router body size (applies to the Node.js runtime)
+export const runtime = 'nodejs'
+
 // ── Rate limiter ──────────────────────────────────────────────
 // Simple in-memory sliding window — 10 requests per IP per minute.
-// Serverless instances are ephemeral so this is per-instance, but
-// it still blocks trivial burst abuse from a single IP.
+// KNOWN LIMITATION: serverless instances are ephemeral; a burst attack
+// distributed across enough concurrent requests will spin up fresh instances
+// and bypass this window entirely. For production hardening, replace rateMap
+// with a shared KV store (e.g. Vercel KV / Redis). Until then this blocks
+// trivial single-IP abuse only.
 const rateMap = new Map<string, { count: number; reset: number }>()
 const RATE_LIMIT   = 10
 const RATE_WINDOW  = 60_000 // ms
@@ -37,11 +48,20 @@ function isRateLimited(ip: string): boolean {
 
 // ── Request schema ────────────────────────────────────────────
 const RequestSchema = z.object({
-  svg: z.string().min(1).max(10 * 1024 * 1024), // 10 MB free-tier string limit
+  svg: z.string().min(1).max(50 * 1024 * 1024), // 50 MB — matches client-side file size cap
 })
 
 // ── Forbidden patterns (server-side defence) ──────────────────
-const FORBIDDEN_ELEMENTS = /<(script|foreignObject|iframe|embed|object|link)[\s>]/gi
+//
+// FORBIDDEN_ELEMENTS covers:
+//   script, foreignObject, iframe, embed, object, link — obvious injection vectors
+//   image, feImage — SVG-native elements that load external URLs via href/xlink:href
+//   animate, set, animateTransform, animateMotion — SMIL animation; can mutate DOM
+//     state and trigger side-effects without script, and bypass CSP in some browsers
+//
+// Note: <use> is intentionally allowed because it has legitimate SVG sprite uses;
+// external hrefs on <use> are caught by EXTERNAL_REFS below.
+const FORBIDDEN_ELEMENTS = /<(script|foreignObject|iframe|embed|object|link|image|feImage|animate|set|animateTransform|animateMotion)[\s>/]/gi
 const FORBIDDEN_ATTRS = /\s(on\w+|javascript:)/gi
 const EXTERNAL_REFS = /\s(href|src|xlink:href)\s*=\s*["'](?!#|data:image\/(png|jpeg|gif|webp|svg\+xml))/gi
 
@@ -69,19 +89,19 @@ export async function POST(request: Request) {
   const warnings: string[] = []
 
   // ── Security checks ───────────────────────────────────────────
+  // Always reset lastIndex BEFORE .test() — if .test() returns true and we
+  // return early, the global regex retains its lastIndex across requests,
+  // causing the next call to start scanning mid-string and miss leading matches.
+  FORBIDDEN_ELEMENTS.lastIndex = 0
   if (FORBIDDEN_ELEMENTS.test(svg)) {
-    return error('SVG contains forbidden elements (script, foreignObject, etc.)', 400)
+    return error('SVG contains forbidden elements (script, foreignObject, image, animate, etc.)', 400)
   }
 
-  // Reset lastIndex after global regex tests (required for /g and /gi flags)
-  FORBIDDEN_ELEMENTS.lastIndex = 0
-  FORBIDDEN_ATTRS.lastIndex = 0
-  EXTERNAL_REFS.lastIndex = 0
-
   let sanitized = svg
-    .replace(FORBIDDEN_ELEMENTS, '<!-- removed -->')
+    .replace(FORBIDDEN_ELEMENTS, '<!-- removed -->')  // String.replace resets lastIndex
     .replace(FORBIDDEN_ATTRS, ' data-removed$1')
 
+  EXTERNAL_REFS.lastIndex = 0
   if (EXTERNAL_REFS.test(svg)) {
     warnings.push('External references detected and stripped.')
     sanitized = sanitized.replace(EXTERNAL_REFS, ' data-href-removed ')

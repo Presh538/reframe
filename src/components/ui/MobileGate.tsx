@@ -20,14 +20,14 @@ export function MobileGate() {
           px-8 text-center
           md:hidden
         "
-        style={{ background: 'var(--bg)' }}
+        style={{ background: 'var(--bg, #e8e8e8)' }}
       >
         {/* Dot-grid pattern behind content */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             backgroundImage:
-              'radial-gradient(circle, var(--canvas-tile) 1.5px, transparent 1.5px)',
+              'radial-gradient(circle, var(--canvas-tile, #e0e0e0) 1.5px, transparent 1.5px)',
             backgroundSize: '27px 27px',
           }}
         />
@@ -35,7 +35,7 @@ export function MobileGate() {
         {/* Icon */}
         <div
           className="relative z-10 flex items-center justify-center w-14 h-14 rounded-2xl"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          style={{ background: 'var(--surface, #ffffff)', border: '1px solid var(--border, #dcdcdc)' }}
         >
           {/* Monitor icon */}
           <svg
@@ -43,7 +43,7 @@ export function MobileGate() {
             height="28"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="var(--text)"
+            stroke="var(--text, #111111)"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -58,13 +58,13 @@ export function MobileGate() {
         <div className="relative z-10 flex flex-col gap-2 max-w-xs">
           <h1
             className="text-[18px] font-semibold tracking-tight"
-            style={{ color: 'var(--text)' }}
+            style={{ color: 'var(--text, #111111)' }}
           >
             Built for bigger screens
           </h1>
           <p
             className="text-[14px] leading-relaxed"
-            style={{ color: 'var(--text-soft)' }}
+            style={{ color: 'var(--text-soft, #555555)' }}
           >
             The SVG Animator works best on a tablet or desktop. Open it on a
             wider screen to get started.

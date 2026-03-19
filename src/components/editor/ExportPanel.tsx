@@ -2,8 +2,7 @@
 
 import { clsx } from 'clsx'
 import { useEditorStore, selectCanExport } from '@/lib/store/editor'
-import { getPreset } from '@/lib/presets'
-import { triggerDownload } from '@/lib/export/css'
+import { runExport } from '@/lib/export/runExport'
 import { useToast } from '@/components/ui/Toast'
 import type { ExportFormat } from '@/types'
 
@@ -33,43 +32,16 @@ export function ExportPanel() {
 
   const handleExport = async () => {
     if (!canExport || !activePresetId) return
-
-    const preset = getPreset(activePresetId)
-    if (!preset) return
-
-    const svgEl = document.querySelector<SVGSVGElement>('.rf-preview-container svg')
-    if (!svgEl) { toast('No SVG in preview — apply a preset first', 'error'); return }
-
     setExportState({ isRunning: true, progress: 0, error: null })
-
-    try {
-      if (format === 'gif') {
-        const { exportGif } = await import('@/lib/export/gif')
-        const blob = await exportGif({
-          svgEl,
-          onProgress: (pct) => setExportState({ progress: pct }),
-        })
-        triggerDownload(blob, `reframe-${preset.id}.gif`)
-        toast('GIF downloaded ✓', 'success')
-
-      } else if (format === 'css') {
-        const { exportCss, downloadText } = await import('@/lib/export/css')
-        const css = exportCss(svgEl, preset)
-        downloadText(css, `reframe-${preset.id}.css`, 'text/css')
-        toast('CSS exported ✓', 'success')
-
-      } else if (format === 'lottie') {
-        const { exportLottie } = await import('@/lib/export/lottie')
-        exportLottie(svgEl, preset, params)
-        toast('Lottie JSON exported ✓', 'success')
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Export failed'
-      setExportState({ error: msg })
-      toast(msg, 'error')
-    } finally {
-      setExportState({ isRunning: false, progress: 0 })
-    }
+    await runExport({
+      format,
+      activePresetId,
+      params,
+      onProgress: (pct) => setExportState({ progress: pct }),
+      onError:    (msg) => { setExportState({ error: msg }); toast(msg, 'error') },
+      onSuccess:  (msg) => toast(msg, 'success'),
+    })
+    setExportState({ isRunning: false, progress: 0 })
   }
 
   const exportLabel = exportState.isRunning
@@ -100,6 +72,14 @@ export function ExportPanel() {
       </div>
 
       <div className="p-3 space-y-2.5">
+        {/* Lottie Phase-1 disclaimer — the exported JSON has correct structure but
+            static transforms only. Real keyframe data is a Phase 2 / Pro feature. */}
+        {format === 'lottie' && (
+          <p className="text-[10px] leading-[14px] text-muted bg-surface-2 rounded px-2 py-1.5">
+            <span className="font-semibold text-warning">Note:</span> Lottie export is a Phase 1 preview — the file contains correct structure and layer metadata but <span className="font-medium">no animated keyframes</span>. Import it as a static placeholder or use it as a starting point in your animation tool.
+          </p>
+        )}
+
         {exportState.isRunning && (
           <div className="h-[2px] rounded-full bg-surface-3 overflow-hidden">
             <div

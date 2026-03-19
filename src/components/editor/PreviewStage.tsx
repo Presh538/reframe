@@ -2,14 +2,14 @@
 
 import { useRef, useEffect, useCallback, useState, type DragEvent, type ChangeEvent } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { useEditorStore, selectSvgReady } from '@/lib/store/editor'
+import { useEditorStore, selectSvgReady, liveSvgRef } from '@/lib/store/editor'
 import { getPreset } from '@/lib/presets'
-import { clearAnimations, computeSequenceDuration } from '@/lib/svg/animate'
+import { clearAnimations, computeSequenceDuration, hasMeaningfulGroups } from '@/lib/svg/animate'
 import { validateSvgFile, sanitizeSvgClient, normalizeSvgElement, extractLayerInfo } from '@/lib/svg/sanitize'
 import { useToast } from '@/components/ui/Toast'
 
 const ZOOM_MIN = 0.1
-const ZOOM_MAX = 1        // never scale past original 100%
+const ZOOM_MAX = 4        // SVGs are vectors — upscaling is lossless
 const ZOOM_FACTOR = 1.08  // per scroll tick
 
 export function PreviewStage() {
@@ -39,8 +39,10 @@ export function PreviewStage() {
 
   const setSvgSource    = useEditorStore(s => s.setSvgSource)
   const setActivePreset = useEditorStore(s => s.setActivePreset)
-  const setPlaying      = useEditorStore(s => s.setPlaying)
-  const setZoom         = useEditorStore(s => s.setZoom)
+  const setPlaying        = useEditorStore(s => s.setPlaying)
+  const setZoom           = useEditorStore(s => s.setZoom)
+  const setSvgHasGroups   = useEditorStore(s => s.setSvgHasGroups)
+  const svgHasGroups      = useEditorStore(s => s.svgHasGroups)
 
   const [isDragOver, setIsDragOver] = useState(false)
   const dragDepth = useRef(0)
@@ -171,6 +173,9 @@ export function PreviewStage() {
   }, [isPanMode])
 
   // ── Space key → pan cursor ────────────────────────────────────
+  // NOTE: we do NOT call e.preventDefault() here so the BottomBar's
+  // Space → play/pause handler still fires. The editor is overflow:hidden
+  // so no page scroll happens. isSpaceDown still enables Space+drag panning.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (
@@ -178,7 +183,6 @@ export function PreviewStage() {
         !(e.target instanceof HTMLInputElement) &&
         !(e.target instanceof HTMLTextAreaElement)
       ) {
-        e.preventDefault()
         isSpaceDown.current = true
         if (sectionRef.current) sectionRef.current.style.cursor = 'grab'
       }
@@ -254,6 +258,12 @@ export function PreviewStage() {
   useEffect(() => {
     if (!svgSource || !containerRef.current) return
     injectSvg(svgSource)
+    // Expose the live SVG element via liveSvgRef so export utilities can reach it
+    // without a fragile document.querySelector('.rf-preview-container svg') query.
+    liveSvgRef.current = svgRef.current
+    // Analyse the freshly-injected SVG and update the store so the Groups chip
+    // can reflect whether this file actually has animatable <g> elements.
+    if (svgRef.current) setSvgHasGroups(hasMeaningfulGroups(svgRef.current))
     clearLoopTimer()
     if (!activePresetId) return
     const preset = getPreset(activePresetId)
@@ -263,9 +273,13 @@ export function PreviewStage() {
     setPlaying(true)
     // Arm JS-managed loop restart for 'loop' and 'bounce' modes
     scheduleLoop()
-    return () => { clearLoopTimer() }
+    return () => {
+      clearLoopTimer()
+      // Clear the shared ref so stale SVG elements are never exported after unmount
+      liveSvgRef.current = null
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [svgSource, activePresetId, params, injectSvg, setPlaying])
+  }, [svgSource, activePresetId, params, injectSvg, setPlaying, setSvgHasGroups])
 
   // ── Detect animation completion (once mode only) ───────────────
   // For loop/bounce the JS timer handles restart; for 'once' we stop playback.
@@ -335,6 +349,19 @@ export function PreviewStage() {
 
   // ── File upload ───────────────────────────────────────────────
 
+  // ── Groups scope: warn when the SVG has no <g> elements ───────
+  // Dep array = [scope, svgHasGroups, svgSource] so it re-runs:
+  //   • when the user switches to 'groups' scope
+  //   • when a new SVG is loaded (svgSource changes → svgHasGroups resets to
+  //     true via setSvgSource, then the apply effect sets it to the real value)
+  // The effect is a no-op for all other param changes (speed, delay, etc.).
+  useEffect(() => {
+    if (params.scope === 'groups' && !svgHasGroups && svgSource) {
+      toast("This SVG has no groups — switch to 'All' or 'Paths'", 'info')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.scope, svgHasGroups, svgSource])
+
   /** Shows an info toast if the SVG contains <image> elements (raster embeds). */
   const warnIfHasImages = useCallback((svgStr: string) => {
     if (/<image[\s>]/i.test(svgStr)) {
@@ -351,19 +378,12 @@ export function PreviewStage() {
     }
     const raw = await file.text()
     const sanitized = await sanitizeSvgClient(raw)
-    try {
-      const res = await fetch('/api/validate-svg', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ svg: sanitized }),
-      })
-      const data = await res.json()
-      if (!res.ok) { toast(data.error ?? 'Validation failed', 'error'); return }
-      setSvgSource(data.sanitized, file.name, data.layers)
-      setActivePreset(null)
-      toast(`${file.name} loaded`, 'success')
-      warnIfHasImages(data.sanitized)
-    } catch {
+
+    // ── Client-side fallback path ─────────────────────────────
+    // Used when server validation is unavailable (network error, 413 payload
+    // too large from Vercel's 4.5 MB serverless limit, or any 5xx).
+    // DOMPurify has already sanitized the SVG above, so this is safe.
+    const applyClientSide = () => {
       const doc = new DOMParser().parseFromString(sanitized, 'image/svg+xml')
       const svgEl = doc.querySelector('svg') as SVGSVGElement | null
       if (svgEl) {
@@ -373,6 +393,40 @@ export function PreviewStage() {
         toast(`${file.name} loaded`, 'success')
         warnIfHasImages(sanitized)
       }
+    }
+
+    try {
+      const res = await fetch('/api/validate-svg', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ svg: sanitized }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setSvgSource(data.sanitized, file.name, data.layers)
+        setActivePreset(null)
+        toast(`${file.name} loaded`, 'success')
+        warnIfHasImages(data.sanitized)
+        return
+      }
+
+      // 413 = body too large for server validation (Vercel's 4.5 MB limit) →
+      // fall back to client-side DOMPurify path so large SVGs still load.
+      // 5xx = transient server error → same fallback.
+      if (res.status === 413 || res.status >= 500) {
+        applyClientSide()
+        return
+      }
+
+      // Other 4xx = security rejection (forbidden elements, malformed SVG, etc.)
+      // Show the server's error message and stop — do NOT bypass validation.
+      const data = await res.json().catch(() => ({}))
+      toast((data as { error?: string }).error ?? 'Validation failed', 'error')
+
+    } catch {
+      // Network error or JSON parse failure → fall back to client-side
+      applyClientSide()
     }
   }, [toast, setSvgSource, setActivePreset, warnIfHasImages])
 
