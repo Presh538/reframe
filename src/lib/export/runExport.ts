@@ -31,7 +31,7 @@ export async function runExport({
   if (!activePresetId) return
 
   const preset = getPreset(activePresetId)
-  if (!preset) return
+  if (!preset) { onError('Preset not found — try reapplying a preset'); return }
 
   // Use the live SVG ref set by PreviewStage — avoids the fragile
   // document.querySelector('.rf-preview-container svg') DOM query.
