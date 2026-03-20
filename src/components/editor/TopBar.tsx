@@ -51,7 +51,7 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
   }
 
   const exportLabel = exportState.isRunning
-    ? (exportState.progress < 78 ? 'Capturing…' : 'Encoding…')
+    ? 'Processing'
     : `Export ${format.toUpperCase()}`
 
   return (
@@ -170,6 +170,24 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
           onClick={canExport && !exportState.isRunning ? handleExport : undefined}
           whileHover={canExport ? { scale: 1.02 } : undefined}
         >
+          {/* Spinner — SVG animateTransform is independent of CSS / Framer Motion */}
+          {exportState.isRunning && (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+              <g>
+                <animateTransform
+                  attributeName="transform"
+                  type="rotate"
+                  from="0 12 12"
+                  to="360 12 12"
+                  dur="0.75s"
+                  repeatCount="indefinite"
+                />
+                <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.25)" strokeWidth="2.5"/>
+                <path d="M12 2a10 10 0 0 1 10 10" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+              </g>
+            </svg>
+          )}
+
           {/* Label */}
           <span
             className="whitespace-nowrap"

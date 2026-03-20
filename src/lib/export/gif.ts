@@ -3,24 +3,25 @@
  *
  * Phase 1 – Serialise (sync, ~0 ms/frame):
  *   Step the SVG through time and serialise each frozen state as an SVG
- *   string. stepToTime() writes inline styles synchronously, and
- *   XMLSerializer reads inline styles directly — no repaint / rAF wait needed.
+ *   string. stepToTime() writes inline styles synchronously; XMLSerializer
+ *   reads inline styles directly — no repaint / rAF wait needed.
  *
  * Phase 2 – Render (parallel, ~max_single_load instead of sum_all_loads):
  *   Launch all SVG-string → canvas conversions with Promise.all so every
- *   image loads concurrently. Total time = slowest single load, not their sum.
+ *   image loads concurrently.
  *
- * Phase 3 – Encode (per-frame NeuQuant, quality 20):
- *   GIFEncoder with quality 20 runs NeuQuant per frame but samples every 20th
- *   pixel — accurate for flat SVG vector colours and fast enough to keep
- *   total encode time under ~80 ms for 24 frames at 360 px.
+ * Phase 3 – Encode (per-frame NeuQuant, quality 10):
+ *   GIFEncoder with setTransparent marks chroma-key pixels as transparent.
+ *   quality=10 (the NeuQuant default) ensures enough pixels are sampled
+ *   for magenta to reliably appear in every frame's palette.
  *
- * Background note:
- *   GIF's 1-bit transparency is notoriously unreliable with anti-aliased
- *   vector edges (chroma-key compositing introduces colour fringing).
- *   We use a white background by default — clean, universally correct, and
- *   what every major GIF tool does. The background colour is configurable
- *   via GifExportOptions.background for callers that need a different matte.
+ * Transparency:
+ *   GIF supports only 1-bit transparency. We use a chroma-key approach:
+ *   - Transparent SVG areas → magenta (#FF00FF) in the canvas pixel walk.
+ *   - setTransparent(CHROMA_KEY_NUM) marks that palette entry as transparent.
+ *   - Drawing on a CLEAR canvas (not pre-filled with magenta) ensures
+ *     anti-aliased edges composite against nothing, not against magenta,
+ *     so there is no pink fringe on SVG artwork edges.
  */
 
 import { stepToTime, restorePlayback, computeSequenceDuration } from '@/lib/svg/animate'
@@ -38,6 +39,8 @@ interface GifEncoderInstance {
   setDelay(ms: number): void
   setQuality(q: number): void
   setTransparent(color: number | null): void
+  /** Pass a pre-built 768-byte palette (256 × RGB) to use for all frames. */
+  setGlobalPalette(palette: Uint8Array): void
   addFrame(data: Uint8ClampedArray): void
   finish(): void
   stream(): { pages: Uint8Array[]; cursor: number }
@@ -45,31 +48,25 @@ interface GifEncoderInstance {
 
 // ── Config ────────────────────────────────────────────────────
 
-const FPS           = 10   // 10 fps is smooth while minimizing frame count.
-// 360 px: SVGs are lossless vectors at any scale. 360² = 130 K px/frame vs
-// 480² = 230 K — 43 % fewer pixels → proportional LZW speedup per frame.
+const FPS           = 10
 const MAX_EXPORT_PX = 360
-// 24 frames hard cap: at 10 fps covers 2.4 s of animation.
 const MAX_FRAMES    = 24
-// Chroma-key used for GIF transparency. GIF only supports one transparent
-// palette index; we map this unlikely hue and encode it as transparent.
-const DEFAULT_BG    = 'transparent'
-const CHROMA_KEY    = '#ff00ff'
-const CHROMA_KEY_NUM = 0xff00ff
+
+// Chroma key — fully-saturated magenta is vanishingly unlikely in real SVGs.
+const CHROMA_KEY_NUM = 0xFF00FF
 
 // ── Public API ────────────────────────────────────────────────
 
 export interface GifExportOptions {
   svgEl: SVGSVGElement
   onProgress?: (pct: number) => void
-  /** Background colour drawn beneath each SVG frame (default: '#ffffff'). */
-  background?: string
+  /** Background colour, or 'transparent' (default) for a transparent GIF. */
+  background?: string | 'transparent'
 }
 
 export async function exportGif(opts: GifExportOptions): Promise<Blob> {
-  const { svgEl, onProgress, background = DEFAULT_BG } = opts
+  const { svgEl, onProgress, background = 'transparent' } = opts
 
-  // Compute export dimensions (capped, preserving aspect ratio)
   const vb   = svgEl.viewBox?.baseVal
   const srcW = vb?.width  ?? svgEl.clientWidth  ?? 400
   const srcH = vb?.height ?? svgEl.clientHeight ?? 400
@@ -82,44 +79,29 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
   const frameDelay = Math.round(1000 / FPS)
 
   // ── Phase 1: Serialise all frames (synchronous, no waits) ───
-  //
-  // stepToTime() sets el.style.animationDelay / animationPlayState inline.
-  // XMLSerializer reads those inline attributes directly from the DOM tree —
-  // no browser repaint cycle is required, so we skip the rAF wait entirely.
-  // This turns frame serialisation from ~16 ms × N frames → near-zero.
-  //
-  // We stamp explicit pixel width/height before serialising so the detached
-  // <img> has a concrete intrinsic size (normalizeSvgElement strips them and
-  // replaces with "width: 100%" CSS which resolves to 0 in a detached context).
 
   const svgStrings: string[] = []
 
   for (let i = 0; i <= frameCount; i++) {
     const t = (i / frameCount) * duration
     stepToTime(svgEl, t)
-
     svgEl.setAttribute('width',  String(W))
     svgEl.setAttribute('height', String(H))
     svgStrings.push(new XMLSerializer().serializeToString(svgEl))
     svgEl.removeAttribute('width')
     svgEl.removeAttribute('height')
-
-    onProgress?.(Math.round((i / frameCount) * 30)) // 0–30 % serialise
+    onProgress?.(Math.round((i / frameCount) * 30))
   }
 
-  // Restore the live animation before any awaits so the preview
-  // continues playing while Phase 2 is in flight.
   restorePlayback(svgEl)
 
   // ── Phase 2: Render all SVG strings → canvases in parallel ──
-  //
-  // Promise.all launches every image load simultaneously.
-  // Total render time = slowest single load, not sum(all loads).
 
   onProgress?.(32)
 
+  const transparent = background === 'transparent'
   const canvases = await Promise.all(
-    svgStrings.map(svg => svgStringToCanvas(svg, W, H, background))
+    svgStrings.map(svg => svgStringToCanvas(svg, W, H, transparent, background))
   )
 
   const frames = canvases.filter((c): c is HTMLCanvasElement => c !== null)
@@ -128,11 +110,12 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
     throw new Error('No frames captured — the SVG may not render as a standalone image')
   }
 
-  // ── Phase 3: Encode (per-frame NeuQuant, quality 20) ────────
+  // ── Phase 3: Encode ──────────────────────────────────────────
+
   onProgress?.(70)
 
-  const blob = await encodeGif(frames, frameDelay, W, H, background === 'transparent', (p) => {
-    onProgress?.(70 + Math.round(p * 30)) // 70–100 % encode
+  const blob = await encodeGif(frames, frameDelay, W, H, transparent, (p) => {
+    onProgress?.(70 + Math.round(p * 30))
   })
 
   return blob
@@ -140,25 +123,31 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
 
 // ── Internal helpers ──────────────────────────────────────────
 
-/** Yield to the event loop so React can flush progress state updates. */
 function yieldToMain(): Promise<void> {
   return new Promise(r => setTimeout(r, 0))
 }
 
 /**
- * Converts a pre-serialised SVG string to a canvas at the target dimensions.
- * Fills with `background` colour before drawing so the SVG composites cleanly.
- * Safe to call in parallel — each invocation is fully independent.
+ * Converts a serialised SVG string to a canvas at the target dimensions.
+ *
+ * Transparent mode (transparent=true):
+ *   Draws SVG on a CLEAR canvas so anti-aliased edges composite against
+ *   nothing (not against magenta). Then walks the pixel buffer:
+ *   - alpha < 128  → replaced with fully-opaque magenta (chroma key)
+ *   - alpha >= 128 → kept as-is with alpha forced to 255
+ *   This gives clean edges with no pink fringe.
+ *
+ * Solid mode (transparent=false):
+ *   Fills with the background colour then draws the SVG on top.
  */
 function svgStringToCanvas(
   svgString: string,
   W: number,
   H: number,
-  background: string,
+  transparent: boolean,
+  background: string | 'transparent',
 ): Promise<HTMLCanvasElement | null> {
   return new Promise(resolve => {
-    // 3 s timeout guards against a stuck img load (e.g. CSP blocking the blob
-    // URL, or a malformed SVG the browser refuses to paint).
     const timer = setTimeout(() => resolve(null), 3000)
 
     try {
@@ -171,13 +160,36 @@ function svgStringToCanvas(
         const canvas = document.createElement('canvas')
         canvas.width  = W
         canvas.height = H
-        const ctx = canvas.getContext('2d')!
+        const ctx = canvas.getContext('2d', { willReadFrequently: transparent })!
 
-        // Fill with the requested matte. For true transparent output, use
-        // a dedicated chroma key colour so encoder can mark it as transparent.
-        ctx.fillStyle = background === 'transparent' ? CHROMA_KEY : background
-        ctx.fillRect(0, 0, W, H)
-        ctx.drawImage(img, 0, 0, W, H)
+        if (transparent) {
+          // Draw on clear canvas — no chroma-key pre-fill, so SVG edges don't
+          // composite against magenta and produce pink fringing.
+          ctx.drawImage(img, 0, 0, W, H)
+
+          // Walk the pixel buffer: replace fully-transparent pixels with the
+          // chroma key so the GIF encoder can mark them as the transparent index.
+          const id = ctx.getImageData(0, 0, W, H)
+          const d  = id.data
+          for (let i = 0; i < d.length; i += 4) {
+            if (d[i + 3] < 128) {
+              // Transparent pixel → chroma key (fully opaque for the encoder)
+              d[i]     = 0xFF
+              d[i + 1] = 0x00
+              d[i + 2] = 0xFF
+              d[i + 3] = 0xFF
+            } else {
+              // Opaque pixel → force full opacity (GIF has no partial alpha)
+              d[i + 3] = 0xFF
+            }
+          }
+          ctx.putImageData(id, 0, 0)
+        } else {
+          ctx.fillStyle = background as string
+          ctx.fillRect(0, 0, W, H)
+          ctx.drawImage(img, 0, 0, W, H)
+        }
+
         URL.revokeObjectURL(url)
         resolve(canvas)
       }
@@ -197,10 +209,18 @@ function svgStringToCanvas(
 }
 
 /**
- * Encodes captured canvas frames into a GIF Blob using GIFEncoder directly
- * (no web workers). NeuQuant runs per frame at quality 20 (samples every 20th
- * pixel) — fast enough for vector SVG artwork and gives each frame its own
- * accurate palette.
+ * Encodes captured canvas frames into a GIF Blob.
+ *
+ * Transparent mode uses a guaranteed-magenta global palette strategy:
+ *   1. Run NeuQuant manually on the first frame to build a 256-colour palette.
+ *   2. Overwrite the last palette slot (index 255) with exact magenta.
+ *   3. Lock this palette for all frames via setGlobalPalette.
+ *   4. Call setTransparent(CHROMA_KEY_NUM) — findClosest now finds index 255
+ *      with distance 0 (exact match), not a "nearest neighbour" guess.
+ *
+ * This eliminates the failure mode where NeuQuant at quality 10 happened not
+ * to sample enough magenta pixels, causing findClosest to return index 0 and
+ * the wrong colour to become "transparent".
  */
 async function encodeGif(
   frames: HTMLCanvasElement[],
@@ -215,20 +235,44 @@ async function encodeGif(
 
   const encoder = new GIFEncoder(W, H)
   encoder.writeHeader()
-  encoder.setRepeat(0)   // loop forever
+  encoder.setRepeat(0)
   encoder.setDelay(delay)
-  // If requested, mark the chroma-key colour as transparent in GIF output.
-  if (transparent) {
-    encoder.setTransparent(CHROMA_KEY_NUM)
-  }
-  // quality 20 = NeuQuant samples every 20th pixel (vs default 10). At 360 px
-  // that's ~6 500 samples/frame — still accurate for flat SVG colours and
-  // roughly 2× faster than quality 10.
-  encoder.setQuality(20)
 
-  // One yield before the loop flushes the progress bar update to React,
-  // then we run all frames synchronously. With MAX_FRAMES=24 and per-frame
-  // NeuQuant at quality 20 the encode loop finishes in <80 ms.
+  if (transparent) {
+    // ── Build guaranteed palette with magenta at index 255 ─────────────────
+    // Run NeuQuant directly on the first frame's RGB pixels.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const NeuQuant = require('gif.js/src/TypedNeuQuant.js') as
+      new (pixels: Uint8Array, len: number, sample: number) => {
+        buildColormap(): void
+        getColormap(): Uint8Array
+      }
+
+    const ctx0  = frames[0].getContext('2d')!
+    const rgba  = ctx0.getImageData(0, 0, W, H).data
+    // NeuQuant expects packed RGB (3 bytes/pixel), not RGBA
+    const rgb   = new Uint8Array(W * H * 3)
+    for (let i = 0, j = 0; i < rgba.length; i += 4, j += 3) {
+      rgb[j] = rgba[i]; rgb[j + 1] = rgba[i + 1]; rgb[j + 2] = rgba[i + 2]
+    }
+    const nq = new NeuQuant(rgb, rgb.length, 10)
+    nq.buildColormap()
+    const palette = nq.getColormap() // 768-byte flat RGB array (256 × 3)
+
+    // Reserve the last slot for magenta so setTransparent gets an exact match.
+    palette[765] = 0xFF  // R
+    palette[766] = 0x00  // G
+    palette[767] = 0xFF  // B
+
+    // Lock palette for all frames — each addFrame skips NeuQuant and uses this.
+    // setTransparent(CHROMA_KEY_NUM) → findClosest finds index 255 with d=0.
+    encoder.setGlobalPalette(palette)
+    encoder.setTransparent(CHROMA_KEY_NUM)
+  } else {
+    encoder.setQuality(10)
+  }
+
+  // One yield to flush the progress bar update to React before the encode loop.
   await yieldToMain()
 
   for (let i = 0; i < frames.length; i++) {
@@ -239,9 +283,6 @@ async function encodeGif(
 
   encoder.finish()
 
-  // Assemble ByteArray pages into one contiguous Uint8Array.
-  // Every page except the last is completely full (pageSize bytes);
-  // the last page contains exactly `cursor` bytes.
   const stream   = encoder.stream()
   const { pages, cursor } = stream
   const pageSize = (stream.constructor as unknown as { pageSize: number }).pageSize

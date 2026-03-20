@@ -69,7 +69,7 @@ const nextConfig = {
               "img-src 'self' data: blob:",
               connectSrc,
               "font-src 'self'",
-              "worker-src blob:",
+              "worker-src 'self' blob:",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
