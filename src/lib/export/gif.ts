@@ -97,6 +97,10 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
 
   restorePlayback(svgEl)
 
+  if (frames.length === 0) {
+    throw new Error('No frames captured — the SVG may not render as a standalone image')
+  }
+
   // ── Encode ─────────────────────────────────────────────────
   onProgress?.(80)
 
