@@ -11,7 +11,7 @@
 
 import { stepToTime, restorePlayback, computeSequenceDuration } from '@/lib/svg/animate'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const GIF = (typeof window !== 'undefined' ? require('gif.js') : null) as new (options: GifOptions) => GifInstance
+const GIF = (typeof window !== 'undefined' ? require('gif.js/dist/gif') : null) as new (options: GifOptions) => GifInstance
 
 interface GifOptions {
   workers: number
