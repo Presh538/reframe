@@ -213,15 +213,16 @@ function svgStringToCanvas(
 /**
  * Encodes captured canvas frames into a GIF Blob.
  *
- * Per-frame NeuQuant (quality 10) — each frame builds its own 256-colour
- * palette from its own pixels. This preserves accurate colours across every
- * frame regardless of what colours appear at t=0, which the global-palette
- * approach broke for animations that start faded-out or mostly transparent
- * (frame-0 palette was magenta-dominated → all other frames' colours crushed).
+ * For transparent exports a composite global palette is built from up to
+ * 4 evenly-spaced sample frames tiled into one canvas. Running NeuQuant
+ * over combined pixels gives a palette that represents the full animation
+ * colour space, not just a single frame. Magenta (#FF00FF) is then injected
+ * at index 255 before the palette is locked, guaranteeing that
+ * setTransparent(CHROMA_KEY_NUM) finds an exact-distance-0 match — no luck
+ * needed.
  *
- * The pixel walk in svgStringToCanvas guarantees every transparent frame has
- * enough magenta pixels (~30 %+ of a typical SVG background) for NeuQuant to
- * learn magenta, so setTransparent reliably finds the right palette index.
+ * For solid-background exports standard per-frame NeuQuant (quality 10) is
+ * used; no transparency handling is required.
  */
 async function encodeGif(
   frames: HTMLCanvasElement[],
