@@ -30,12 +30,8 @@ import { stepToTime, restorePlayback, computeSequenceDuration } from '@/lib/svg/
 // Required directly from src/ to bypass the package's "browser" field,
 // which maps require('gif.js') → dist/gif.js (the worker-based GIF class).
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-<<<<<<< HEAD
 const getEncoder = (): (new (w: number, h: number) => GifEncoderInstance) | null =>
   typeof window !== 'undefined' ? require('gif.js/src/GIFEncoder.js') : null
-=======
-const GIF = (typeof window !== 'undefined' ? require('gif.js/dist/gif') : null) as new (options: GifOptions) => GifInstance
->>>>>>> origin/main
 
 interface GifEncoderInstance {
   writeHeader(): void
@@ -99,16 +95,7 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
 
   restorePlayback(svgEl)
 
-<<<<<<< HEAD
   // ── Phase 2: Render all SVG strings → canvases in parallel ──
-=======
-  if (frames.length === 0) {
-    throw new Error('No frames captured — the SVG may not render as a standalone image')
-  }
-
-  // ── Encode ─────────────────────────────────────────────────
-  onProgress?.(80)
->>>>>>> origin/main
 
   onProgress?.(32)
 
