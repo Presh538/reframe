@@ -39,8 +39,6 @@ interface GifEncoderInstance {
   setDelay(ms: number): void
   setQuality(q: number): void
   setTransparent(color: number | null): void
-  /** Pass a pre-built 768-byte palette (256 × RGB) to use for all frames. */
-  setGlobalPalette(palette: Uint8Array): void
   addFrame(data: Uint8ClampedArray): void
   finish(): void
   stream(): { pages: Uint8Array[]; cursor: number }
@@ -211,16 +209,15 @@ function svgStringToCanvas(
 /**
  * Encodes captured canvas frames into a GIF Blob.
  *
- * Transparent mode uses a guaranteed-magenta global palette strategy:
- *   1. Run NeuQuant manually on the first frame to build a 256-colour palette.
- *   2. Overwrite the last palette slot (index 255) with exact magenta.
- *   3. Lock this palette for all frames via setGlobalPalette.
- *   4. Call setTransparent(CHROMA_KEY_NUM) — findClosest now finds index 255
- *      with distance 0 (exact match), not a "nearest neighbour" guess.
+ * Per-frame NeuQuant (quality 10) — each frame builds its own 256-colour
+ * palette from its own pixels. This preserves accurate colours across every
+ * frame regardless of what colours appear at t=0, which the global-palette
+ * approach broke for animations that start faded-out or mostly transparent
+ * (frame-0 palette was magenta-dominated → all other frames' colours crushed).
  *
- * This eliminates the failure mode where NeuQuant at quality 10 happened not
- * to sample enough magenta pixels, causing findClosest to return index 0 and
- * the wrong colour to become "transparent".
+ * The pixel walk in svgStringToCanvas guarantees every transparent frame has
+ * enough magenta pixels (~30 %+ of a typical SVG background) for NeuQuant to
+ * learn magenta, so setTransparent reliably finds the right palette index.
  */
 async function encodeGif(
   frames: HTMLCanvasElement[],
@@ -237,40 +234,8 @@ async function encodeGif(
   encoder.writeHeader()
   encoder.setRepeat(0)
   encoder.setDelay(delay)
-
-  if (transparent) {
-    // ── Build guaranteed palette with magenta at index 255 ─────────────────
-    // Run NeuQuant directly on the first frame's RGB pixels.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const NeuQuant = require('gif.js/src/TypedNeuQuant.js') as
-      new (pixels: Uint8Array, len: number, sample: number) => {
-        buildColormap(): void
-        getColormap(): Uint8Array
-      }
-
-    const ctx0  = frames[0].getContext('2d')!
-    const rgba  = ctx0.getImageData(0, 0, W, H).data
-    // NeuQuant expects packed RGB (3 bytes/pixel), not RGBA
-    const rgb   = new Uint8Array(W * H * 3)
-    for (let i = 0, j = 0; i < rgba.length; i += 4, j += 3) {
-      rgb[j] = rgba[i]; rgb[j + 1] = rgba[i + 1]; rgb[j + 2] = rgba[i + 2]
-    }
-    const nq = new NeuQuant(rgb, rgb.length, 10)
-    nq.buildColormap()
-    const palette = nq.getColormap() // 768-byte flat RGB array (256 × 3)
-
-    // Reserve the last slot for magenta so setTransparent gets an exact match.
-    palette[765] = 0xFF  // R
-    palette[766] = 0x00  // G
-    palette[767] = 0xFF  // B
-
-    // Lock palette for all frames — each addFrame skips NeuQuant and uses this.
-    // setTransparent(CHROMA_KEY_NUM) → findClosest finds index 255 with d=0.
-    encoder.setGlobalPalette(palette)
-    encoder.setTransparent(CHROMA_KEY_NUM)
-  } else {
-    encoder.setQuality(10)
-  }
+  encoder.setQuality(10)
+  encoder.setTransparent(transparent ? CHROMA_KEY_NUM : null)
 
   // One yield to flush the progress bar update to React before the encode loop.
   await yieldToMain()
