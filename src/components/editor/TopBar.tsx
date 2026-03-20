@@ -170,6 +170,7 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
           onClick={canExport && !exportState.isRunning ? handleExport : undefined}
           whileHover={canExport ? { scale: 1.02 } : undefined}
         >
+<<<<<<< HEAD
           {/* Spinner — SVG animateTransform is independent of CSS / Framer Motion */}
           {exportState.isRunning && (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
@@ -188,6 +189,8 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
             </svg>
           )}
 
+=======
+>>>>>>> origin/main
           {/* Label */}
           <span
             className="whitespace-nowrap"
