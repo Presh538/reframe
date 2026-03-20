@@ -39,9 +39,13 @@ interface GifEncoderInstance {
   setDelay(ms: number): void
   setQuality(q: number): void
   setTransparent(color: number | null): void
+  /** Pass a pre-built 768-byte RGB palette; all frames skip per-frame NeuQuant. */
+  setGlobalPalette(palette: Uint8Array): void
   addFrame(data: Uint8ClampedArray): void
   finish(): void
   stream(): { pages: Uint8Array[]; cursor: number }
+  /** The 768-byte RGB palette built by NeuQuant after the first addFrame call. */
+  colorTab: Uint8Array | null
 }
 
 // ── Config ────────────────────────────────────────────────────
@@ -234,8 +238,45 @@ async function encodeGif(
   encoder.writeHeader()
   encoder.setRepeat(0)
   encoder.setDelay(delay)
-  encoder.setQuality(10)
-  encoder.setTransparent(transparent ? CHROMA_KEY_NUM : null)
+  if (transparent) {
+    // Build a representative palette from the mid-animation frame, then
+    // inject magenta at index 255 before locking it as the global palette.
+    //
+    // Why not per-frame NeuQuant + setTransparent?
+    //   setTransparent calls findClosest(magenta, used=true). "used=true" means
+    //   it only searches entries NeuQuant actually assigned pixels to. If the
+    //   nearest palette entry to magenta isn't marked "used" (edge case but
+    //   reproducible), findClosest silently returns index 0 — wrong colour
+    //   becomes "transparent" and magenta stays solid.
+    //
+    // Why the mid-frame, not frame 0?
+    //   Frame 0 (t=0) is often mostly transparent/faded-in, giving NeuQuant
+    //   mostly magenta pixels → magenta-dominated palette → all other frames'
+    //   real colours get crushed → black-and-white output.
+    //
+    // With a pre-built palette + guaranteed magenta at 255:
+    //   findClosest(0xFF00FF) finds index 255 with distance=0. No luck needed.
+    const midIdx = Math.max(0, Math.floor(frames.length / 2))
+    const probe  = new GIFEncoder(W, H)
+    probe.writeHeader()
+    probe.setQuality(10)
+    const pCtx = frames[midIdx].getContext('2d')!
+    probe.addFrame(pCtx.getImageData(0, 0, W, H).data)
+
+    if (probe.colorTab) {
+      const palette = probe.colorTab.slice() // clone — don't mutate the probe
+      palette[765] = 0xFF                    // R  ← index 255 = exact magenta
+      palette[766] = 0x00                    // G
+      palette[767] = 0xFF                    // B
+      encoder.setGlobalPalette(palette)
+    } else {
+      // Fallback: per-frame NeuQuant (colour may drift but at least renders)
+      encoder.setQuality(10)
+    }
+    encoder.setTransparent(CHROMA_KEY_NUM)
+  } else {
+    encoder.setQuality(10)
+  }
 
   // One yield to flush the progress bar update to React before the encode loop.
   await yieldToMain()
