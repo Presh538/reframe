@@ -36,15 +36,26 @@ const GIF_WORKER_LOCAL = '/gif.worker.js'
 const FPS = 24
 const MAX_EXPORT_PX = 800
 
+// Default canvas background — matches the preview stage's --bg value so the
+// exported GIF looks identical to what the user sees in the editor.
+// Pass 'transparent' to skip the fill entirely (canvas starts as RGBA(0,0,0,0);
+// gif.js encodes transparent pixels as white in most viewers, which is fine for
+// SVGs that carry their own coloured background rect).
+const DEFAULT_BG = '#e8e8e8'
+
 // ── Public API ────────────────────────────────────────────────
 
 export interface GifExportOptions {
   svgEl: SVGSVGElement
   onProgress?: (pct: number) => void
+  /** Canvas fill colour before drawing each SVG frame.
+   *  Defaults to '#e8e8e8' (matches the editor preview background).
+   *  Pass 'transparent' to export with no background fill. */
+  background?: string | 'transparent'
 }
 
 export async function exportGif(opts: GifExportOptions): Promise<Blob> {
-  const { svgEl, onProgress } = opts
+  const { svgEl, onProgress, background = DEFAULT_BG } = opts
 
   // Compute export dimensions (capped + preserving aspect ratio)
   const vb = svgEl.viewBox?.baseVal
@@ -72,7 +83,7 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
     await nextFrame()
     await nextFrame() // Two rAFs to ensure the browser has repainted
 
-    const canvas = await svgToCanvas(svgEl, W, H)
+    const canvas = await svgToCanvas(svgEl, W, H, background)
     if (canvas) frames.push(canvas)
 
     onProgress?.(Math.round((i / frameCount) * 75)) // 0-75% for capture
@@ -96,10 +107,24 @@ function nextFrame(): Promise<void> {
   return new Promise(r => requestAnimationFrame(() => r()))
 }
 
-function svgToCanvas(svgEl: SVGSVGElement, W: number, H: number): Promise<HTMLCanvasElement | null> {
+function svgToCanvas(
+  svgEl: SVGSVGElement,
+  W: number,
+  H: number,
+  background: string | 'transparent',
+): Promise<HTMLCanvasElement | null> {
   return new Promise(resolve => {
     try {
+      // normalizeSvgElement strips the width/height attrs and replaces them
+      // with CSS (width:100%). When the SVG is serialized and loaded as a
+      // detached <img>, that 100% resolves against a zero-sized viewport —
+      // so ctx.drawImage renders nothing. Stamping explicit pixel dimensions
+      // before serializing gives the browser a concrete intrinsic size.
+      svgEl.setAttribute('width', String(W))
+      svgEl.setAttribute('height', String(H))
       const serialized = new XMLSerializer().serializeToString(svgEl)
+      svgEl.removeAttribute('width')
+      svgEl.removeAttribute('height')
       const blob = new Blob([serialized], { type: 'image/svg+xml;charset=utf-8' })
       const url = URL.createObjectURL(blob)
       const img = new Image()
@@ -109,8 +134,15 @@ function svgToCanvas(svgEl: SVGSVGElement, W: number, H: number): Promise<HTMLCa
         canvas.width = W
         canvas.height = H
         const ctx = canvas.getContext('2d')!
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, W, H)
+        // Only fill a background colour when the caller wants one.
+        // Skipping the fill leaves the canvas transparent (RGBA 0,0,0,0) so
+        // SVGs that carry their own background rect render correctly, and SVGs
+        // with no background get whatever the GIF viewer uses for transparent
+        // pixels (typically white — but that is the viewer's choice, not ours).
+        if (background !== 'transparent') {
+          ctx.fillStyle = background
+          ctx.fillRect(0, 0, W, H)
+        }
         ctx.drawImage(img, 0, 0, W, H)
         URL.revokeObjectURL(url)
         resolve(canvas)
