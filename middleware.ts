@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const MAX_SVG_BODY_BYTES = 2 * 1024 * 1024 // 2 MB
+const MAX_SVG_BODY_BYTES = 52 * 1024 * 1024 // 52 MB — matches client-side 50 MB cap + JSON envelope overhead
 
 export function middleware(request: NextRequest) {
   const response = NextResponse.next()

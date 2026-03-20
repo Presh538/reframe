@@ -13,25 +13,113 @@ import type { AnimParams } from '@/types'
 const SHAPE_TAGS = ['path', 'circle', 'rect', 'ellipse', 'line', 'polyline', 'polygon']
 const STROKE_TAGS = ['path', 'line', 'polyline', 'polygon', 'rect', 'circle', 'ellipse']
 
+// Tags that are non-visual and should never be animated
+const NON_VISUAL_TAGS = new Set([
+  'defs', 'style', 'title', 'desc', 'metadata', 'symbol',
+  'lineargradient', 'radialgradient', 'pattern', 'filter',
+  'mask', 'clippath', 'marker',
+])
+
+/**
+ * Returns the first meaningful set of visual children, recursively
+ * unwrapping single-wrapper <g> elements at any depth.
+ *
+ * Handles:
+ *   1. Single wrapper <g> at any nesting depth (Figma / Illustrator / Inkscape).
+ *      Keeps drilling until it finds ≥2 siblings or non-group children.
+ *   2. Flat SVG (all paths at root, no groups): returns root-level shapes.
+ *
+ * Avoids the double-animation bug where parent <g> and its children both
+ * received CSS animations, fighting each other.
+ */
+function resolveDirectTargets(el: Element, depth = 0): SVGElement[] {
+  // Safety cap — prevents infinite recursion on pathological SVGs
+  if (depth > 12) return []
+
+  const direct = [...el.children].filter(
+    c => !NON_VISUAL_TAGS.has(c.tagName.toLowerCase())
+  ) as SVGElement[]
+
+  if (direct.length === 0) return []
+
+  // Single wrapper <g> — keep drilling deeper
+  if (direct.length === 1 && direct[0].tagName.toLowerCase() === 'g') {
+    const inner = resolveDirectTargets(direct[0], depth + 1)
+    return inner.length > 0 ? inner : direct
+  }
+
+  return direct
+}
+
+/**
+ * Resolves the first meaningful level of <g> elements, recursively
+ * unwrapping single-wrapper <g> elements at any depth.
+ *
+ * Used by scope:'groups'. Keeps drilling through nested single wrappers
+ * until it finds multiple <g> siblings or bottoms out.
+ *
+ * Filters out decorative overlay groups — <g opacity="0.33"> style elements
+ * that are shadow/highlight effects, not independent animation layers.
+ * Threshold is 0.5: anything semi-transparent or lower is treated as an overlay.
+ */
+function resolveGroupLevel(el: Element, depth = 0): SVGElement[] {
+  // Safety cap
+  if (depth > 12) return []
+
+  const groups = [...el.children].filter(c => {
+    if (c.tagName.toLowerCase() !== 'g') return false
+    // Exclude decorative overlays — groups with opacity ≤ 0.5 are typically
+    // shadow/highlight compositing layers, not independent visual layers.
+    const opacity = parseFloat(c.getAttribute('opacity') ?? '1')
+    return opacity > 0.5
+  }) as SVGElement[]
+
+  if (groups.length === 0) return []
+
+  // Single wrapper — drill deeper
+  if (groups.length === 1) {
+    const deeper = resolveGroupLevel(groups[0], depth + 1)
+    return deeper.length > 0 ? deeper : groups
+  }
+
+  return groups
+}
+
+/**
+ * Returns true when the SVG has at least one meaningful <g> group
+ * (opacity > 0.5, not a decorative overlay).  Callers use this to
+ * surface a warning instead of silently falling back to a different scope.
+ */
+export function hasMeaningfulGroups(el: SVGSVGElement): boolean {
+  return resolveGroupLevel(el).length > 0
+}
+
 /**
  * Returns the elements to animate based on the scope param.
- * Falls back gracefully if the selected scope yields nothing.
+ *
+ * For scope:'groups' there is intentionally NO fallback — if the SVG has
+ * no meaningful groups, an empty array is returned so the caller can surface
+ * a clear message to the user rather than silently animating as 'all'.
  */
 export function getTargets(el: SVGSVGElement, scope: AnimParams['scope']): SVGElement[] {
   let results: SVGElement[] = []
 
   if (scope === 'groups') {
-    results = [...el.querySelectorAll<SVGElement>('g')]
+    // Strict: respect the SVG's actual <g> structure.
+    // Returns [] for flat SVGs — callers should check hasMeaningfulGroups first.
+    results = resolveGroupLevel(el)
   } else if (scope === 'paths') {
     results = [...el.querySelectorAll<SVGElement>(SHAPE_TAGS.join(','))]
   } else {
-    // 'all' — prefer groups, fall back to individual shapes, then direct children
-    results = [...el.querySelectorAll<SVGElement>('g')]
+    // 'all' — first meaningful level of visual children (paths + groups),
+    // recursively unwrapping single-wrapper <g> elements. Handles both
+    // flat SVGs and deeply-nested Figma/Illustrator exports correctly.
+    results = resolveDirectTargets(el)
     if (!results.length) results = [...el.querySelectorAll<SVGElement>(SHAPE_TAGS.join(','))]
     if (!results.length) results = [...(el.children as HTMLCollectionOf<SVGElement>)]
   }
 
-  return results.slice(0, 32) // Cap to avoid overwhelming the browser
+  return results.slice(0, 500) // Safety cap — prevents overwhelming the browser on pathological SVGs
 }
 
 /**
@@ -39,7 +127,7 @@ export function getTargets(el: SVGSVGElement, scope: AnimParams['scope']): SVGEl
  */
 export function getStrokeTargets(el: SVGSVGElement, scope: AnimParams['scope']): SVGElement[] {
   const all = [...el.querySelectorAll<SVGElement>(STROKE_TAGS.join(','))]
-  if (all.length) return all.slice(0, 32)
+  if (all.length) return all.slice(0, 500)
   return getTargets(el, scope)
 }
 
@@ -50,7 +138,7 @@ export function getAllTargets(el: SVGSVGElement): SVGElement[] {
   const results = [...el.querySelectorAll<SVGElement>(
     ['g', ...SHAPE_TAGS, 'text'].join(',')
   )]
-  return results.length ? results.slice(0, 40) : [...(el.children as HTMLCollectionOf<SVGElement>)]
+  return results.length ? results.slice(0, 500) : [...(el.children as HTMLCollectionOf<SVGElement>)]
 }
 
 // ── CSS injection ─────────────────────────────────────────────

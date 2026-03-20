@@ -195,4 +195,3 @@ function encodeGif(
     gif.render()
   })
 }
-

@@ -23,7 +23,7 @@ export const EASING_CSS: Record<EasingType, string> = {
 
 // ── Animation parameters ──────────────────────────────────────
 export interface AnimParams {
-  /** Playback speed multiplier (0.25 – 3) */
+  /** Playback speed multiplier (0.25 – 4) */
   speed: number
   /** Pre-animation delay in seconds (0 – 2) */
   delay: number
@@ -99,6 +99,12 @@ export interface EditorState {
   restartTick: number
   /** Whether the hand / pan tool is locked on */
   isPanMode: boolean
+  /**
+   * Whether the currently loaded SVG has at least one meaningful <g> group
+   * (opacity > 0.5, not a decorative overlay). Computed after each SVG inject.
+   * Drives the Groups chip state in RightControlsPanel.
+   */
+  svgHasGroups: boolean
   /** Export state */
   export: {
     isRunning: boolean

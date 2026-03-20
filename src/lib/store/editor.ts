@@ -39,6 +39,8 @@ interface EditorActions {
   restartAnimation: () => void
   /** Toggle the persistent pan (hand) mode */
   setPanMode: (isPanMode: boolean) => void
+  /** Set whether the loaded SVG has meaningful <g> groups */
+  setSvgHasGroups: (hasGroups: boolean) => void
   /**
    * Fragment the current SVG into individually animatable elements.
    * Splits compound paths and promotes nested groups to the top level.
@@ -61,6 +63,7 @@ const INITIAL_STATE: EditorState = {
   viewResetTick: 0,
   restartTick: 0,
   isPanMode: false,
+  svgHasGroups: true, // optimistic default; computed after each SVG is injected
   export: {
     isRunning: false,
     progress: 0,
@@ -77,7 +80,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       ...INITIAL_STATE,
 
       setSvgSource: (source, fileName, layers) =>
-        set({ svgSource: source, svgFileName: fileName, svgLayers: layers, isFragmented: false }, false, 'setSvgSource'),
+        set({ svgSource: source, svgFileName: fileName, svgLayers: layers, isFragmented: false, svgHasGroups: true }, false, 'setSvgSource'),
 
       clearSvg: () =>
         set({ ...INITIAL_STATE }, false, 'clearSvg'),
@@ -118,6 +121,8 @@ export const useEditorStore = create<EditorState & EditorActions>()(
 
       setPanMode: (isPanMode) => set({ isPanMode }, false, 'setPanMode'),
 
+      setSvgHasGroups: (hasGroups) => set({ svgHasGroups: hasGroups }, false, 'setSvgHasGroups'),
+
       fragmentElements: () => {
         const { svgSource } = get()
         if (!svgSource) return
@@ -143,7 +148,15 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         set({ svgSource: result.svg, isFragmented: true, activePresetId: null }, false, 'fragmentElements')
       },
     }),
-    { name: 'reframe-editor', enabled: process.env.NODE_ENV !== 'production' }
+    {
+      name: 'reframe-editor',
+      // Only activate when the Redux DevTools browser extension is actually installed.
+      // Without this guard Zustand logs a noisy console warning in every dev session.
+      enabled:
+        process.env.NODE_ENV !== 'production' &&
+        typeof window !== 'undefined' &&
+        !!(window as unknown as Record<string, unknown>)['__REDUX_DEVTOOLS_EXTENSION__'],
+    }
   )
 )
 
@@ -152,3 +165,13 @@ export const useEditorStore = create<EditorState & EditorActions>()(
 export const selectSvgReady = (s: EditorState) => s.svgSource !== null
 export const selectCanExport = (s: EditorState) =>
   s.svgSource !== null && s.activePresetId !== null && !s.export.isRunning
+
+// ── Live SVG element ref ───────────────────────────────────────
+// A module-level mutable ref to the live, animated SVG element rendered inside
+// PreviewStage. DOM nodes are not serialisable so they must not live in Zustand;
+// this pattern keeps the ref accessible to export utilities without an
+// imperative DOM query (.rf-preview-container svg class selector).
+//
+// PreviewStage writes to liveSvgRef.current after each inject.
+// Export utilities (runExport, TopBar, ExportPanel) read from it.
+export const liveSvgRef: { current: SVGSVGElement | null } = { current: null }
