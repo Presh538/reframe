@@ -115,7 +115,16 @@ function svgToCanvas(
 ): Promise<HTMLCanvasElement | null> {
   return new Promise(resolve => {
     try {
+      // normalizeSvgElement strips the width/height attrs and replaces them
+      // with CSS (width:100%). When the SVG is serialized and loaded as a
+      // detached <img>, that 100% resolves against a zero-sized viewport —
+      // so ctx.drawImage renders nothing. Stamping explicit pixel dimensions
+      // before serializing gives the browser a concrete intrinsic size.
+      svgEl.setAttribute('width', String(W))
+      svgEl.setAttribute('height', String(H))
       const serialized = new XMLSerializer().serializeToString(svgEl)
+      svgEl.removeAttribute('width')
+      svgEl.removeAttribute('height')
       const blob = new Blob([serialized], { type: 'image/svg+xml;charset=utf-8' })
       const url = URL.createObjectURL(blob)
       const img = new Image()
@@ -178,4 +187,3 @@ function encodeGif(
     gif.render()
   })
 }
-
