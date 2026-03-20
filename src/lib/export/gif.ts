@@ -239,29 +239,51 @@ async function encodeGif(
   encoder.setRepeat(0)
   encoder.setDelay(delay)
   if (transparent) {
-    // Build a representative palette from the mid-animation frame, then
-    // inject magenta at index 255 before locking it as the global palette.
+    // Build a representative palette by tiling multiple evenly-spaced frames
+    // into a single composite canvas, then running NeuQuant once over all of
+    // them. Spatial layout doesn't affect quality — NeuQuant only sees colours.
+    //
+    // Why multiple frames instead of just the mid-frame?
+    //   A single-frame palette misses colours that are vivid in other parts of
+    //   the animation. Blues, greens, etc. that peak at frame 3 but are muted
+    //   at frame 12 (mid) won't get palette entries → they map to the nearest
+    //   neighbour → colour shift in the exported GIF.
     //
     // Why not per-frame NeuQuant + setTransparent?
     //   setTransparent calls findClosest(magenta, used=true). "used=true" means
     //   it only searches entries NeuQuant actually assigned pixels to. If the
-    //   nearest palette entry to magenta isn't marked "used" (edge case but
-    //   reproducible), findClosest silently returns index 0 — wrong colour
-    //   becomes "transparent" and magenta stays solid.
+    //   nearest palette entry to magenta isn't marked "used" (reproducible edge
+    //   case), findClosest silently returns index 0 — wrong colour becomes
+    //   "transparent" and magenta stays solid.
     //
-    // Why the mid-frame, not frame 0?
-    //   Frame 0 (t=0) is often mostly transparent/faded-in, giving NeuQuant
-    //   mostly magenta pixels → magenta-dominated palette → all other frames'
-    //   real colours get crushed → black-and-white output.
-    //
-    // With a pre-built palette + guaranteed magenta at 255:
+    // With a composite palette + magenta guaranteed at index 255:
     //   findClosest(0xFF00FF) finds index 255 with distance=0. No luck needed.
-    const midIdx = Math.max(0, Math.floor(frames.length / 2))
-    const probe  = new GIFEncoder(W, H)
+
+    // Pick up to 4 evenly-spaced sample frames; always include the last frame
+    // so late-appearing colours are represented.
+    const sampleCount = Math.min(4, frames.length)
+    const stride = Math.max(1, Math.floor((frames.length - 1) / Math.max(1, sampleCount - 1)))
+    const sampleIndices: number[] = []
+    for (let s = 0; s < sampleCount; s++) {
+      sampleIndices.push(Math.min(s * stride, frames.length - 1))
+    }
+    sampleIndices[sampleIndices.length - 1] = frames.length - 1
+
+    // Tile samples side-by-side: 2 cols × up to 2 rows (1×1 for single frame)
+    const cols   = sampleCount >= 2 ? 2 : 1
+    const rows   = Math.ceil(sampleCount / cols)
+    const tiled  = document.createElement('canvas')
+    tiled.width  = W * cols
+    tiled.height = H * rows
+    const tCtx   = tiled.getContext('2d')!
+    sampleIndices.forEach((idx, n) => {
+      tCtx.drawImage(frames[idx], (n % cols) * W, Math.floor(n / cols) * H, W, H)
+    })
+
+    const probe = new GIFEncoder(tiled.width, tiled.height)
     probe.writeHeader()
     probe.setQuality(10)
-    const pCtx = frames[midIdx].getContext('2d')!
-    probe.addFrame(pCtx.getImageData(0, 0, W, H).data)
+    probe.addFrame(tCtx.getImageData(0, 0, tiled.width, tiled.height).data)
 
     if (probe.colorTab) {
       const palette = probe.colorTab.slice() // clone — don't mutate the probe
