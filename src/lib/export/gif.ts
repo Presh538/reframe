@@ -20,6 +20,7 @@ interface GifOptions {
   height: number
   workerScript: string
   repeat?: number
+  transparent?: number | null
 }
 
 interface GifInstance {
@@ -38,10 +39,15 @@ const MAX_EXPORT_PX = 800
 
 // Default canvas background — matches the preview stage's --bg value so the
 // exported GIF looks identical to what the user sees in the editor.
-// Pass 'transparent' to skip the fill entirely (canvas starts as RGBA(0,0,0,0);
-// gif.js encodes transparent pixels as white in most viewers, which is fine for
-// SVGs that carry their own coloured background rect).
-const DEFAULT_BG = '#e8e8e8'
+// Pass 'transparent' to export with no background (animation only).
+const DEFAULT_BG = 'transparent'
+
+// GIF supports only 1-bit transparency: one palette colour is designated as
+// the transparent colour. We use fully-saturated magenta as a chroma key —
+// it is vanishingly unlikely to appear in user SVGs and visually distinct
+// from every common UI colour, so it never accidentally hides real content.
+const CHROMA_KEY_HEX = '#FF00FF'
+const CHROMA_KEY_NUM = 0xFF00FF
 
 // ── Public API ────────────────────────────────────────────────
 
@@ -94,7 +100,7 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
   // ── Encode ─────────────────────────────────────────────────
   onProgress?.(80)
 
-  const blob = await encodeGif(frames, frameDelay, W, H, (p) => {
+  const blob = await encodeGif(frames, frameDelay, W, H, background === 'transparent', (p) => {
     onProgress?.(80 + Math.round(p * 20)) // 80-100% for encode
   })
 
@@ -134,15 +140,12 @@ function svgToCanvas(
         canvas.width = W
         canvas.height = H
         const ctx = canvas.getContext('2d')!
-        // Only fill a background colour when the caller wants one.
-        // Skipping the fill leaves the canvas transparent (RGBA 0,0,0,0) so
-        // SVGs that carry their own background rect render correctly, and SVGs
-        // with no background get whatever the GIF viewer uses for transparent
-        // pixels (typically white — but that is the viewer's choice, not ours).
-        if (background !== 'transparent') {
-          ctx.fillStyle = background
-          ctx.fillRect(0, 0, W, H)
-        }
+        // Fill the canvas before drawing the SVG frame.
+        // 'transparent' → use the chroma key so gif.js can mark those pixels
+        // as transparent in the palette (GIF has no alpha channel).
+        // Any other value is used directly as the visible background colour.
+        ctx.fillStyle = background === 'transparent' ? CHROMA_KEY_HEX : background
+        ctx.fillRect(0, 0, W, H)
         ctx.drawImage(img, 0, 0, W, H)
         URL.revokeObjectURL(url)
         resolve(canvas)
@@ -166,6 +169,7 @@ function encodeGif(
   delay: number,
   W: number,
   H: number,
+  transparent: boolean,
   onProgress?: (pct: number) => void
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -176,6 +180,10 @@ function encodeGif(
       height: H,
       workerScript: GIF_WORKER_LOCAL,
       repeat: 0,
+      // When transparent, designate the chroma-key colour as the GIF palette
+      // entry for transparency. gif.js maps pixels of exactly this colour to
+      // the transparent index so they show through in supporting viewers.
+      transparent: transparent ? CHROMA_KEY_NUM : null,
     })
 
     frames.forEach(canvas => gif.addFrame(canvas, { delay, copy: true }))
