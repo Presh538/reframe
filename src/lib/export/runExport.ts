@@ -44,7 +44,7 @@ export async function runExport({
   try {
     if (format === 'gif') {
       const { exportGif } = await import('./gif')
-      const blob = await exportGif({ svgEl, onProgress })
+      const blob = await exportGif({ svgEl, onProgress, background: 'transparent' })
       triggerDownload(blob, `reframe-${preset.id}.gif`)
       onSuccess('GIF downloaded ✓')
 
