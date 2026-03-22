@@ -4,6 +4,7 @@ import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import { AnimatePresence } from 'motion/react'
 import { PreviewStage } from './PreviewStage'
+import { useEditorStore, selectSvgReady } from '@/lib/store/editor'
 
 // Lazy-load TopBar — motion/react + IconBounce + Zustand bundle, not needed for initial paint
 const TopBar = dynamic(() => import('./TopBar').then(m => ({ default: m.TopBar })), { ssr: false })
@@ -19,11 +20,13 @@ type ActiveTab = 'presets' | 'smoothing'
 
 export function EditorLayout() {
   const [activeTab, setActiveTab] = useState<ActiveTab | null>(null)
+  const svgReady = useEditorStore(selectSvgReady)
 
   const handleTabChange = (tab: ActiveTab) => {
     setActiveTab(prev => prev === tab ? null : tab)
   }
 
+  // Close any open panel when the SVG is cleared
   const closePanel = () => setActiveTab(null)
 
   return (
@@ -31,7 +34,7 @@ export function EditorLayout() {
       {/* Full-canvas preview */}
       <PreviewStage />
 
-      {/* Floating UI layers */}
+      {/* TopBar — always visible; handles empty state internally */}
       <TopBar
         activeTab={activeTab ?? 'presets'}
         onTabChange={handleTabChange}
@@ -43,7 +46,9 @@ export function EditorLayout() {
         {activeTab === 'smoothing' && <SmoothingPanel key="smoothing" onClose={closePanel} />}
       </AnimatePresence>
 
-      <BottomBar />
+      <AnimatePresence>
+        {svgReady && <BottomBar key="bottombar" />}
+      </AnimatePresence>
     </div>
   )
 }

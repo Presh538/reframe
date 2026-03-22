@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { clsx } from 'clsx'
 import { IconBounce, type IconAnimType } from '@/components/ui/IconBounce'
-import { useEditorStore, selectCanExport } from '@/lib/store/editor'
+import { useEditorStore, selectCanExport, selectSvgReady } from '@/lib/store/editor'
 import { runExport } from '@/lib/export/runExport'
 import { SPRING } from '@/lib/motion'
 import { useToast } from '@/components/ui/Toast'
@@ -29,6 +29,7 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
   const activePresetId = useEditorStore(s => s.activePresetId)
   const params         = useEditorStore(s => s.params)
   const canExport      = useEditorStore(selectCanExport)
+  const svgReady       = useEditorStore(selectSvgReady)
   const svgFileName    = useEditorStore(s => s.svgFileName)
   const setFormat      = useEditorStore(s => s.setFormat)
   const setExportState = useEditorStore(s => s.setExportState)
@@ -56,7 +57,7 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
 
   return (
     <motion.div
-      className="absolute top-0 left-0 right-0 flex items-start justify-between px-4 pt-6 pointer-events-none z-30"
+      className="absolute top-0 left-0 right-0 grid grid-cols-3 items-start px-4 pt-6 pointer-events-none z-30"
       initial={{ opacity: 0, y: -14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ ...SPRING.entrance, delay: 0.03 }}
@@ -127,37 +128,48 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
         </div>
       </div>
 
-      {/* ── Centre tabs — Figma 297:5431 "Animation" ─────────────
-           outer: rgba(251,251,251,0.6), radius: 74px, px-8 py-6
-           each pill: rgba(255,255,255,0.6), border-white, radius 34px  */}
-      <div className="pointer-events-auto absolute left-1/2 -translate-x-1/2 top-6">
-        <div
-          className="flex items-center px-[6px] py-[5px] backdrop-blur-md gap-[6px]"
-          style={{ borderRadius: 74, background: 'rgba(251,251,251,0.6)' }}
-        >
-          <TabBtn
-            active={activeTab === 'presets'}
-            onClick={() => onTabChange('presets')}
-            icon={<PresetsIcon />}
-            iconAnim="pop"
+      {/* ── Centre tabs — hidden until an SVG is loaded ───────────*/}
+      <div className="flex justify-center">
+      <AnimatePresence>
+        {svgReady && (
+          <motion.div
+            key="centre-tabs"
+            className="pointer-events-auto"
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0,   scale: 1 }}
+            exit={{    opacity: 0, y: -10, scale: 0.95 }}
+            transition={{ ...SPRING.entrance }}
           >
-            Presets
-          </TabBtn>
-          <TabBtn
-            active={activeTab === 'smoothing'}
-            onClick={() => onTabChange('smoothing')}
-            icon={<SmoothingIcon />}
-            iconAnim="squeeze"
-          >
-            Easing
-          </TabBtn>
-        </div>
+            <div
+              className="flex items-center px-[6px] py-[5px] backdrop-blur-md gap-[6px]"
+              style={{ borderRadius: 74, background: 'rgba(251,251,251,0.6)' }}
+            >
+              <TabBtn
+                active={activeTab === 'presets'}
+                onClick={() => onTabChange('presets')}
+                icon={<PresetsIcon />}
+                iconAnim="pop"
+              >
+                Presets
+              </TabBtn>
+              <TabBtn
+                active={activeTab === 'smoothing'}
+                onClick={() => onTabChange('smoothing')}
+                icon={<SmoothingIcon />}
+                iconAnim="squeeze"
+              >
+                Easing
+              </TabBtn>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       </div>
 
       {/* ── Export — Figma 297:5619 ───────────────────────────────
            bg: #3f37c9, radius: 74px, px-18 py-16
            icon + label + chevron, all white                       */}
-      <div className="pointer-events-auto relative">
+      <div className="pointer-events-auto relative flex justify-end">
         <motion.div
           className="flex items-center gap-[6px] px-[14px] py-[9px] backdrop-blur-sm cursor-pointer"
           style={{
