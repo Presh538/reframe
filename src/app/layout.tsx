@@ -74,6 +74,11 @@ export const metadata: Metadata = {
     images: [OG_IMAGE],
   },
 
+  // ── Google Search Console verification ──────────────────────────
+  verification: {
+    google: 'google49b892ae08a2d470',
+  },
+
   // ── Icons ────────────────────────────────────────────────────────
   icons: {
     icon: [
