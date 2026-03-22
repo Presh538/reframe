@@ -57,7 +57,7 @@ export async function runExport({
     } else if (format === 'lottie') {
       const { exportLottie } = await import('./lottie')
       exportLottie(svgEl, preset, params)
-      onSuccess('Lottie JSON exported ✓')
+      onSuccess('Lottie exported ✓')
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Export failed'

@@ -165,7 +165,7 @@ export function injectKeyframes(svgEl: SVGSVGElement, css: string): void {
  */
 export function animateElement(el: SVGElement, animation: string, origDelay = 0): void {
   el.style.animation = animation
-  el.setAttribute('data-rf-anim', '1')
+  el.setAttribute('data-rf-anim', animation)
   // Store the delay so GIF exporter can step to arbitrary frames
   el.setAttribute('data-rf-delay', String(origDelay))
 }

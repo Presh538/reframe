@@ -8,7 +8,7 @@ import type { ExportFormat } from '@/types'
 
 const FORMAT_OPTIONS: { value: ExportFormat; label: string; tier: 'free' | 'pro' }[] = [
   { value: 'gif',    label: 'GIF',    tier: 'free' },
-  { value: 'lottie', label: 'Lottie', tier: 'pro' },
+  // { value: 'lottie', label: 'Lottie', tier: 'pro' },
   { value: 'css',    label: 'CSS',    tier: 'pro' },
 ]
 
@@ -72,11 +72,10 @@ export function ExportPanel() {
       </div>
 
       <div className="p-3 space-y-2.5">
-        {/* Lottie Phase-1 disclaimer — the exported JSON has correct structure but
-            static transforms only. Real keyframe data is a Phase 2 / Pro feature. */}
+        {/* Lottie phase text */}
         {format === 'lottie' && (
           <p className="text-[10px] leading-[14px] text-muted bg-surface-2 rounded px-2 py-1.5">
-            <span className="font-semibold text-warning">Note:</span> Lottie export is a Phase 1 preview — the file contains correct structure and layer metadata but <span className="font-medium">no animated keyframes</span>. Import it as a static placeholder or use it as a starting point in your animation tool.
+            <span className="font-semibold text-warning">Note:</span> Lottie export now includes full layer-level transform keyframes (scale, opacity, rotate, translate). <span className="font-medium">Shape-level path animation (drawing lines/morphing)</span> is coming soon.
           </p>
         )}
 

@@ -194,7 +194,7 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
             className="whitespace-nowrap"
             style={{ fontFamily: 'var(--font-geist-sans), sans-serif', fontWeight: 500, fontSize: 14, lineHeight: '20px', color: 'white' }}
           >
-            {exportState.isRunning ? exportLabel : canExport ? exportLabel : 'Export GIF'}
+            {exportLabel}
           </span>
 
           {/* Dropdown chevron — opens format picker */}
