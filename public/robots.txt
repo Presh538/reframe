@@ -1,7 +1,7 @@
 # Allow all crawlers by default
 User-agent: *
 Allow: /
-Sitemap: https://reframe.so/sitemap.xml
+Sitemap: https://reframeo.com/sitemap.xml
 
 # ── AI search crawlers — explicitly welcomed ──────────────────
 

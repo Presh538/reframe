@@ -6,7 +6,7 @@ import { ToastProvider } from '@/components/ui/Toast'
 import { MobileGate } from '@/components/ui/MobileGate'
 import './globals.css'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://reframe.so'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://reframeo.com'
 const APP_NAME = 'Reframe'
 const TITLE = 'Reframe — Free SVG Animator Online'
 const DESCRIPTION =
