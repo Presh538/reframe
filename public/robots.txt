@@ -1,0 +1,49 @@
+# Allow all crawlers by default
+User-agent: *
+Allow: /
+Sitemap: https://reframe.so/sitemap.xml
+
+# ── AI search crawlers — explicitly welcomed ──────────────────
+
+# ChatGPT / OpenAI
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+# Perplexity
+User-agent: PerplexityBot
+Allow: /
+
+# Anthropic / Claude
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+# Common Crawl (used by many AI training sets)
+User-agent: CCBot
+Allow: /
+
+# Google AI / Bard / Gemini
+User-agent: Google-Extended
+Allow: /
+
+# Apple (Siri / Spotlight)
+User-agent: Applebot
+Allow: /
+
+# Microsoft Bing / Copilot
+User-agent: bingbot
+Allow: /
+
+User-agent: msnbot
+Allow: /

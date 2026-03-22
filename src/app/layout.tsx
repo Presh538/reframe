@@ -8,9 +8,11 @@ import './globals.css'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://reframe.so'
 const APP_NAME = 'Reframe'
-const TITLE = 'Reframe — Animate your SVGs in seconds'
+const TITLE = 'Reframe — Free SVG Animator Online'
 const DESCRIPTION =
-  'Upload your SVG, pick from 30+ animation presets, fine-tune speed and timing, and export as GIF or Lottie. No code. No After Effects. Just instant motion.'
+  'The easiest SVG animator online. Upload any SVG, pick from 30+ animation presets, fine-tune speed and easing, then export as GIF, CSS, or Lottie JSON. No code, no After Effects — just instant motion in seconds.'
+
+const OG_IMAGE = 'https://ik.imagekit.io/legacystudio/Reframe/Meta%20Image.png'
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -22,17 +24,24 @@ export const metadata: Metadata = {
   description: DESCRIPTION,
   applicationName: APP_NAME,
   keywords: [
-    'SVG animation',
     'SVG animator',
-    'animate SVG',
-    'Lottie export',
-    'GIF export',
-    'motion design',
-    'design tool',
-    'no-code animation',
+    'SVG animation online',
+    'animate SVG online',
+    'free SVG animation tool',
     'SVG to GIF',
     'SVG to Lottie',
-    'web animation',
+    'SVG to CSS animation',
+    'Lottie JSON export',
+    'GIF export',
+    'CSS animation generator',
+    'no-code animation',
+    'logo animation',
+    'icon animation',
+    'motion design tool',
+    'web animation tool',
+    'animate logo SVG',
+    'SVG motion',
+    'Lottie creator',
   ],
   authors: [{ name: APP_NAME, url: APP_URL }],
   creator: APP_NAME,
@@ -48,10 +57,10 @@ export const metadata: Metadata = {
     locale: 'en_US',
     images: [
       {
-        url: 'https://ik.imagekit.io/legacystudio/Reframe/Meta%20Image.png',
+        url: OG_IMAGE,
         width: 2400,
         height: 1260,
-        alt: 'Reframe — Animate your SVGs in seconds',
+        alt: 'Reframe — Free SVG Animator Online',
         type: 'image/png',
       },
     ],
@@ -62,7 +71,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: TITLE,
     description: DESCRIPTION,
-    images: ['https://ik.imagekit.io/legacystudio/Reframe/Meta%20Image.png'],
+    images: [OG_IMAGE],
   },
 
   // ── Icons ────────────────────────────────────────────────────────
@@ -99,6 +108,41 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: APP_NAME,
+  url: APP_URL,
+  description: DESCRIPTION,
+  applicationCategory: 'DesignApplication',
+  applicationSubCategory: 'SVG Animation Tool',
+  operatingSystem: 'Web',
+  browserRequirements: 'Requires JavaScript. Works in all modern browsers.',
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+  },
+  screenshot: OG_IMAGE,
+  image: OG_IMAGE,
+  featureList: [
+    '30+ animation presets',
+    'Export animated SVG as GIF',
+    'Export as CSS animation',
+    'Export as Lottie JSON',
+    'Transparent background GIF',
+    'No code required',
+    'Drag and drop SVG upload',
+    'Speed and easing controls',
+    'Per-element animation targeting',
+  ],
+  author: {
+    '@type': 'Organization',
+    name: APP_NAME,
+    url: APP_URL,
+  },
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -107,6 +151,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={GeistSans.variable}>
       <body className={GeistSans.className}>
+        {/* JSON-LD — structured data for Google rich results and AI search tools */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <MobileGate />
         <ToastProvider>{children}</ToastProvider>
         <Analytics />
