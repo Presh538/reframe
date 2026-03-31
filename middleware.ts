@@ -24,27 +24,11 @@ export function middleware(request: NextRequest) {
     'camera=(), microphone=(), geolocation=(), payment=()'
   )
 
-  // Content Security Policy
-  headers.set(
-    'Content-Security-Policy',
-    [
-      "default-src 'self'",
-      // Allow inline styles (Tailwind + injected SVG animations)
-      "style-src 'self' 'unsafe-inline'",
-      // Scripts: self only — gif.js is bundled via npm, worker served from /public
-      "script-src 'self' 'unsafe-eval'",
-      // Worker: blob: for gif.js web worker + self for /public/gif.worker.js
-      "worker-src blob: 'self'",
-      // Images: self, data URIs (canvas export), blob: (download links)
-      "img-src 'self' data: blob: https://ik.imagekit.io",
-      // Vercel Analytics + Speed Insights send data to vitals.vercel-insights.com
-      "connect-src 'self' https://vitals.vercel-insights.com",
-      "font-src 'self'",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join('; ')
-  )
+  // NOTE: Content-Security-Policy is set in next.config.mjs headers() where it
+  // can be environment-aware (dev needs 'unsafe-eval' + ws:// for HMR; production
+  // needs 'unsafe-inline' for Next.js inline RSC flight data scripts). Setting it
+  // here too causes the middleware header to override the config header in
+  // production, stripping 'unsafe-inline' and blocking Next.js hydration.
 
   // ── API-specific guards ───────────────────────────────────
   if (request.nextUrl.pathname.startsWith('/api/')) {
