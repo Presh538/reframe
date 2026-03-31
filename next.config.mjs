@@ -33,7 +33,7 @@ const nextConfig = {
 
     const connectSrc = isDev
       ? "connect-src 'self' ws://localhost:* wss://localhost:*"
-      : "connect-src 'self'"
+      : "connect-src 'self' https://vitals.vercel-insights.com"
 
     return [
       {
@@ -71,6 +71,7 @@ const nextConfig = {
               "font-src 'self'",
               "worker-src 'self' blob:",
               "frame-ancestors 'none'",
+              "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",
             ].join('; '),
