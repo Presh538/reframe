@@ -80,16 +80,11 @@ const nextConfig = {
     ]
   },
 
-  // NOTE: serverActions.bodySizeLimit only applies to Server Actions — NOT to
-  // App Router API route handlers like /api/validate-svg. It is kept here for
-  // any future Server Actions in this project.
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '50mb',
-    },
-  },
+  // Turbopack (default in Next.js 16) — no extra config needed for this app.
+  // The webpack fallback below is kept for webpack-mode compatibility.
+  turbopack: {},
 
-  // Webpack: handle gif.js worker file correctly
+  // Webpack: handle gif.js worker file correctly (used when --webpack flag is passed)
   webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,
