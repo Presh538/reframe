@@ -153,13 +153,18 @@ function EmptyState({ onFileSelected }: EmptyStateProps) {
 
 function Popover({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{
-      position: 'fixed',
-      bottom: 72,
-      left: '50%',
-      transform: 'translateX(-50%)',
-      zIndex: 100,
-    }}>
+    <div
+      // Stop mousedown from bubbling to the document-level click-outside handler,
+      // which would otherwise close this popover the moment the user touches a slider.
+      onMouseDown={e => e.stopPropagation()}
+      style={{
+        position: 'fixed',
+        bottom: 72,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 100,
+      }}
+    >
       <motion.div
         initial={{ opacity: 0, y: 12, scale: 0.90, filter: 'blur(8px)' }}
         animate={{ opacity: 1, y: 0,  scale: 1,    filter: 'blur(0px)' }}
