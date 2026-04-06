@@ -9,7 +9,7 @@ import { validateSvgFile, sanitizeSvgClient, normalizeSvgElement, extractLayerIn
 import { useToast } from '@/components/ui/Toast'
 
 const ZOOM_MIN = 0.1
-const ZOOM_MAX = 4        // SVGs are vectors — upscaling is lossless
+const ZOOM_MAX = 1        // Cap at 100% — preview fits the SVG at native size
 const ZOOM_FACTOR = 1.08  // per scroll tick
 
 export function PreviewStage() {

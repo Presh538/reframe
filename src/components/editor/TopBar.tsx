@@ -16,13 +16,31 @@ const FORMATS: { value: ExportFormat; label: string }[] = [
   { value: 'lottie', label: 'Export Lottie' },
 ]
 
+// 3D export options — GIF turntable + embed code (SVG only)
+const FORMATS_3D = [
+  { value: 'gif'   as const, label: 'Export GIF'  },
+  { value: 'embed' as const, label: 'Copy Code'    },
+]
+type Format3D = 'gif' | 'embed'
+
 interface TopBarProps {
   activeTab: 'presets' | 'smoothing'
   onTabChange: (tab: 'presets' | 'smoothing') => void
+  appMode?: 'animate' | '3d'
+  onExport3D?: () => void
+  onCopyEmbed3D?: () => void
+  canExport3D?: boolean
+  asset3dFileName?: string
+  asset3dKind?: 'svg' | 'image'
+  onChangeFile3D?: () => void
 }
 
-export function TopBar({ activeTab, onTabChange }: TopBarProps) {
-  const [formatOpen, setFormatOpen] = useState(false)
+export function TopBar({
+  activeTab, onTabChange, appMode = 'animate',
+  onExport3D, onCopyEmbed3D, canExport3D, asset3dFileName, asset3dKind, onChangeFile3D
+}: TopBarProps) {
+  const [formatOpen,   setFormatOpen]   = useState(false)
+  const [format3d,     setFormat3d]     = useState<Format3D>('gif')
 
   const format         = useEditorStore(s => s.format)
   const exportState    = useEditorStore(s => s.export)
@@ -38,22 +56,41 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
   const { toast } = useToast()
 
   const handleExport = async () => {
-    if (!canExport || !activePresetId) return
-    setExportState({ isRunning: true, progress: 0, error: null })
-    await runExport({
-      format,
-      activePresetId,
-      params,
-      onProgress: (p) => setExportState({ progress: p }),
-      onError:    (msg) => { setExportState({ error: msg }); toast(msg, 'error') },
-      onSuccess:  (msg) => toast(msg, 'success'),
-    })
-    setExportState({ isRunning: false, progress: 0 })
+    if (appMode === 'animate') {
+      if (!canExport || !activePresetId) return
+      setExportState({ isRunning: true, progress: 0, error: null })
+      await runExport({
+        format,
+        activePresetId,
+        params,
+        onProgress: (p) => setExportState({ progress: p }),
+        onError:    (msg) => { setExportState({ error: msg }); toast(msg, 'error') },
+        onSuccess:  (msg) => toast(msg, 'success'),
+      })
+      setExportState({ isRunning: false, progress: 0 })
+    } else {
+      if (!canExport3D) return
+      if (format3d === 'embed') onCopyEmbed3D?.()
+      else                      onExport3D?.()
+    }
   }
 
   const exportLabel = exportState.isRunning
     ? 'Processing'
-    : `Export ${format.toUpperCase()}`
+    : appMode === '3d'
+      ? (format3d === 'embed' ? 'Copy Code' : 'Export GIF')
+      : `Export ${format.toUpperCase()}`
+
+  const displayFileName  = appMode === 'animate' ? svgFileName  : asset3dFileName
+  const displayCanExport = appMode === 'animate' ? canExport    : canExport3D
+
+  const handleChangeBtn = () => {
+    if (appMode === 'animate') {
+      document.querySelector<HTMLInputElement>('input[type="file"][accept*="svg"]')?.click()
+    } else {
+      onChangeFile3D?.()
+    }
+  }
 
   return (
     <motion.div
@@ -68,14 +105,14 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
            logo (spinning) | divider | file icon + name + Change  */}
       <div className="pointer-events-auto">
         <div
-          className="flex items-center gap-[10px] px-[10px] py-[9px] backdrop-blur-md"
+          className="inline-flex items-center gap-[10px] px-[10px] py-[9px] backdrop-blur-md"
           style={{ borderRadius: 34, background: 'rgba(229,229,229,0.60)' }}
         >
           {/* Reframe logo mark — spins continuously */}
           <ReframeLogo />
 
           {/* File info — only when a file is loaded */}
-          {svgFileName && (
+          {displayFileName && (
             <>
               {/* Vertical divider */}
               <div style={{ width: 1, height: 20, background: 'rgba(0,0,0,0.1)', flexShrink: 0 }} />
@@ -96,13 +133,13 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                 }}>
-                  {svgFileName}
+                  {displayFileName}
                 </span>
               </div>
 
-              {/* Change button — opens the file picker in PreviewStage */}
+              {/* Change button — opens the file picker in PreviewStage or ThreeDMode */}
               <button
-                onClick={() => document.querySelector<HTMLInputElement>('input[type="file"][accept*="svg"]')?.click()}
+                onClick={handleChangeBtn}
                 style={{
                   background: 'rgba(63,55,201,0.05)',
                   borderRadius: 34,
@@ -128,10 +165,10 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
         </div>
       </div>
 
-      {/* ── Centre tabs — hidden until an SVG is loaded ───────────*/}
+      {/* ── Centre tabs — shown when file loaded in either mode ──────*/}
       <div className="flex justify-center">
       <AnimatePresence>
-        {svgReady && (
+        {((svgReady && appMode === 'animate') || (canExport3D && appMode === '3d')) && (
           <motion.div
             key="centre-tabs"
             className="pointer-events-auto"
@@ -175,12 +212,12 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
           style={{
             borderRadius: 74,
             background: '#3f37c9',
-            opacity: canExport ? 1 : 0.45,
-            cursor: canExport && !exportState.isRunning ? 'pointer' : canExport ? 'default' : 'not-allowed',
+            opacity: displayCanExport ? 1 : 0.45,
+            cursor: displayCanExport && !exportState.isRunning ? 'pointer' : displayCanExport ? 'default' : 'not-allowed',
             transition: 'opacity 0.2s',
           }}
-          onClick={canExport && !exportState.isRunning ? handleExport : undefined}
-          whileHover={canExport ? { scale: 1.02 } : undefined}
+          onClick={displayCanExport && !exportState.isRunning ? handleExport : undefined}
+          whileHover={displayCanExport ? { scale: 1.02 } : undefined}
         >
           {/* Spinner — SVG animateTransform is independent of CSS / Framer Motion */}
           {exportState.isRunning && (
@@ -209,7 +246,7 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
             {exportLabel}
           </span>
 
-          {/* Dropdown chevron — opens format picker */}
+          {/* Dropdown chevron — opens format picker (Animate mode + 3D mode) */}
           <div
             className="w-[16px] h-[16px] flex items-center justify-center flex-shrink-0"
             onClick={e => { e.stopPropagation(); setFormatOpen(o => !o) }}
@@ -220,9 +257,9 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
           </div>
         </motion.div>
 
-        {/* Format dropdown */}
+        {/* Format dropdown — Animate mode */}
         <AnimatePresence>
-          {formatOpen && (
+          {formatOpen && appMode === 'animate' && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setFormatOpen(false)} />
               <motion.div
@@ -250,6 +287,45 @@ export function TopBar({ activeTab, onTabChange }: TopBarProps) {
                     {fmt.label}
                   </motion.button>
                 ))}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Format dropdown — 3D mode */}
+        <AnimatePresence>
+          {formatOpen && appMode === '3d' && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setFormatOpen(false)} />
+              <motion.div
+                className="absolute right-0 top-[calc(100%+8px)] bg-white border border-[#e5e5e5] rounded-2xl shadow-xl overflow-hidden min-w-[160px] z-50"
+                initial={{ opacity: 0, scale: 0.90, y: -8, filter: 'blur(6px)' }}
+                animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, scale: 0.95, y: -4, filter: 'blur(3px)' }}
+                transition={SPRING.dropdown}
+                style={{ transformOrigin: 'top right' }}
+              >
+                {FORMATS_3D
+                  // Hide "Copy Code" if not an SVG asset (embed only works for SVG)
+                  .filter(fmt => fmt.value !== 'embed' || asset3dKind === 'svg')
+                  .map((fmt, idx) => (
+                    <motion.button
+                      key={fmt.value}
+                      onClick={() => { setFormat3d(fmt.value); setFormatOpen(false) }}
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ ...SPRING.stagger, delay: idx * 0.05 }}
+                      className={clsx(
+                        'w-full text-left px-4 py-2.5 text-[14px] font-medium transition-colors block',
+                        format3d === fmt.value
+                          ? 'text-[#3f37c9] bg-[#3f37c9]/8'
+                          : 'text-[#545454] hover:bg-[#f5f5f5]'
+                      )}
+                    >
+                      {fmt.label}
+                    </motion.button>
+                  ))
+                }
               </motion.div>
             </>
           )}

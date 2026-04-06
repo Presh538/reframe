@@ -8,11 +8,14 @@
 
 import { Suspense } from 'react'
 import { EditorLayout } from '@/components/editor/EditorLayout'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 
 export default function EditorPage() {
   return (
-    <Suspense>
-      <EditorLayout />
-    </Suspense>
+    <ErrorBoundary>
+      <Suspense>
+        <EditorLayout />
+      </Suspense>
+    </ErrorBoundary>
   )
 }

@@ -41,18 +41,29 @@ export function middleware(request: NextRequest) {
       )
     }
 
-    // CORS: only allow same-origin for API routes in production
+    // CORS: only allow same-origin for API routes in production.
+    // Use URL hostname comparison instead of raw string equality so that
+    // values like "https://reframeo.com.attacker.com" cannot spoof the check
+    // by sharing a prefix with NEXT_PUBLIC_APP_URL.
     const origin = request.headers.get('origin')
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-    if (
-      process.env.NODE_ENV === 'production' &&
-      origin &&
-      origin !== appUrl
-    ) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Forbidden' }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
-      )
+    if (process.env.NODE_ENV === 'production' && origin && appUrl) {
+      try {
+        const originHostname = new URL(origin).hostname
+        const appHostname    = new URL(appUrl).hostname
+        if (originHostname !== appHostname) {
+          return new NextResponse(
+            JSON.stringify({ error: 'Forbidden' }),
+            { status: 403, headers: { 'Content-Type': 'application/json' } }
+          )
+        }
+      } catch {
+        // Malformed origin or appUrl — reject as a precaution
+        return new NextResponse(
+          JSON.stringify({ error: 'Forbidden' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
     }
   }
 
