@@ -669,21 +669,54 @@ export const SceneRenderer = forwardRef<SceneRendererRef, SceneRendererProps>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [asset.kind, asset.data, depth, materialStyle])
 
-    // ── GIF: 360° turntable ───────────────────────────────────────
+    // ── GIF: motion-aware export ──────────────────────────────────
+    //
+    // Captures one complete cycle of the active motion type so the exported
+    // GIF loops seamlessly.  Each motion type defines a natural period (in
+    // the same "t-tick" units the live animate() loop uses); we spread
+    // `frames` evenly across that period so the last frame == first frame.
+    //
+    //  spin    → 360° Y-rotation turntable (unchanged)
+    //  float   → sine-wave Y bob,        period = 2π / 0.9  ≈ 6.98 ticks
+    //  sway    → pendulum Z/X rotation,  period = 2π / 0.65 ≈ 9.67 ticks
+    //  breathe → rhythmic scale pulse,   period = 2π / 1.3  ≈ 4.83 ticks
+    //  wobble  → multi-axis drift,       period driven by slowest freq (0.53)
+    //
     const captureGIF = useCallback(
       (frames: number, fps: number, onProgress: (p: number) => void): Promise<Blob> =>
         new Promise((resolve, reject) => {
           const state = stateRef.current
           if (!state) return reject(new Error('Scene not initialised'))
 
-          const { renderer, scene, camera, controls, group } = state
+          const {
+            renderer, scene, camera, controls, group,
+            origGroupPos, origGroupScale, objectSize,
+          } = state
+
           cancelAnimationFrame(state.rafId)
           controls.enabled    = false
           const wasAutoRotate = controls.autoRotate
           controls.autoRotate = false
 
-          const savedRotY = group.rotation.y
-          const canvas    = renderer.domElement
+          // Save current group state — restored after encoding
+          const savedPos   = group.position.clone()
+          const savedScale = group.scale.clone()
+          const savedRot   = group.rotation.clone()
+
+          const mtype      = motionTypeRef.current
+          const mScale     = Math.max(objectSize.x, objectSize.y) * 0.04
+
+          // One-cycle t-range for each procedural motion type.
+          // t starts at 0 so frame[0] matches the resting pose and
+          // frame[frames-1] returns to it, giving a perfect loop.
+          const cycleTRange: Record<Exclude<MotionType, 'spin'>, number> = {
+            float:   (2 * Math.PI) / 0.9,   // ≈ 6.98 ticks
+            sway:    (2 * Math.PI) / 0.65,  // ≈ 9.67 ticks
+            breathe: (2 * Math.PI) / 1.3,   // ≈ 4.83 ticks
+            wobble:  (2 * Math.PI) / 0.53,  // ≈ 11.85 ticks (slowest freq)
+          }
+
+          const canvas = renderer.domElement
 
           const gif = new GIF({
             workers: 2,
@@ -694,15 +727,60 @@ export const SceneRenderer = forwardRef<SceneRendererRef, SceneRendererProps>(
           })
 
           const delay = Math.round(1000 / fps)
+
           for (let i = 0; i < frames; i++) {
-            group.rotation.y = (i / frames) * Math.PI * 2
+            // Reset group to its resting transform each frame so the
+            // individual motion branches only need to write their delta.
+            group.position.copy(origGroupPos)
+            group.scale.copy(origGroupScale)
+            group.rotation.set(0, 0, 0)
+
+            if (mtype === 'spin') {
+              // Full 360° Y-rotation turntable — identical to original behaviour
+              group.rotation.y = (i / frames) * Math.PI * 2
+            } else {
+              // Sample one complete cycle of the procedural motion
+              const T = cycleTRange[mtype]
+              const t = (i / frames) * T   // t ∈ [0, T)
+
+              switch (mtype) {
+                case 'float':
+                  group.position.y += Math.sin(t * 0.9) * mScale
+                  break
+
+                case 'sway':
+                  group.rotation.z = Math.sin(t * 0.65) * 0.14
+                  group.rotation.x = Math.sin(t * 0.65) * 0.03
+                  break
+
+                case 'breathe': {
+                  const s = 1 + Math.sin(t * 1.3) * 0.035
+                  group.scale.set(
+                    origGroupScale.x * s,
+                    origGroupScale.y * s,
+                    origGroupScale.z * s,
+                  )
+                  break
+                }
+
+                case 'wobble':
+                  group.rotation.x = Math.sin(t * 0.71 + 1.3) * 0.09
+                  group.rotation.y = Math.sin(t * 0.53 + 0.7) * 0.13
+                  group.rotation.z = Math.sin(t * 0.89 + 2.1) * 0.07
+                  break
+              }
+            }
+
             renderer.render(scene, camera)
             gif.addFrame(canvas, { copy: true, delay })
             onProgress(i / frames)
           }
 
           gif.on('finished', (blob: Blob) => {
-            group.rotation.y    = savedRotY
+            // Restore the group to where it was before the export
+            group.position.copy(savedPos)
+            group.scale.copy(savedScale)
+            group.rotation.copy(savedRot)
             controls.enabled    = true
             controls.autoRotate = wasAutoRotate
             const s = stateRef.current

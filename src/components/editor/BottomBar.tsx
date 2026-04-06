@@ -15,7 +15,6 @@ import {
 
 type ActiveControl = 'speed' | 'delay' | 'loop' | 'direction' | 'target' | null
 
-const SPEED_OPTIONS = [0.5, 0.75, 1, 1.5, 2.5] as const
 
 // Shared styles matching Figma 297:5439 "Edit Tools"
 const pillStyle: React.CSSProperties = {
@@ -114,49 +113,7 @@ export function BottomBar() {
       <AnimatePresence>
         {active === 'speed' && (
           <Popover key="speed" bare>
-            <div style={{
-              display: 'flex',
-              gap: 4,
-              padding: 8,
-              borderRadius: 14,
-              background: 'rgba(251,251,251,0.72)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.06)',
-            }}>
-              {SPEED_OPTIONS.map((val, idx) => {
-                const sel = params.speed === val
-                return (
-                  <motion.button
-                    key={val}
-                    onClick={() => { set('speed')(val); setActive(null) }}
-                    initial={{ opacity: 0, y: 6, scale: 0.88 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ ...SPRING.stagger, delay: idx * 0.04 }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: 8,
-                      borderRadius: 8,
-                      border: 'none',
-                      background: sel ? '#eeeeee' : 'transparent',
-                      cursor: 'pointer',
-                      fontFamily: 'var(--font-geist-sans), sans-serif',
-                      fontWeight: 500,
-                      fontSize: 14,
-                      lineHeight: '20px',
-                      color: sel ? '#000' : '#545454',
-                      whiteSpace: 'nowrap',
-                      transition: 'background 0.1s',
-                    }}
-                  >
-                    <SpeedometerIcon color={sel ? '#3f37c9' : '#afafaf'} />
-                    {val}x
-                  </motion.button>
-                )
-              })}
-            </div>
+            <SpeedSlider value={params.speed} onChange={set('speed')} />
           </Popover>
         )}
         {active === 'delay' && (
@@ -681,42 +638,56 @@ const TARGET_OPTIONS: ChipOption[] = [
   },
 ]
 
-// ── Delay Slider ────────────────────────────────────────────────
+// ── Shared slider factory ────────────────────────────────────────
+//
+// Used by both SpeedSlider and DelaySlider. Identical visual design;
+// only the range, step, and value-label differ.
 
-function DelaySlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+function BarSlider({
+  value,
+  min,
+  max,
+  step,
+  formatLabel,
+  onChange,
+}: {
+  value:       number
+  min:         number
+  max:         number
+  step:        number
+  formatLabel: (v: number) => string
+  onChange:    (v: number) => void
+}) {
   const trackRef = useRef<HTMLDivElement>(null)
-  const MIN = 0, MAX = 2, STEP = 0.1
-  const pct = (value - MIN) / (MAX - MIN)
+  const pct      = (value - min) / (max - min)
+  const THUMB_R  = 8
 
   const snap = (raw: number) =>
-    Math.round(Math.max(MIN, Math.min(MAX, raw)) / STEP) * STEP
+    Math.round(Math.max(min, Math.min(max, raw)) / step) * step
 
   const posToValue = (clientX: number) => {
     const track = trackRef.current
     if (!track) return value
-    const rect = track.getBoundingClientRect()
-    const THUMB_R = 8
+    const rect   = track.getBoundingClientRect()
     const usable = rect.width - THUMB_R * 2
-    const ratio = Math.max(0, Math.min(1, (clientX - rect.left - THUMB_R) / usable))
-    return snap(ratio * (MAX - MIN) + MIN)
+    const ratio  = Math.max(0, Math.min(1, (clientX - rect.left - THUMB_R) / usable))
+    return snap(ratio * (max - min) + min)
   }
 
   const startDrag = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault()
     e.stopPropagation()
     onChange(posToValue(e.clientX))
-
     const move = (ev: PointerEvent) => onChange(posToValue(ev.clientX))
-    const up = () => {
+    const up   = () => {
       window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointerup',   up)
     }
     window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
+    window.addEventListener('pointerup',   up)
   }
 
   const f: React.CSSProperties = { fontFamily: 'var(--font-geist-sans), sans-serif' }
-  const THUMB_R = 8
 
   return (
     <motion.div
@@ -734,74 +705,79 @@ function DelaySlider({ value, onChange }: { value: number; onChange: (v: number)
         WebkitBackdropFilter: 'blur(20px)',
         boxShadow: '0 8px 32px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.06)',
         width: 280,
-      }}>
+      }}
+    >
       {/* Track hit area */}
       <div
         ref={trackRef}
         onPointerDown={startDrag}
         style={{
-          flex: 1,
-          height: 28,
-          position: 'relative',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
+          flex: 1, height: 28, position: 'relative',
+          cursor: 'pointer', display: 'flex', alignItems: 'center',
         }}
       >
         {/* Dashed background track */}
         <div style={{
-          position: 'absolute',
-          left: THUMB_R,
-          right: THUMB_R,
+          position: 'absolute', left: THUMB_R, right: THUMB_R,
           height: 4,
           background: 'repeating-linear-gradient(90deg,#d0d0d0 0,#d0d0d0 3px,transparent 3px,transparent 7px)',
           borderRadius: 2,
         }} />
         {/* Filled track */}
         <div style={{
-          position: 'absolute',
-          left: THUMB_R,
+          position: 'absolute', left: THUMB_R,
           width: `calc(${pct * 100}% - ${THUMB_R * 2 * pct}px)`,
-          height: 4,
-          borderRadius: 2,
-          background: '#3f37c9',
+          height: 4, borderRadius: 2, background: '#3f37c9',
         }} />
-        {/* End-cap dot on dashed side */}
+        {/* End-cap dot */}
         <div style={{
-          position: 'absolute',
-          right: THUMB_R - 1,
-          width: 2,
-          height: 4,
-          borderRadius: 1,
-          background: '#afafaf',
+          position: 'absolute', right: THUMB_R - 1,
+          width: 2, height: 4, borderRadius: 1, background: '#afafaf',
         }} />
         {/* Thumb */}
         <div style={{
           position: 'absolute',
           left: `calc(${THUMB_R}px + ${pct} * (100% - ${THUMB_R * 2}px))`,
           transform: 'translateX(-50%)',
-          width: 16,
-          height: 16,
-          borderRadius: '50%',
+          width: 16, height: 16, borderRadius: '50%',
           background: 'white',
           boxShadow: '0 1px 6px rgba(0,0,0,0.18), 0 0 0 1.5px rgba(0,0,0,0.08)',
-          zIndex: 1,
-          pointerEvents: 'none',
+          zIndex: 1, pointerEvents: 'none',
         }} />
       </div>
 
       {/* Value label */}
       <span style={{
-        ...f,
-        fontSize: 14,
-        fontWeight: 500,
-        color: '#545454',
-        minWidth: 34,
-        textAlign: 'right',
-        flexShrink: 0,
+        ...f, fontSize: 14, fontWeight: 500, color: '#545454',
+        minWidth: 36, textAlign: 'right', flexShrink: 0,
       }}>
-        {value.toFixed(1)}s
+        {formatLabel(value)}
       </span>
     </motion.div>
+  )
+}
+
+// ── Speed Slider ─────────────────────────────────────────────────
+
+function SpeedSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  // Format: drop trailing zeros — "1x", "0.5x", "1.25x"
+  const fmt = (v: number) =>
+    `${v % 1 === 0 ? v : parseFloat(v.toFixed(2))}x`
+  return (
+    <BarSlider
+      value={value} min={0.25} max={4} step={0.25}
+      formatLabel={fmt} onChange={onChange}
+    />
+  )
+}
+
+// ── Delay Slider ────────────────────────────────────────────────
+
+function DelaySlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <BarSlider
+      value={value} min={0} max={2} step={0.1}
+      formatLabel={v => `${v.toFixed(1)}s`} onChange={onChange}
+    />
   )
 }

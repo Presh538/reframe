@@ -300,6 +300,7 @@ function Controls({
   return (
     <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
       <motion.div
+        ref={barRef}
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...SPRING.entrance, delay: 0.05 }}
@@ -390,7 +391,6 @@ function Controls({
 
         {/* ── Main bar ── */}
         <div
-          ref={barRef}
           className="flex items-center gap-[6px] px-[6px] py-[5px] backdrop-blur-md"
           style={{ borderRadius: 74, background: 'rgba(251,251,251,0.6)' }}
         >
@@ -479,8 +479,8 @@ function Controls({
               onClick={() => toggle('motion')}
               initial="rest" whileHover="hover"
             >
-              {MOTION_OPTIONS.find(o => o.id === motionType)?.icon ?? <MotionSpinIcon />}
-              {MOTION_OPTIONS.find(o => o.id === motionType)?.label ?? 'Spin'}
+              <MotionIcon color={active === 'motion' || isPlaying ? '#3f37c9' : '#AFAFAF'} />
+              Motion
             </motion.button>
           </Tooltip>
 
@@ -879,6 +879,14 @@ function PauseIcon() {
 }
 
 // ── Motion type icons (shown in pill + popover) ───────────────────
+
+function MotionIcon({ color = '#AFAFAF' }: { color?: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M12 5.5C12 6.88071 10.8807 8 9.5 8C8.11929 8 7 6.88071 7 5.5M12 5.5C12 4.11929 10.8807 3 9.5 3C8.11929 3 7 4.11929 7 5.5M12 5.5H21M7 5.5H3M19 12C19 13.3807 17.8807 14.5 16.5 14.5C15.1193 14.5 14 13.3807 14 12M19 12C19 10.6193 17.8807 9.5 16.5 9.5C15.1193 9.5 14 10.6193 14 12M19 12H21M14 12H3M10 18.5C10 19.8807 8.88071 21 7.5 21C6.11929 21 5 19.8807 5 18.5M10 18.5C10 17.1193 8.88071 16 7.5 16C6.11929 16 5 17.1193 5 18.5M10 18.5H21M5 18.5H3" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
 
 function MotionSpinIcon() {
   return (
