@@ -168,6 +168,82 @@ function buildSvgMeshes(
   return { group, meshes, size }
 }
 
+/**
+ * Preprocess an image data URL before creating a Three.js texture:
+ *
+ *  • If the image has real PNG alpha (transparent background) → already fine,
+ *    just return as-is so alphaTest can clip the empty pixels.
+ *
+ *  • If corners are white/near-white (JPEG or flat-bg PNG) → flood-fill BFS
+ *    from every edge pixel, converting the background to transparent so the
+ *    alpha cutout technique removes it the same way.
+ *
+ * Everything runs on an offscreen canvas — no server round-trip needed.
+ */
+async function preprocessImageAlpha(
+  dataUrl:   string,
+  threshold: number = 30,   // RGB distance from pure white to call "background"
+): Promise<string> {
+  return new Promise(resolve => {
+    const img = new Image()
+    img.onload = () => {
+      const W = img.naturalWidth  || img.width
+      const H = img.naturalHeight || img.height
+      const canvas = document.createElement('canvas')
+      canvas.width  = W
+      canvas.height = H
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })!
+      ctx.drawImage(img, 0, 0)
+
+      const imgData = ctx.getImageData(0, 0, W, H)
+      const d       = imgData.data
+
+      // ── 1. Is there genuine alpha already? ──────────────────────
+      // Sample all four corners; if any are transparent the PNG already
+      // carries an alpha channel — just return it unchanged.
+      const cornerIdxs = [0, (W - 1), (H - 1) * W, (H - 1) * W + (W - 1)]
+      const hasRealAlpha = cornerIdxs.some(i => d[i * 4 + 3] < 200)
+      if (hasRealAlpha) { resolve(dataUrl); return }
+
+      // ── 2. Is the background white/near-white? ───────────────────
+      const nearWhite = (i: number) => d[i*4] > 255-threshold && d[i*4+1] > 255-threshold && d[i*4+2] > 255-threshold
+      const whiteBg   = cornerIdxs.every(nearWhite)
+      if (!whiteBg) { resolve(dataUrl); return }
+
+      // ── 3. BFS flood-fill from every edge pixel ──────────────────
+      const visited = new Uint8Array(W * H)
+      const queue: number[] = []
+
+      const enqueue = (x: number, y: number) => {
+        if (x < 0 || x >= W || y < 0 || y >= H) return
+        const i = y * W + x
+        if (visited[i]) return
+        if (!nearWhite(i)) return
+        visited[i] = 1
+        queue.push(i)
+      }
+
+      // Seed from all four edges
+      for (let x = 0; x < W; x++) { enqueue(x, 0); enqueue(x, H - 1) }
+      for (let y = 1; y < H - 1; y++) { enqueue(0, y); enqueue(W - 1, y) }
+
+      let qi = 0
+      while (qi < queue.length) {
+        const idx = queue[qi++]
+        d[idx * 4 + 3] = 0     // punch out — fully transparent
+        const x = idx % W
+        const y = (idx / W) | 0
+        enqueue(x - 1, y); enqueue(x + 1, y)
+        enqueue(x, y - 1); enqueue(x, y + 1)
+      }
+
+      ctx.putImageData(imgData, 0, 0)
+      resolve(canvas.toDataURL('image/png'))
+    }
+    img.src = dataUrl
+  })
+}
+
 /** Build a textured 3D slab from a raster image data URL. */
 async function buildImageMeshes(
   dataUrl: string,
@@ -175,7 +251,12 @@ async function buildImageMeshes(
   materialStyle: MaterialStyle,
   cancelled: () => boolean,
 ): Promise<{ group: THREE.Group; meshes: THREE.Mesh[]; textures: THREE.Texture[]; size: THREE.Vector3 } | null> {
-  const texture = await new THREE.TextureLoader().loadAsync(dataUrl)
+  // Strip white/near-white backgrounds and respect existing PNG alpha
+  // before handing the data URL to TextureLoader.
+  const processedUrl = await preprocessImageAlpha(dataUrl)
+  if (cancelled()) return null
+
+  const texture = await new THREE.TextureLoader().loadAsync(processedUrl)
   if (cancelled()) { texture.dispose(); return null }
 
   texture.colorSpace = THREE.SRGBColorSpace
@@ -185,38 +266,48 @@ async function buildImageMeshes(
   const W = 100 * aspect
   const H = 100
 
-  // Front face material — style affects the surface finish
+  // ── Front face — alpha cutout so transparent pixels are never drawn ──
+  // alphaTest: 0.5  →  hard clip (no sorting artefacts, no blending needed)
+  // transparent: true is required for alphaTest to take effect in Three.js
   const frontMat: THREE.Material = materialStyle === 'glass'
     ? new THREE.MeshPhysicalMaterial({
-        map:              texture,
-        roughness:        0.05,
-        metalness:        0,
-        clearcoat:        1.0,
+        map:                texture,
+        transparent:        true,
+        alphaTest:          0.5,
+        roughness:          0.05,
+        metalness:          0,
+        clearcoat:          1.0,
         clearcoatRoughness: 0.08,
-        envMapIntensity:  1.0,
+        envMapIntensity:    1.0,
+        side:               THREE.FrontSide,
       })
     : new THREE.MeshStandardMaterial({
-        map:      texture,
-        roughness: 0.18,
-        metalness: 0.04,
+        map:             texture,
+        transparent:     true,
+        alphaTest:       0.5,
+        roughness:       0.18,
+        metalness:       0.04,
         envMapIntensity: 0.6,
+        side:            THREE.FrontSide,
       })
 
-  // Side material — slightly lighter than back, polished edge feel
-  const sideColor = materialStyle === 'glass'
-    ? new THREE.Color(0xcccccc)
-    : new THREE.Color(0x999999)
+  // ── Sides + back — near-black "mount" edge ───────────────────────────
+  // Looks like a physical photo print or mounted canvas; keeps depth
+  // without a garish coloured frame dominating around the subject.
+  const mountColor = materialStyle === 'glass'
+    ? new THREE.Color(0x2a2a2a)
+    : new THREE.Color(0x1a1a1a)
 
   const sideMat = new THREE.MeshStandardMaterial({
-    color:     sideColor,
-    roughness: materialStyle === 'glass' ? 0.25 : 0.75,
-    metalness: materialStyle === 'glass' ? 0.1  : 0.0,
-    envMapIntensity: materialStyle === 'glass' ? 0.8 : 0.2,
+    color:           mountColor,
+    roughness:       materialStyle === 'glass' ? 0.3 : 0.85,
+    metalness:       materialStyle === 'glass' ? 0.15 : 0.0,
+    envMapIntensity: materialStyle === 'glass' ? 0.5  : 0.1,
   })
 
   const backMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(0x444444),
-    roughness: 0.9,
+    color:     new THREE.Color(0x111111),
+    roughness: 0.95,
   })
 
   // BoxGeometry face order: +X, −X, +Y, −Y, +Z (front), −Z (back)
