@@ -344,6 +344,9 @@ export function BottomBar() {
 function Popover({ children, bare }: { children: React.ReactNode; bare?: boolean }) {
   return (
     <div
+      // Stop mousedown from bubbling to the document-level click-outside handler,
+      // which would otherwise close this popover the moment the user touches it.
+      onMouseDown={e => e.stopPropagation()}
       style={{
         position: 'fixed',
         bottom: 52,
@@ -700,6 +703,7 @@ function DelaySlider({ value, onChange }: { value: number; onChange: (v: number)
 
   const startDrag = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault()
+    e.stopPropagation()
     onChange(posToValue(e.clientX))
 
     const move = (ev: PointerEvent) => onChange(posToValue(ev.clientX))
