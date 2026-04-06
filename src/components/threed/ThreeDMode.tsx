@@ -113,7 +113,7 @@ function EmptyState({ onFileSelected }: EmptyStateProps) {
           fontWeight: 500, fontSize: 22, lineHeight: '24px',
           color: '#000000', margin: 0, textAlign: 'center',
         }}>
-          Drop an SVG/Image to sculpt
+          Drop an SVG to 3d sculpt
         </p>
         <p style={{
           fontFamily: 'var(--font-geist-sans), sans-serif',
