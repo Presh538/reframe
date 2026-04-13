@@ -1,0 +1,8 @@
+# Reframe — security contact
+# https://securitytxt.org
+
+Contact: mailto:security@reframeo.com
+Preferred-Languages: en
+Canonical: https://reframeo.com/.well-known/security.txt
+Policy: https://reframeo.com/security
+Expires: 2026-12-31T23:59:59Z

@@ -4,6 +4,9 @@ const nextConfig = {
   // Strict mode catches subtle bugs early
   reactStrictMode: true,
 
+  // Don't advertise which server software is running
+  poweredByHeader: false,
+
   // Security: restrict which domains images can load from
   images: {
     domains: [],

@@ -41,30 +41,52 @@ export function middleware(request: NextRequest) {
       )
     }
 
-    // CORS: only allow same-origin for API routes in production.
-    // Use URL hostname comparison instead of raw string equality so that
-    // values like "https://reframeo.com.attacker.com" cannot spoof the check
-    // by sharing a prefix with NEXT_PUBLIC_APP_URL.
+    // CORS — only allow same-origin requests.
+    //
+    // Strategy:
+    //  1. If an Origin header is present, validate it against the configured
+    //     app URL using hostname comparison (not string prefix), so that a
+    //     spoofed origin like "https://reframeo.com.evil.com" is rejected.
+    //  2. Always set Access-Control-Allow-Origin explicitly — this satisfies
+    //     security scanners that flag the absence of the header as "wildcard"
+    //     and gives browsers a clear signal that cross-origin access is denied.
+    //  3. Block cross-origin preflight (OPTIONS) and regular requests alike.
+
     const origin = request.headers.get('origin')
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-    if (process.env.NODE_ENV === 'production' && origin && appUrl) {
+
+    // Determine whether the incoming origin is the app itself
+    let originAllowed = false
+    if (origin && appUrl) {
       try {
-        const originHostname = new URL(origin).hostname
-        const appHostname    = new URL(appUrl).hostname
-        if (originHostname !== appHostname) {
-          return new NextResponse(
-            JSON.stringify({ error: 'Forbidden' }),
-            { status: 403, headers: { 'Content-Type': 'application/json' } }
-          )
-        }
+        originAllowed = new URL(origin).hostname === new URL(appUrl).hostname
       } catch {
-        // Malformed origin or appUrl — reject as a precaution
-        return new NextResponse(
-          JSON.stringify({ error: 'Forbidden' }),
-          { status: 403, headers: { 'Content-Type': 'application/json' } }
-        )
+        originAllowed = false
       }
+    } else if (!origin) {
+      // No Origin header = same-origin or non-browser request — allow
+      originAllowed = true
     }
+
+    if (!originAllowed && process.env.NODE_ENV === 'production') {
+      return new NextResponse(
+        JSON.stringify({ error: 'Forbidden' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Set an explicit Access-Control-Allow-Origin so scanners and browsers see
+    // a concrete restriction rather than inferring "no header = wildcard".
+    // We echo the validated origin back (or the configured app URL as fallback)
+    // so the header is meaningful even on same-origin requests.
+    const allowedOrigin = (origin && originAllowed) ? origin : (appUrl || null)
+    if (allowedOrigin) {
+      headers.set('Access-Control-Allow-Origin', allowedOrigin)
+      // Vary ensures caches don't serve one origin's response to another
+      headers.set('Vary', 'Origin')
+    }
+    // Block all cross-origin credential sharing
+    headers.set('Access-Control-Allow-Credentials', 'false')
   }
 
   return response
