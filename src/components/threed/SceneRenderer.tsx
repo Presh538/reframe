@@ -17,7 +17,7 @@
  *  - ACESFilmic tone mapping for natural highlights and rich shadows
  *  - PMREMGenerator + RoomEnvironment for physically-correct env lighting
  *    (critical for the Glass preset — gives real reflections/refractions)
- *  - PCFSoft shadow maps; key light casts a soft shadow onto a transparent plane
+ *  - Three-point lighting (key, fill, rim) + env map for ambient reflections
  *  - 6-segment bevels on SVG paths for smooth, rounded extruded edges
  *
  * Interaction: OrbitControls (damped). Nothing auto-rotates.
@@ -159,9 +159,35 @@ function buildSvgMeshes(
   }
 
   // Centre + flip Y (SVG coordinates have Y pointing down).
-  const box    = new THREE.Box3().setFromObject(group)
-  const center = box.getCenter(new THREE.Vector3())
-  const size   = box.getSize(new THREE.Vector3())
+  //
+  // We compute bounds from geometry data directly instead of Box3.setFromObject
+  // because setFromObject relies on matrixWorld being up to date.  The group
+  // hasn't been added to a scene yet, and Three.js only propagates matrices to
+  // *children* during rendering — so mesh.position.z (pathZ) offsets are
+  // invisible to setFromObject, making the combined centre wrong.
+  //
+  // geometry.computeBoundingBox() works entirely in geometry-local space (no
+  // matrix dependency), so we add the mesh's own position.z manually.
+  const combinedBox = new THREE.Box3()
+  for (const mesh of meshes) {
+    mesh.geometry.computeBoundingBox()
+    if (mesh.geometry.boundingBox) {
+      const b = mesh.geometry.boundingBox.clone()
+      b.min.z += mesh.position.z
+      b.max.z += mesh.position.z
+      combinedBox.union(b)
+    }
+  }
+  const center = combinedBox.isEmpty()
+    ? new THREE.Vector3()
+    : combinedBox.getCenter(new THREE.Vector3())
+  const size = combinedBox.isEmpty()
+    ? new THREE.Vector3()
+    : combinedBox.getSize(new THREE.Vector3())
+
+  // Flip Y and centre at world origin.
+  // With scale.y = −1 a child at local (x, y, z) maps to world (−cx+x, cy−y, −cz+z).
+  // At the bounding-box centre (cx, cy, cz) that evaluates to (0, 0, 0). ✓
   group.scale.y = -1
   group.position.set(-center.x, center.y, -center.z)
 
@@ -421,15 +447,19 @@ export const SceneRenderer = forwardRef<SceneRendererRef, SceneRendererProps>(
       renderer.setSize(W, H)
       renderer.setClearColor(0x000000, 0)
 
-      // ACESFilmic tone mapping gives rich highlights and natural shadow rolloff
-      renderer.toneMapping        = THREE.ACESFilmicToneMapping
-      renderer.toneMappingExposure = 1.1
+      // NeutralToneMapping (Khronos PBR Neutral, r165+) handles HDR without
+      // distorting hues — ACESFilmic looked great but shifted/compressed SVG
+      // colours away from their original values, which broke colour fidelity.
+      renderer.toneMapping         = THREE.NeutralToneMapping
+      renderer.toneMappingExposure = 1.0
 
       // Soft shadows
-      renderer.shadowMap.enabled = true
-      renderer.shadowMap.type    = THREE.PCFSoftShadowMap
+      renderer.shadowMap.enabled = false
 
       const scene  = new THREE.Scene()
+      // No scene.background — the canvas stays transparent so the CSS parent
+      // colour shows through in the live view, and captureGIF composites a
+      // chroma-key sentinel for GIF transparency.
       const camera = new THREE.PerspectiveCamera(45, W / H, 1, 4000)
 
       // ── Environment (PMREMGenerator + RoomEnvironment) ────────────
@@ -449,12 +479,7 @@ export const SceneRenderer = forwardRef<SceneRendererRef, SceneRendererProps>(
 
       const key  = new THREE.DirectionalLight(0xfffaf0, 2.2 * li)
       key.position.set(5, 8, 8)
-      key.castShadow = true
-      key.shadow.mapSize.set(2048, 2048)
-      key.shadow.camera.near   = 1
-      key.shadow.camera.far    = 800
-      key.shadow.radius        = 4   // soft penumbra for PCFSoft
-      key.shadow.bias          = -0.0005
+      key.castShadow = false
 
       const fill = new THREE.DirectionalLight(0x9ab4ff, 0.50 * li)
       fill.position.set(-6, 3, 4)
@@ -493,24 +518,6 @@ export const SceneRenderer = forwardRef<SceneRendererRef, SceneRendererProps>(
         const origGroupPos   = group.position.clone()
         const origGroupScale = group.scale.clone()
 
-        // ── Shadow ground plane ───────────────────────────────────
-        // Invisible plane that catches the key light's shadow, giving the
-        // object a grounded feel without a visible surface.
-        const sizeMax = Math.max(size.x, size.y) * 2.5
-        key.shadow.camera.left   = -sizeMax
-        key.shadow.camera.right  =  sizeMax
-        key.shadow.camera.top    =  sizeMax
-        key.shadow.camera.bottom = -sizeMax
-        key.shadow.camera.updateProjectionMatrix()
-
-        const shadowPlaneGeo = new THREE.PlaneGeometry(sizeMax * 3, sizeMax * 3)
-        const shadowPlaneMat = new THREE.ShadowMaterial({ opacity: 0.22, transparent: true })
-        const shadowPlane    = new THREE.Mesh(shadowPlaneGeo, shadowPlaneMat)
-        shadowPlane.receiveShadow = true
-        shadowPlane.rotation.x   = -Math.PI / 2
-        // Place it just below the bottom of the object
-        shadowPlane.position.y   = -(size.y * 0.52 + depth * 0.5 + 4)
-        scene.add(shadowPlane)
 
         // ── Frame camera ──────────────────────────────────────────
         const aspect  = W / H
@@ -698,10 +705,12 @@ export const SceneRenderer = forwardRef<SceneRendererRef, SceneRendererProps>(
           const wasAutoRotate = controls.autoRotate
           controls.autoRotate = false
 
-          // Save current group state — restored after encoding
-          const savedPos   = group.position.clone()
-          const savedScale = group.scale.clone()
-          const savedRot   = group.rotation.clone()
+          // Save current group + camera state — both restored after encoding
+          const savedPos    = group.position.clone()
+          const savedScale  = group.scale.clone()
+          const savedRot    = group.rotation.clone()
+          const savedCamPos = camera.position.clone()
+          const savedTarget = controls.target.clone()
 
           const mtype      = motionTypeRef.current
           const mScale     = Math.max(objectSize.x, objectSize.y) * 0.04
@@ -718,12 +727,29 @@ export const SceneRenderer = forwardRef<SceneRendererRef, SceneRendererProps>(
 
           const canvas = renderer.domElement
 
+          // ── Transparency compositing ──────────────────────────────
+          // GIF supports 1-bit transparency via a "transparent colour index".
+          // We pick a distinctive sentinel — pure lime (#00ff00) — and replace
+          // every WebGL pixel whose alpha < 128 with it, then tell gif.js that
+          // colour is transparent.  We also nudge any foreground pixel that
+          // accidentally lands on #00ff00 by 1 so it won't be punched out.
+          const CHROMA_R = 0x00
+          const CHROMA_G = 0xff
+          const CHROMA_B = 0x00
+          const CHROMA_KEY = (CHROMA_R << 16) | (CHROMA_G << 8) | CHROMA_B  // 0x00ff00
+
+          const offscreen = document.createElement('canvas')
+          offscreen.width  = canvas.width
+          offscreen.height = canvas.height
+          const ctx2d = offscreen.getContext('2d', { willReadFrequently: true })!
+
           const gif = new GIF({
             workers: 2,
             quality: 8,
             width:   canvas.width,
             height:  canvas.height,
             workerScript: '/gif.worker.js',
+            transparent: CHROMA_KEY,
           })
 
           const delay = Math.round(1000 / fps)
@@ -736,8 +762,27 @@ export const SceneRenderer = forwardRef<SceneRendererRef, SceneRendererProps>(
             group.rotation.set(0, 0, 0)
 
             if (mtype === 'spin') {
-              // Full 360° Y-rotation turntable — identical to original behaviour
-              group.rotation.y = (i / frames) * Math.PI * 2
+              // Mirror OrbitControls auto-rotate exactly: orbit the CAMERA around
+              // the scene target rather than rotating the group.
+              //
+              // Rotating the group would appear wrong because the SVG group has
+              // scale.y = −1 (Y-flip), which reverses the apparent spin direction.
+              // Moving the camera instead is a 1:1 match with the live preview.
+              //
+              // We pre-compute the orbit radius and starting angle from the saved
+              // camera position so the first GIF frame always matches the live pose.
+              const tgt    = savedTarget
+              const dx0    = savedCamPos.x - tgt.x
+              const dz0    = savedCamPos.z - tgt.z
+              const radius = Math.sqrt(dx0 * dx0 + dz0 * dz0)
+              const startA = Math.atan2(dx0, dz0)
+              const angle  = startA + (i / frames) * Math.PI * 2
+              camera.position.set(
+                tgt.x + Math.sin(angle) * radius,
+                savedCamPos.y,
+                tgt.z + Math.cos(angle) * radius,
+              )
+              camera.lookAt(tgt)
             } else {
               // Sample one complete cycle of the procedural motion
               const T = cycleTRange[mtype]
@@ -772,15 +817,45 @@ export const SceneRenderer = forwardRef<SceneRendererRef, SceneRendererProps>(
             }
 
             renderer.render(scene, camera)
-            gif.addFrame(canvas, { copy: true, delay })
+
+            // Draw the transparent WebGL frame into the 2D offscreen canvas,
+            // then bake chroma-key: background (alpha < 128) → lime sentinel,
+            // foreground (alpha ≥ 128) → fully opaque (fix partial AA pixels).
+            ctx2d.clearRect(0, 0, offscreen.width, offscreen.height)
+            ctx2d.drawImage(canvas, 0, 0)
+            const imgData = ctx2d.getImageData(0, 0, offscreen.width, offscreen.height)
+            const d = imgData.data
+            for (let p = 0; p < d.length; p += 4) {
+              if (d[p + 3] < 128) {
+                // Background pixel → chroma key (fully opaque so GIF sees the colour)
+                d[p]     = CHROMA_R
+                d[p + 1] = CHROMA_G
+                d[p + 2] = CHROMA_B
+                d[p + 3] = 0xff
+              } else {
+                // Foreground pixel → make fully opaque
+                d[p + 3] = 0xff
+                // Prevent accidental collision with the chroma-key colour
+                if (d[p] === CHROMA_R && d[p + 1] === CHROMA_G && d[p + 2] === CHROMA_B) {
+                  d[p + 1] = 0xfe   // nudge G by 1 — visually imperceptible
+                }
+              }
+            }
+            ctx2d.putImageData(imgData, 0, 0)
+
+            gif.addFrame(offscreen, { copy: true, delay })
             onProgress(i / frames)
           }
 
           gif.on('finished', (blob: Blob) => {
-            // Restore the group to where it was before the export
+            // Restore group + camera to where they were before the export
             group.position.copy(savedPos)
             group.scale.copy(savedScale)
             group.rotation.copy(savedRot)
+            camera.position.copy(savedCamPos)
+            camera.lookAt(savedTarget)
+            controls.target.copy(savedTarget)
+            controls.update()
             controls.enabled    = true
             controls.autoRotate = wasAutoRotate
             const s = stateRef.current

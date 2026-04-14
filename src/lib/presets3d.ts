@@ -41,10 +41,11 @@ export function makeMaterial(style: MaterialStyle, color: THREE.Color): THREE.Ma
     case 'flat':
       return new THREE.MeshStandardMaterial({
         color,
-        roughness:   0.82,
-        metalness:   0.0,
-        transparent: true,   // must be true so opacity can be animated at runtime
-        opacity:     1.0,
+        roughness:       0.82,
+        metalness:       0.0,
+        envMapIntensity: 0.15,  // low env influence — keeps diffuse colour close to the SVG original
+        transparent:     true,  // must be true so opacity can be animated at runtime
+        opacity:         1.0,
         side: THREE.FrontSide,
       })
 
