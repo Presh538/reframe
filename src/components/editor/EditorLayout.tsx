@@ -3,12 +3,15 @@
 import { useState, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { AnimatePresence } from 'motion/react'
-import { PreviewStage } from './PreviewStage'
 import { motion } from 'motion/react'
 import { SPRING } from '@/lib/motion'
 import { useEditorStore, selectSvgReady } from '@/lib/store/editor'
 
 export type AppMode = 'animate' | '3d'
+
+// Lazy-load PreviewStage — pulls in motion/react + all SVG animation utilities;
+// deferring it keeps the EditorLayout chunk lean and reduces Time-to-Interactive.
+const PreviewStage = dynamic(() => import('./PreviewStage').then(m => ({ default: m.PreviewStage })), { ssr: false })
 
 // Lazy-load TopBar — motion/react + IconBounce + Zustand bundle, not needed for initial paint
 const TopBar = dynamic(() => import('./TopBar').then(m => ({ default: m.TopBar })), { ssr: false })
