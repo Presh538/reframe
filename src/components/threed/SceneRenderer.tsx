@@ -47,8 +47,12 @@ import {
 
 export interface SceneRendererRef {
   captureGIF(frames: number, fps: number, onProgress: (p: number) => void): Promise<Blob>
+  captureWebM(frames: number, fps: number, onProgress: (p: number) => void): Promise<Blob>
   resetView(): void
+  snapCamera(preset: CameraPreset): void
 }
+
+export type CameraPreset = 'front' | 'three-quarter' | 'side' | 'top'
 
 // ── Props ─────────────────────────────────────────────────────────
 
@@ -877,6 +881,134 @@ export const SceneRenderer = forwardRef<SceneRendererRef, SceneRendererProps>(
       []
     )
 
+    // ── WebM capture ──────────────────────────────────────────────
+    const captureWebM = useCallback(
+      (frames: number, fps: number, onProgress: (p: number) => void): Promise<Blob> =>
+        new Promise((resolve, reject) => {
+          const state = stateRef.current
+          if (!state) return reject(new Error('Scene not initialised'))
+          if (typeof MediaRecorder === 'undefined') return reject(new Error('MediaRecorder not available'))
+
+          const { renderer, scene, camera, controls, group, origGroupPos, origGroupScale, objectSize } = state
+          cancelAnimationFrame(state.rafId)
+          controls.enabled    = false
+          const wasAutoRotate = controls.autoRotate
+          controls.autoRotate = false
+
+          const savedPos    = group.position.clone()
+          const savedScale  = group.scale.clone()
+          const savedRot    = group.rotation.clone()
+          const savedCamPos = camera.position.clone()
+          const savedTarget = controls.target.clone()
+
+          const mtype  = motionTypeRef.current
+          const mScale = Math.max(objectSize.x, objectSize.y) * 0.04
+          const cycleTRange: Record<Exclude<MotionType, 'spin'>, number> = {
+            float:   (2 * Math.PI) / 0.9,
+            sway:    (2 * Math.PI) / 0.65,
+            breathe: (2 * Math.PI) / 1.3,
+            wobble:  (2 * Math.PI) / 0.53,
+          }
+
+          const canvas = renderer.domElement
+          const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+            ? 'video/webm;codecs=vp9'
+            : 'video/webm'
+
+          const stream  = canvas.captureStream(0)
+          const track   = stream.getVideoTracks()[0] as CanvasCaptureMediaStreamTrack & { requestFrame?: () => void }
+          const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 6_000_000 })
+          const chunks: Blob[] = []
+          recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
+
+          recorder.onstop = () => {
+            // Restore state
+            group.position.copy(savedPos)
+            group.scale.copy(savedScale)
+            group.rotation.copy(savedRot)
+            camera.position.copy(savedCamPos)
+            camera.lookAt(savedTarget)
+            controls.target.copy(savedTarget)
+            controls.enabled    = true
+            controls.autoRotate = wasAutoRotate
+            controls.update()
+            const s = stateRef.current
+            if (s) {
+              const { renderer: r, scene: sc, camera: cam, controls: ctrl } = s
+              function resume() { s!.rafId = requestAnimationFrame(resume); ctrl.update(); r.render(sc, cam) }
+              resume()
+            }
+            resolve(new Blob(chunks, { type: 'video/webm' }))
+          }
+
+          recorder.start()
+
+          const frameDurationMs = 1000 / fps
+
+          const drawFrame = (i: number) => {
+            if (i >= frames) { setTimeout(() => recorder.stop(), frameDurationMs); return }
+
+            group.position.copy(origGroupPos)
+            group.scale.copy(origGroupScale)
+            group.rotation.set(0, 0, 0)
+
+            if (mtype === 'spin') {
+              const tgt    = savedTarget
+              const dx0    = savedCamPos.x - tgt.x
+              const dz0    = savedCamPos.z - tgt.z
+              const radius = Math.sqrt(dx0 * dx0 + dz0 * dz0)
+              const startA = Math.atan2(dx0, dz0)
+              const angle  = startA + (i / frames) * Math.PI * 2
+              camera.position.set(tgt.x + Math.sin(angle) * radius, savedCamPos.y, tgt.z + Math.cos(angle) * radius)
+              camera.lookAt(tgt)
+            } else if (mtype === 'float' || mtype === 'sway' || mtype === 'breathe' || mtype === 'wobble') {
+              const tRange = cycleTRange[mtype]
+              const t      = (i / frames) * tRange
+              if (mtype === 'float')   group.position.y = origGroupPos.y + Math.sin(0.9 * t) * mScale * 1.5
+              if (mtype === 'sway')    group.rotation.z = Math.sin(0.65 * t) * 0.15
+              if (mtype === 'breathe') { const s = 1 + Math.sin(1.3 * t) * 0.08; group.scale.set(s, s, s) }
+              if (mtype === 'wobble')  { group.rotation.x = Math.sin(0.8 * t) * 0.12; group.rotation.z = Math.sin(0.53 * t) * 0.1 }
+            }
+
+            controls.update()
+            renderer.render(scene, camera)
+            if (typeof track.requestFrame === 'function') track.requestFrame()
+
+            onProgress((i + 1) / frames)
+            setTimeout(() => drawFrame(i + 1), frameDurationMs)
+          }
+
+          drawFrame(0)
+        }),
+      []
+    )
+
+    // ── Camera preset snap ────────────────────────────────────────
+    const snapCamera = useCallback((preset: CameraPreset) => {
+      const state = stateRef.current
+      if (!state) return
+      const { camera, controls, defaultCameraZ, defaultTargetY } = state
+      const r = defaultCameraZ
+
+      switch (preset) {
+        case 'front':
+          camera.position.set(0, defaultTargetY, r)
+          break
+        case 'three-quarter':
+          camera.position.set(r * 0.65, defaultTargetY + r * 0.25, r * 0.75)
+          break
+        case 'side':
+          camera.position.set(r, defaultTargetY, 0)
+          break
+        case 'top':
+          camera.position.set(0, r * 1.4, 0.01)
+          break
+      }
+      camera.lookAt(0, defaultTargetY, 0)
+      controls.target.set(0, defaultTargetY, 0)
+      controls.update()
+    }, [])
+
     // ── Reset view ────────────────────────────────────────────────
     const resetView = useCallback(() => {
       const state = stateRef.current
@@ -889,7 +1021,7 @@ export const SceneRenderer = forwardRef<SceneRendererRef, SceneRendererProps>(
       controls.update()
     }, [])
 
-    useImperativeHandle(ref, () => ({ captureGIF, resetView }), [captureGIF, resetView])
+    useImperativeHandle(ref, () => ({ captureGIF, captureWebM, resetView, snapCamera }), [captureGIF, captureWebM, resetView, snapCamera])
 
     return (
       <canvas

@@ -10,10 +10,10 @@
  *   Launch all SVG-string → canvas conversions with Promise.all so every
  *   image loads concurrently.
  *
- * Phase 3 – Encode (per-frame NeuQuant, quality 10):
- *   GIFEncoder with setTransparent marks chroma-key pixels as transparent.
- *   quality=10 (the NeuQuant default) ensures enough pixels are sampled
- *   for magenta to reliably appear in every frame's palette.
+ * Phase 3 – Encode (global palette from 8 sample frames, quality 2):
+ *   Build a composite palette from up to 8 evenly-spaced frames at NeuQuant
+ *   quality 2 (near-maximum), then encode every frame using that global palette.
+ *   setTransparent marks chroma-key pixels as transparent.
  *
  * Transparency:
  *   GIF supports only 1-bit transparency. We use a chroma-key approach:
@@ -50,9 +50,9 @@ interface GifEncoderInstance {
 
 // ── Config ────────────────────────────────────────────────────
 
-const FPS           = 10
-const MAX_EXPORT_PX = 360
-const MAX_FRAMES    = 24
+const FPS           = 15          // 10 was choppy; 15 is visibly smoother without bloating file size
+const MAX_EXPORT_PX = 480          // 360 was too small for retina/2x displays
+const MAX_FRAMES    = 90           // 10 fps × 24 = 2.4 s hard cap — 15 fps × 90 = 6 s
 
 // Chroma key — fully-saturated magenta is vanishingly unlikely in real SVGs.
 const CHROMA_KEY_NUM = 0xFF00FF
@@ -262,7 +262,7 @@ async function encodeGif(
 
     // Pick up to 4 evenly-spaced sample frames; always include the last frame
     // so late-appearing colours are represented.
-    const sampleCount = Math.min(4, frames.length)
+    const sampleCount = Math.min(8, frames.length)
     const stride = Math.max(1, Math.floor((frames.length - 1) / Math.max(1, sampleCount - 1)))
     const sampleIndices: number[] = []
     for (let s = 0; s < sampleCount; s++) {
@@ -270,8 +270,8 @@ async function encodeGif(
     }
     sampleIndices[sampleIndices.length - 1] = frames.length - 1
 
-    // Tile samples side-by-side: 2 cols × up to 2 rows (1×1 for single frame)
-    const cols   = sampleCount >= 2 ? 2 : 1
+    // Tile samples: up to 4 cols × 2 rows (covers 8 samples)
+    const cols   = Math.min(sampleCount, 4)
     const rows   = Math.ceil(sampleCount / cols)
     const tiled  = document.createElement('canvas')
     tiled.width  = W * cols
@@ -283,7 +283,7 @@ async function encodeGif(
 
     const probe = new GIFEncoder(tiled.width, tiled.height)
     probe.writeHeader()
-    probe.setQuality(10)
+    probe.setQuality(2)
     probe.addFrame(tCtx.getImageData(0, 0, tiled.width, tiled.height).data)
 
     if (probe.colorTab) {
@@ -294,11 +294,11 @@ async function encodeGif(
       encoder.setGlobalPalette(palette)
     } else {
       // Fallback: per-frame NeuQuant (colour may drift but at least renders)
-      encoder.setQuality(10)
+      encoder.setQuality(2)
     }
     encoder.setTransparent(CHROMA_KEY_NUM)
   } else {
-    encoder.setQuality(10)
+    encoder.setQuality(2)
   }
 
   // One yield to flush the progress bar update to React before the encode loop.

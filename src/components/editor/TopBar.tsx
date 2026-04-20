@@ -8,12 +8,15 @@ import { useEditorStore, selectCanExport, selectSvgReady } from '@/lib/store/edi
 import { runExport } from '@/lib/export/runExport'
 import { SPRING } from '@/lib/motion'
 import { useToast } from '@/components/ui/Toast'
+import { CodeSheet } from '@/components/ui/CodeSheet'
 import type { ExportFormat } from '@/types'
 
-const FORMATS: { value: ExportFormat; label: string }[] = [
-  { value: 'gif',    label: 'Export GIF' },
-  { value: 'css',    label: 'Export CSS' },
-  { value: 'lottie', label: 'Export Lottie' },
+const FORMATS: { value: ExportFormat; label: string; desc?: string }[] = [
+  { value: 'gif',    label: 'Export GIF',    desc: 'Animated image' },
+  { value: 'webm',   label: 'Export WebM',   desc: 'High-quality video' },
+  { value: 'embed',  label: 'Copy Embed',    desc: 'HTML snippet for any page' },
+  { value: 'css',    label: 'Export CSS',    desc: 'Keyframes + bindings' },
+  { value: 'lottie', label: 'Export Lottie', desc: 'JSON for Lottie player' },
 ]
 
 // 3D export options — GIF turntable + embed code (SVG only)
@@ -33,14 +36,17 @@ interface TopBarProps {
   asset3dFileName?: string
   asset3dKind?: 'svg' | 'image'
   onChangeFile3D?: () => void
+  onBrowseLibrary?: () => void
 }
 
 export function TopBar({
   activeTab, onTabChange, appMode = 'animate',
-  onExport3D, onCopyEmbed3D, canExport3D, asset3dFileName, asset3dKind, onChangeFile3D
+  onExport3D, onCopyEmbed3D, canExport3D, asset3dFileName, asset3dKind,
+  onChangeFile3D, onBrowseLibrary,
 }: TopBarProps) {
   const [formatOpen,   setFormatOpen]   = useState(false)
   const [format3d,     setFormat3d]     = useState<Format3D>('gif')
+  const [embedCode,    setEmbedCode]    = useState<string | null>(null)
 
   const format         = useEditorStore(s => s.format)
   const exportState    = useEditorStore(s => s.export)
@@ -63,9 +69,10 @@ export function TopBar({
         format,
         activePresetId,
         params,
-        onProgress: (p) => setExportState({ progress: p }),
-        onError:    (msg) => { setExportState({ error: msg }); toast(msg, 'error') },
-        onSuccess:  (msg) => toast(msg, 'success'),
+        onProgress:   (p)   => setExportState({ progress: p }),
+        onError:      (msg) => { setExportState({ error: msg }); toast(msg, 'error') },
+        onSuccess:    (msg) => toast(msg, 'success'),
+        onEmbedCode:  (html) => setEmbedCode(html),
       })
       setExportState({ isRunning: false, progress: 0 })
     } else {
@@ -79,7 +86,9 @@ export function TopBar({
     ? 'Processing'
     : appMode === '3d'
       ? (format3d === 'embed' ? 'Copy Code' : 'Export GIF')
-      : `Export ${format.toUpperCase()}`
+      : format === 'embed'
+        ? 'Copy Embed'
+        : `Export ${format.toUpperCase()}`
 
   const displayFileName  = appMode === 'animate' ? svgFileName  : asset3dFileName
   const displayCanExport = appMode === 'animate' ? canExport    : canExport3D
@@ -93,6 +102,7 @@ export function TopBar({
   }
 
   return (
+    <>
     <motion.div
       className="absolute top-0 left-0 right-0 grid grid-cols-3 items-start px-4 pt-6 pointer-events-none z-30"
       initial={{ opacity: 0, y: -14 }}
@@ -110,6 +120,35 @@ export function TopBar({
         >
           {/* Reframe logo mark — spins continuously */}
           <ReframeLogo />
+
+          {/* Library button — shown when no file loaded (Animate mode only) */}
+          {!displayFileName && appMode === 'animate' && onBrowseLibrary && (
+            <>
+              <div style={{ width: 1, height: 20, background: 'rgba(0,0,0,0.1)', flexShrink: 0 }} />
+              <button
+                onClick={onBrowseLibrary}
+                style={{
+                  background: '#3f37c9',
+                  borderRadius: 34,
+                  padding: '3px 12px',
+                  fontFamily: 'var(--font-geist-sans), sans-serif',
+                  fontWeight: 500,
+                  fontSize: 13,
+                  lineHeight: '24px',
+                  color: 'white',
+                  whiteSpace: 'nowrap',
+                  border: 'none',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  transition: 'opacity 0.12s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+              >
+                Browse templates
+              </button>
+            </>
+          )}
 
           {/* File info — only when a file is loaded */}
           {displayFileName && (
@@ -160,6 +199,37 @@ export function TopBar({
               >
                 Change
               </button>
+
+              {/* Library button — only in Animate mode; opens template gallery */}
+              {appMode === 'animate' && onBrowseLibrary && (
+                <button
+                  onClick={onBrowseLibrary}
+                  title="Browse template library"
+                  style={{
+                    background: 'rgba(0,0,0,0.05)',
+                    borderRadius: '50%',
+                    width: 28,
+                    height: 28,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: 'none',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    transition: 'background 0.12s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(63,55,201,0.1)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.05)')}
+                >
+                  {/* Grid / library icon */}
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="1" y="1" width="5" height="5" rx="1.5" fill="#3f37c9"/>
+                    <rect x="8" y="1" width="5" height="5" rx="1.5" fill="#3f37c9"/>
+                    <rect x="1" y="8" width="5" height="5" rx="1.5" fill="#3f37c9"/>
+                    <rect x="8" y="8" width="5" height="5" rx="1.5" fill="#3f37c9"/>
+                  </svg>
+                </button>
+              )}
             </>
           )}
         </div>
@@ -278,13 +348,23 @@ export function TopBar({
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ ...SPRING.stagger, delay: idx * 0.05 }}
                     className={clsx(
-                      'w-full text-left px-4 py-2.5 text-[14px] font-medium transition-colors block',
+                      'w-full text-left px-4 py-2 transition-colors block',
                       format === fmt.value
-                        ? 'text-[#3f37c9] bg-[#3f37c9]/8'
-                        : 'text-[#545454] hover:bg-[#f5f5f5]'
+                        ? 'bg-[#3f37c9]/8'
+                        : 'hover:bg-[#f5f5f5]'
                     )}
                   >
-                    {fmt.label}
+                    <span className={clsx(
+                      'block text-[13px] font-medium leading-5',
+                      format === fmt.value ? 'text-[#3f37c9]' : 'text-[#222]'
+                    )}>
+                      {fmt.label}
+                    </span>
+                    {fmt.desc && (
+                      <span className="block text-[11px] text-[#aaa] leading-4 pb-0.5">
+                        {fmt.desc}
+                      </span>
+                    )}
                   </motion.button>
                 ))}
               </motion.div>
@@ -332,6 +412,21 @@ export function TopBar({
         </AnimatePresence>
       </div>
     </motion.div>
+
+    {/* Embed code sheet — renders via portal, shown when format === embed.
+        AnimatePresence here (not inside CodeSheet) so exit animations fire
+        when embedCode is cleared — portals preserve the React tree lifecycle. */}
+    <AnimatePresence>
+      {embedCode !== null && (
+        <CodeSheet
+          key="embed-sheet"
+          code={embedCode}
+          title="Embed Snippet"
+          onClose={() => setEmbedCode(null)}
+        />
+      )}
+    </AnimatePresence>
+  </>
   )
 }
 

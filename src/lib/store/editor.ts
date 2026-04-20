@@ -7,6 +7,7 @@
 
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
+import { temporal } from 'zundo'
 import type { EditorState, AnimParams, ExportFormat, SvgLayerInfo } from '@/types'
 import { DEFAULT_PARAMS } from '@/types'
 import { fragmentSvg } from '@/lib/svg/fragment'
@@ -75,6 +76,7 @@ const INITIAL_STATE: EditorState = {
 
 export const useEditorStore = create<EditorState & EditorActions>()(
   devtools(
+    temporal(
     (set, get) => ({
 
       ...INITIAL_STATE,
@@ -149,6 +151,20 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       },
     }),
     {
+      // Only track undo-relevant state slices — skip ephemeral/UI state
+      // so that zoom changes and export progress don't pollute the history.
+      partialize: (state) => ({
+        svgSource:     state.svgSource,
+        svgFileName:   state.svgFileName,
+        svgLayers:     state.svgLayers,
+        activePresetId: state.activePresetId,
+        params:        state.params,
+        isFragmented:  state.isFragmented,
+      }),
+      // Limit history to 40 steps to keep memory bounded
+      limit: 40,
+    }),
+    {
       name: 'reframe-editor',
       // Only activate when the Redux DevTools browser extension is actually installed.
       // Without this guard Zustand logs a noisy console warning in every dev session.
@@ -159,6 +175,11 @@ export const useEditorStore = create<EditorState & EditorActions>()(
     }
   )
 )
+
+// ── Temporal (undo/redo) helpers ──────────────────────────────
+// Call directly from event handlers (outside React render).
+export const undoEditor = () => useEditorStore.temporal.getState().undo()
+export const redoEditor = () => useEditorStore.temporal.getState().redo()
 
 // ── Selectors (memoised for performance) ──────────────────────
 

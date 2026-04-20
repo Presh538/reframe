@@ -374,7 +374,7 @@ function PresetAnimIcon({ family, color, hovered }: {
           <motion.rect
             x="9" y="8" width="6" height="6" rx="1.5"
             fill={color}
-            opacity={0.85}
+            initial={{ y: 0, opacity: 0.7 }}
             animate={hovered ? { y: -4, opacity: 1 } : { y: 0, opacity: 0.7 }}
             transition={t}
           />
@@ -436,7 +436,7 @@ function PresetAnimIcon({ family, color, hovered }: {
           <motion.circle
             cx="12" cy="10" r="4"
             fill={color}
-            opacity={0.8}
+            initial={{ scale: 1, opacity: 0.8 }}
             animate={hovered
               ? { scale: [1, 1.45, 0.9, 1.2, 1], opacity: [0.8, 0.5, 0.9, 0.65, 0.8] }
               : { scale: 1, opacity: 0.8 }
@@ -474,6 +474,7 @@ function PresetAnimIcon({ family, color, hovered }: {
               key={i}
               x={5 + i * 6} y="8" width="4" height="5" rx="1"
               fill={color}
+              initial={{ scaleY: 0.2, opacity: 0.25 }}
               animate={hovered ? { scaleY: 1, opacity: 1 } : { scaleY: 0.2, opacity: 0.25 }}
               style={{ originY: '100%', originX: `${5 + i * 6 + 2}px` }}
               transition={{ ...t, delay: hovered ? i * 0.08 : 0 }}
@@ -491,6 +492,7 @@ function PresetAnimIcon({ family, color, hovered }: {
             fill="none"
             stroke={color}
             strokeWidth="1.5"
+            initial={{ x: 7, opacity: 0 }}
             animate={hovered ? { x: 0, opacity: 1 } : { x: 7, opacity: 0 }}
             transition={t}
           />
@@ -516,6 +518,7 @@ function PresetAnimIcon({ family, color, hovered }: {
             stroke={color}
             strokeWidth="1.4"
             strokeLinecap="round"
+            initial={{ opacity: 0 }}
             animate={hovered ? { opacity: [0, 1, 0, 1, 0, 1] } : { opacity: 0 }}
             transition={{ duration: 0.7, ease: 'linear', delay: 0.3 }}
           />
@@ -531,6 +534,7 @@ function PresetAnimIcon({ family, color, hovered }: {
             fill="none"
             stroke={color}
             strokeWidth="1.5"
+            initial={{ scaleX: 0.12, opacity: 0.35 }}
             animate={hovered ? { scaleX: 1, opacity: 1 } : { scaleX: 0.12, opacity: 0.35 }}
             style={{ originX: '12px', originY: '10px' }}
             transition={{ type: 'spring', stiffness: 600, damping: 11, mass: 0.5 }}
@@ -582,6 +586,7 @@ function PresetAnimIcon({ family, color, hovered }: {
             fill="none"
             stroke={color}
             strokeWidth="1.5"
+            initial={{ y: 4, opacity: 0 }}
             animate={hovered ? { y: 0, opacity: 1 } : { y: 4, opacity: 0 }}
             transition={t}
           />

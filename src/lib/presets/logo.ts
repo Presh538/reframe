@@ -179,6 +179,51 @@ export const logoPresets: Preset[] = [
   // ── motion.dev Batch 1 — Cascade ────────────────────────────
 
   {
+    id: 'slide-in',
+    name: 'Slide In',
+    category: 'Logo',
+    icon: '➡️',
+    pro: false,
+    baseDuration: 0.6,
+    description: 'Sharp horizontal slide entrance — each element arrives from the left in quick succession.',
+    apply(el, p) {
+      const d = B.dur(0.6, p)
+      B.css(el, `
+        @keyframes rf-sli-in  { from { opacity: 0; transform: translateX(-32px) } to { opacity: 1; transform: translateX(0) } }
+        @keyframes rf-sli-out { from { opacity: 1; transform: translateX(0) } to { opacity: 0; transform: translateX(-32px) } }
+      `)
+      B.targets(el, p.scope).forEach((e, i) => {
+        const delay = p.delay + i * 0.05
+        const kf = p.direction === 'out' ? 'rf-sli-out' : 'rf-sli-in'
+        B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both cubic-bezier(.22,1,.36,1)`, delay)
+      })
+    },
+  },
+
+  {
+    id: 'zoom-in',
+    name: 'Zoom In',
+    category: 'Logo',
+    icon: '🔍',
+    pro: false,
+    baseDuration: 0.55,
+    description: 'Scales from 75 % to full size — confident entrance with no spring.',
+    apply(el, p) {
+      const d = B.dur(0.55, p)
+      B.css(el, `
+        @keyframes rf-zin  { from { opacity: 0; transform: scale(0.75) } to { opacity: 1; transform: scale(1) } }
+        @keyframes rf-zout { from { opacity: 1; transform: scale(1) } to { opacity: 0; transform: scale(0.75) } }
+      `)
+      B.targets(el, p.scope).forEach((e, i) => {
+        e.style.transformOrigin = 'center'
+        const delay = p.delay + i * 0.05
+        const kf = p.direction === 'out' ? 'rf-zout' : 'rf-zin'
+        B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both cubic-bezier(.4,0,.2,1)`, delay)
+      })
+    },
+  },
+
+  {
     id: 'cascade',
     name: 'Cascade',
     category: 'Logo',

@@ -18,6 +18,8 @@ export interface RunExportOptions {
   onProgress: (pct: number) => void
   onError: (msg: string) => void
   onSuccess: (msg: string) => void
+  /** Called with the generated HTML when format === 'embed' */
+  onEmbedCode?: (html: string) => void
 }
 
 export async function runExport({
@@ -27,6 +29,7 @@ export async function runExport({
   onProgress,
   onError,
   onSuccess,
+  onEmbedCode,
 }: RunExportOptions): Promise<void> {
   if (!activePresetId) return
 
@@ -48,6 +51,12 @@ export async function runExport({
       triggerDownload(blob, `reframe-${preset.id}.gif`)
       onSuccess('GIF downloaded ✓')
 
+    } else if (format === 'webm') {
+      const { exportWebm } = await import('./webm')
+      const blob = await exportWebm({ svgEl, onProgress })
+      triggerDownload(blob, `reframe-${preset.id}.webm`)
+      onSuccess('WebM downloaded ✓')
+
     } else if (format === 'css') {
       const { exportCss, downloadText } = await import('./css')
       const css = exportCss(svgEl, preset)
@@ -58,6 +67,17 @@ export async function runExport({
       const { exportLottie } = await import('./lottie')
       exportLottie(svgEl, preset, params)
       onSuccess('Lottie exported ✓')
+
+    } else if (format === 'embed') {
+      const { generateEmbedHtml } = await import('./embed')
+      const html = generateEmbedHtml(svgEl, preset.name)
+      if (onEmbedCode) {
+        onEmbedCode(html)
+      } else {
+        // Fallback: copy to clipboard directly
+        await navigator.clipboard.writeText(html)
+        onSuccess('Embed code copied ✓')
+      }
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Export failed'

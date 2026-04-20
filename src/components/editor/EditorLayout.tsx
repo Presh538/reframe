@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { AnimatePresence } from 'motion/react'
 import { motion } from 'motion/react'
 import { SPRING } from '@/lib/motion'
-import { useEditorStore, selectSvgReady } from '@/lib/store/editor'
+import { useEditorStore, selectSvgReady, undoEditor, redoEditor } from '@/lib/store/editor'
+import { LibraryBrowser } from './LibraryBrowser'
+import { KeyboardShortcutsOverlay } from '@/components/ui/KeyboardShortcutsOverlay'
 
 export type AppMode = 'animate' | '3d'
 
@@ -26,13 +28,16 @@ const ThreeDPresetPanel = dynamic(() => import('../threed/ThreeDPresetPanel').th
 const ThreeDEasingPanel = dynamic(() => import('../threed/ThreeDEasingPanel').then(m => ({ default: m.ThreeDEasingPanel })), { ssr: false })
 
 // Lazy-load BottomBar — large icon + motion bundle, not needed for initial paint
-const BottomBar = dynamic(() => import('./BottomBar').then(m => ({ default: m.BottomBar })), { ssr: false })
+const BottomBar         = dynamic(() => import('./BottomBar').then(m => ({ default: m.BottomBar })),               { ssr: false })
 
 type ActiveTab = 'presets' | 'smoothing'
 
 export function EditorLayout() {
-  const [activeTab, setActiveTab] = useState<ActiveTab | null>(null)
-  const [appMode, setAppMode] = useState<AppMode>('animate')
+  const [activeTab,      setActiveTab]      = useState<ActiveTab | null>(null)
+  const [appMode,        setAppMode]        = useState<AppMode>('animate')
+  const [isLibraryOpen,    setIsLibraryOpen]    = useState(false)
+  const [showShortcuts,    setShowShortcuts]    = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   
   // 3D Bridge states
   const [export3dFn,     setExport3dFn]     = useState<(() => void) | null>(null)
@@ -42,7 +47,73 @@ export function EditorLayout() {
   const [asset3dFileName, setAsset3dFileName] = useState<string | undefined>()
   const [asset3dKind,    setAsset3dKind]    = useState<'svg' | 'image' | undefined>()
 
-  const svgReady = useEditorStore(selectSvgReady)
+  const svgReady       = useEditorStore(selectSvgReady)
+  const updateParam    = useEditorStore(s => s.updateParam)
+  const params         = useEditorStore(s => s.params)
+  const restartAnimation = useEditorStore(s => s.restartAnimation)
+  const resetView      = useEditorStore(s => s.resetView)
+
+  // ── Library open/close logic ──────────────────────────────────
+  // Auto-open on mount if no SVG is loaded; close when one is selected.
+  useEffect(() => {
+    if (!svgReady) setIsLibraryOpen(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (svgReady) setIsLibraryOpen(false)
+  }, [svgReady])
+
+  // ── Global keyboard shortcuts ─────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const inInput =
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      if (inInput) return
+
+      // ? — toggle shortcuts overlay
+      if (e.key === '?') { e.preventDefault(); setShowShortcuts(s => !s); return }
+
+      // Esc — close overlays
+      if (e.key === 'Escape') { setShowShortcuts(false); return }
+
+      // Undo / Redo
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undoEditor(); return }
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redoEditor(); return }
+
+      // Mode switch — 1 = Flow, 2 = Sculpt
+      if (e.key === '1') { setAppMode('animate'); setActiveTab(null); return }
+      if (e.key === '2') { setAppMode('3d'); setActiveTab(null); return }
+
+      // Flow-mode only shortcuts
+      if (appMode !== 'animate') return
+
+      // R — restart animation
+      if ((e.key === 'r' || e.key === 'R') && !e.metaKey && !e.ctrlKey) { restartAnimation(); return }
+
+      // 0 — reset view
+      if (e.key === '0') { resetView(); return }
+
+      // [ / ] — decrease / increase speed
+      if (e.key === '[') {
+        e.preventDefault()
+        const speeds = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]
+        const idx = speeds.indexOf(params.speed)
+        if (idx > 0) updateParam('speed', speeds[idx - 1])
+        return
+      }
+      if (e.key === ']') {
+        e.preventDefault()
+        const speeds = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]
+        const idx = speeds.indexOf(params.speed)
+        if (idx < speeds.length - 1) updateParam('speed', speeds[idx + 1])
+        return
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [appMode, params.speed, updateParam, restartAnimation, resetView])
 
   const handleTabChange = (tab: ActiveTab) => {
     setActiveTab(prev => prev === tab ? null : tab)
@@ -101,7 +172,23 @@ export function EditorLayout() {
         asset3dFileName={asset3dFileName}
         asset3dKind={asset3dKind}
         onChangeFile3D={changeFile3dFn ?? undefined}
+        onBrowseLibrary={() => setIsLibraryOpen(true)}
       />
+
+      {/* Library browser — full-screen overlay (empty state + mid-session) */}
+      <AnimatePresence>
+        {isLibraryOpen && (
+          <LibraryBrowser
+            key="library"
+            isModal
+            onClose={svgReady ? () => setIsLibraryOpen(false) : undefined}
+            onUpload={() => {
+              // Delegate to the hidden file input inside PreviewStage
+              document.querySelector<HTMLInputElement>('input[type="file"][accept*="svg"]')?.click()
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Mode Switcher (Bottom-Left) */}
       <div className="absolute bottom-5 left-5 z-30 pointer-events-auto">
@@ -146,6 +233,35 @@ export function EditorLayout() {
       <AnimatePresence>
         {appMode === 'animate' && svgReady && <BottomBar key="bottombar" />}
       </AnimatePresence>
+
+      {/* ? Shortcut hint button — bottom right */}
+      <div className="absolute bottom-5 right-5 z-30 pointer-events-auto">
+        <motion.button
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={SPRING.entrance}
+          onClick={() => setShowShortcuts(s => !s)}
+          title="Keyboard shortcuts (?)"
+          style={{
+            width: 32, height: 32, borderRadius: '50%', border: 'none',
+            background: 'rgba(229,229,229,0.70)',
+            backdropFilter: 'blur(8px)',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'var(--font-geist-sans), sans-serif',
+            fontWeight: 600, fontSize: 14, color: '#888',
+            transition: 'background 0.12s, color 0.12s',
+            boxShadow: showShortcuts ? '0 0 0 1.5px #3f37c9' : 'none',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.9)'; e.currentTarget.style.color = '#111' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(229,229,229,0.70)'; e.currentTarget.style.color = '#888' }}
+        >
+          ?
+        </motion.button>
+      </div>
+
+      {/* Keyboard shortcuts overlay */}
+      <KeyboardShortcutsOverlay open={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
   )
 }

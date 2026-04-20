@@ -125,6 +125,79 @@ export const iconPresets: Preset[] = [
     },
   },
 
+  {
+    id: 'tada',
+    name: 'Tada',
+    category: 'Icon',
+    icon: '🎉',
+    pro: false,
+    baseDuration: 0.9,
+    description: 'Scale spike + rotation shake — the classic attention seeker for celebrations and notifications.',
+    apply(el, p) {
+      const d = B.dur(0.9, p)
+      B.css(el, `
+        @keyframes rf-tada {
+          0%,100% { transform: scale(1) rotate(0deg) }
+          10%,20% { transform: scale(0.9) rotate(-3deg) }
+          30%,50%,70%,90% { transform: scale(1.12) rotate(3deg) }
+          40%,60%,80%     { transform: scale(1.12) rotate(-3deg) }
+        }
+      `)
+      B.targets(el, p.scope).forEach((e, i) => {
+        e.style.transformOrigin = 'center'
+        const delay = p.delay + i * 0.06
+        B.anim(e, `rf-tada ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both`, delay)
+      })
+    },
+  },
+
+  {
+    id: 'bounce-loop',
+    name: 'Bounce Loop',
+    category: 'Icon',
+    icon: '⚽',
+    pro: false,
+    baseDuration: 0.7,
+    description: 'Continuous elastic bounce — playful idle loop for interactive and hover states.',
+    apply(el, p) {
+      const d = B.dur(0.7, p)
+      B.css(el, `
+        @keyframes rf-bloop {
+          0%,20%,50%,80%,100% { transform: translateY(0) }
+          40% { transform: translateY(-14px) }
+          60% { transform: translateY(-7px) }
+        }
+      `)
+      B.targets(el, p.scope).forEach((e, i) => {
+        const delay = p.delay + i * 0.08
+        B.anim(e, `rf-bloop ${d} ${delay.toFixed(3)}s infinite ease-in-out`, delay)
+      })
+    },
+  },
+
+  {
+    id: 'flip',
+    name: 'Flip',
+    category: 'Icon',
+    icon: '🃏',
+    pro: false,
+    baseDuration: 0.65,
+    description: 'Perspective Y-axis flip — coin-toss reveal with a snappy spring settle.',
+    apply(el, p) {
+      const d = B.dur(0.65, p)
+      B.css(el, `
+        @keyframes rf-flip-in  { from { opacity: 0; transform: perspective(400px) rotateY(90deg) } 40% { transform: perspective(400px) rotateY(-15deg) } 70% { transform: perspective(400px) rotateY(10deg) } to { opacity: 1; transform: perspective(400px) rotateY(0deg) } }
+        @keyframes rf-flip-out { from { opacity: 1; transform: perspective(400px) rotateY(0deg) } 30% { transform: perspective(400px) rotateY(15deg) } to { opacity: 0; transform: perspective(400px) rotateY(90deg) } }
+      `)
+      B.targets(el, p.scope).forEach((e, i) => {
+        e.style.transformOrigin = 'center'
+        const delay = p.delay + i * 0.07
+        const kf = p.direction === 'out' ? 'rf-flip-out' : 'rf-flip-in'
+        B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ${B.ease(p)}`, delay)
+      })
+    },
+  },
+
   // ── filter-based effects ────────────────────────────────────
 
   {

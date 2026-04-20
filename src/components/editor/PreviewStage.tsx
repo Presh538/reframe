@@ -44,7 +44,9 @@ export function PreviewStage() {
   const setSvgHasGroups   = useEditorStore(s => s.setSvgHasGroups)
   const svgHasGroups      = useEditorStore(s => s.svgHasGroups)
 
-  const [isDragOver, setIsDragOver] = useState(false)
+  const [isDragOver,     setIsDragOver]     = useState(false)
+  const [selectedEl,     setSelectedEl]     = useState<SVGElement | null>(null)
+  const hoveredElRef     = useRef<SVGElement | null>(null)
   const dragDepth = useRef(0)
 
   // Always-current refs so effects and timers avoid stale closures
@@ -232,6 +234,84 @@ export function PreviewStage() {
       sectionRef.current.style.cursor = (isSpaceDown.current || isPanMode) ? 'grab' : ''
     }
   }, [isPanMode, svgReady])
+
+  // ── SVG element hover/click selection ────────────────────────
+
+  /**
+   * Returns the nearest animatable ancestor ([data-rf-anim]) of the target,
+   * or null if the click was on the SVG background.
+   */
+  const nearestAnimEl = useCallback((target: EventTarget | null): SVGElement | null => {
+    if (!svgRef.current || !(target instanceof Element)) return null
+    let el: Element | null = target
+    while (el && el !== svgRef.current) {
+      if (el.hasAttribute('data-rf-anim')) return el as SVGElement
+      el = el.parentElement
+    }
+    return null
+  }, [])
+
+  const applyHighlight = useCallback((hovered: SVGElement | null, selected: SVGElement | null) => {
+    const svg = svgRef.current
+    if (!svg) return
+    const animEls = Array.from(svg.querySelectorAll<SVGElement>('[data-rf-anim]'))
+    animEls.forEach(el => {
+      el.style.opacity = ''
+      el.style.filter  = ''
+    })
+    if (selected) {
+      // Isolate: dim everything else, highlight selection with a shape-conforming glow
+      animEls.forEach(el => {
+        if (el !== selected) el.style.opacity = '0.18'
+      })
+      selected.style.filter = 'drop-shadow(0 0 6px rgba(63,55,201,0.80))'
+    } else if (hovered) {
+      // Subtle glow on hover — follows the actual SVG shape, not a bounding box
+      hovered.style.filter = 'drop-shadow(0 0 4px rgba(63,55,201,0.50))'
+    }
+  }, [])
+
+  const handleSvgMouseMove = useCallback((e: React.MouseEvent) => {
+    if (isPanning.current || isPanMode) return
+    const el = nearestAnimEl(e.target)
+    if (el === hoveredElRef.current) return
+    hoveredElRef.current = el
+    applyHighlight(el, selectedEl)
+  }, [nearestAnimEl, applyHighlight, selectedEl, isPanMode])
+
+  const handleSvgMouseLeave = useCallback(() => {
+    hoveredElRef.current = null
+    applyHighlight(null, selectedEl)
+  }, [applyHighlight, selectedEl])
+
+  const handleSvgClick = useCallback((e: React.MouseEvent) => {
+    if (isPanning.current || isPanMode) return
+    const el = nearestAnimEl(e.target)
+    const next = el === selectedEl ? null : el
+    setSelectedEl(next)
+    hoveredElRef.current = null
+    applyHighlight(null, next)
+  }, [nearestAnimEl, applyHighlight, selectedEl, isPanMode])
+
+  // Clear selection when SVG or preset changes
+  useEffect(() => {
+    setSelectedEl(null)
+    hoveredElRef.current = null
+  }, [svgSource, activePresetId])
+
+  // Escape — dismiss the current canvas selection
+  useEffect(() => {
+    if (!selectedEl) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedEl(null)
+        hoveredElRef.current = null
+        applyHighlight(null, null)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [selectedEl, applyHighlight])
 
   // ── SVG injection ─────────────────────────────────────────────
   const injectSvg = useCallback((source: string) => {
@@ -493,7 +573,14 @@ export function PreviewStage() {
         <div
           ref={containerRef}
           className="rf-preview-container flex items-center justify-center"
-          style={{ width: '100%', height: '100%', padding: '100px 48px', overflow: 'hidden' }}
+          style={{
+            width: '100%', height: '100%', padding: '100px 48px', overflow: 'hidden',
+            // pointer-events: auto only when an SVG is loaded and we're not panning
+            cursor: svgReady && !isPanMode ? 'default' : undefined,
+          }}
+          onMouseMove={svgReady ? handleSvgMouseMove : undefined}
+          onMouseLeave={svgReady ? handleSvgMouseLeave : undefined}
+          onClick={svgReady ? handleSvgClick : undefined}
         />
 
         <AnimatePresence>

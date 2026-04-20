@@ -48,7 +48,7 @@ export const DEFAULT_PARAMS: AnimParams = {
 
 // ── Preset ────────────────────────────────────────────────────
 export type PresetCategory = 'Logo' | 'Icon' | 'Illustration' | 'UI' | 'Premium'
-export type ExportFormat = 'gif' | 'lottie' | 'css'
+export type ExportFormat = 'gif' | 'webm' | 'lottie' | 'css' | 'embed'
 
 export interface Preset {
   id: string

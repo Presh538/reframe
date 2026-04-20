@@ -7,15 +7,17 @@ import { useToast } from '@/components/ui/Toast'
 import type { ExportFormat } from '@/types'
 
 const FORMAT_OPTIONS: { value: ExportFormat; label: string; tier: 'free' | 'pro' }[] = [
-  { value: 'gif',    label: 'GIF',    tier: 'free' },
-  // { value: 'lottie', label: 'Lottie', tier: 'pro' },
-  { value: 'css',    label: 'CSS',    tier: 'pro' },
+  { value: 'gif',  label: 'GIF',  tier: 'free' },
+  { value: 'webm', label: 'WebM', tier: 'free' },
+  { value: 'css',  label: 'CSS',  tier: 'pro'  },
 ]
 
 const EXPORT_LABELS: Record<ExportFormat, string> = {
   gif:    'Export GIF',
+  webm:   'Export WebM',
   lottie: 'Export Lottie JSON',
   css:    'Export CSS',
+  embed:  'Copy Embed',
 }
 
 export function ExportPanel() {
@@ -45,7 +47,7 @@ export function ExportPanel() {
   }
 
   const exportLabel = exportState.isRunning
-    ? (exportState.progress < 78 ? 'Capturing frames…' : 'Encoding…')
+    ? (exportState.progress < 32 ? 'Capturing frames…' : exportState.progress < 90 ? 'Rendering…' : 'Encoding…')
     : EXPORT_LABELS[format]
 
   return (

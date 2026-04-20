@@ -15,14 +15,22 @@ type ActiveSection = 'presets' | 'easing' | null
 type AnimFamily = 'draw' | 'rise' | 'bounce' | 'spin' | 'pulse' | 'shake' | 'cascade' | 'slide' | 'reveal' | 'check' | 'typewriter' | 'unfold' | 'morph' | 'sweep'
 
 const PRESET_FAMILY: Record<string, AnimFamily> = {
+  // Logo
   'draw-on': 'draw', 'fade-up-scale': 'rise', 'bounce-in': 'bounce', 'blur-rise': 'rise',
-  'skew-reveal': 'slide', 'fill-reveal': 'reveal', 'cascade': 'cascade', 'wiggle': 'shake',
-  'pulse-breathe': 'pulse', 'spin-loop': 'spin', 'path-in': 'draw', 'pop-settle': 'bounce',
-  'glow-pulse': 'pulse', 'color-pop': 'pulse', 'float-loop': 'rise', 'shake': 'shake',
-  'wave-path': 'shake', 'scale-stagger': 'cascade', 'stagger-reveal': 'cascade',
+  'skew-reveal': 'slide', 'fill-reveal': 'reveal', 'cascade': 'cascade',
+  'slide-in': 'slide', 'zoom-in': 'rise',
+  // Icon
+  'wiggle': 'shake', 'pulse-breathe': 'pulse', 'spin-loop': 'spin', 'path-in': 'draw',
+  'pop-settle': 'bounce', 'glow-pulse': 'pulse', 'color-pop': 'pulse',
+  'tada': 'shake', 'bounce-loop': 'bounce', 'flip': 'spin',
+  // Illustration
+  'float-loop': 'rise', 'shake': 'shake', 'wave-path': 'shake',
+  'scale-stagger': 'cascade', 'stagger-reveal': 'cascade',
+  'parallax-drift': 'rise', 'liquid-morph': 'morph', 'hue-sweep': 'sweep',
+  // UI
   'checkmark-draw': 'check', 'loading-spin': 'spin', 'arrow-slide-in': 'slide',
   'fade-blur': 'reveal', 'typewriter': 'typewriter', 'elastic-unfold': 'unfold',
-  'liquid-morph': 'morph', 'hue-sweep': 'sweep',
+  'progress-fill': 'reveal', 'ping': 'pulse',
 }
 
 // ── Easing definitions ────────────────────────────────────────
@@ -141,6 +149,7 @@ export function LeftSidebar() {
             >
               <EasingContent />
             </AccordionCard>
+
           </motion.div>
         )}
       </AnimatePresence>
@@ -359,30 +368,30 @@ function PresetAnimIcon({ family, color, hovered }: { family: AnimFamily; color:
     case 'check':
       return <svg width="22" height="18" viewBox="0 0 24 20" fill="none" style={{ overflow: 'visible' }}><motion.path d="M 4,10 L 9,15 L 20,5" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" initial={{ pathLength: 0 }} animate={{ pathLength: hovered ? 1 : 0 }} transition={{ duration: 0.4, ease: 'easeOut' }} /></svg>
     case 'rise':
-      return <svg width="22" height="18" viewBox="0 0 24 20" fill="none" style={{ overflow: 'visible' }}><motion.rect x="9" y="8" width="6" height="6" rx="1.5" fill={color} opacity={0.85} animate={hovered ? { y: -4, opacity: 1 } : { y: 0, opacity: 0.7 }} transition={t} /></svg>
+      return <svg width="22" height="18" viewBox="0 0 24 20" fill="none" style={{ overflow: 'visible' }}><motion.rect x="9" y="8" width="6" height="6" rx="1.5" fill={color} initial={{ y: 0, opacity: 0.7 }} animate={hovered ? { y: -4, opacity: 1 } : { y: 0, opacity: 0.7 }} transition={t} /></svg>
     case 'bounce':
       return <svg width="22" height="18" viewBox="0 0 24 20" fill="none"><motion.circle cx="12" cy="10" r="4.5" fill="none" stroke={color} strokeWidth="1.5" animate={hovered ? { scale: [1, 0.45, 1.35, 0.88, 1.08, 1] } : { scale: 1 }} style={{ originX: '12px', originY: '10px' }} transition={{ duration: 0.55, ease: 'easeOut' }} /></svg>
     case 'spin':
       return <svg width="22" height="18" viewBox="0 0 24 20" fill="none"><motion.path d="M 12,4 A 6,6 0 1 1 6.5,7.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" fill="none" animate={hovered ? { rotate: 360 } : { rotate: 0 }} style={{ originX: '12px', originY: '10px' }} transition={{ duration: 0.55, ease: 'easeInOut' }} /><motion.path d="M 5.5,5.5 L 6.5,7.5 L 8.5,6.5" stroke={color} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" fill="none" animate={hovered ? { rotate: 360 } : { rotate: 0 }} style={{ originX: '12px', originY: '10px' }} transition={{ duration: 0.55, ease: 'easeInOut' }} /></svg>
     case 'pulse':
-      return <svg width="22" height="18" viewBox="0 0 24 20" fill="none"><motion.circle cx="12" cy="10" r="4" fill={color} opacity={0.8} animate={hovered ? { scale: [1, 1.45, 0.9, 1.2, 1], opacity: [0.8, 0.5, 0.9, 0.65, 0.8] } : { scale: 1, opacity: 0.8 }} style={{ originX: '12px', originY: '10px' }} transition={{ duration: 0.7, ease: 'easeInOut' }} /></svg>
+      return <svg width="22" height="18" viewBox="0 0 24 20" fill="none"><motion.circle cx="12" cy="10" r="4" fill={color} initial={{ scale: 1, opacity: 0.8 }} animate={hovered ? { scale: [1, 1.45, 0.9, 1.2, 1], opacity: [0.8, 0.5, 0.9, 0.65, 0.8] } : { scale: 1, opacity: 0.8 }} style={{ originX: '12px', originY: '10px' }} transition={{ duration: 0.7, ease: 'easeInOut' }} /></svg>
     case 'shake':
       return <svg width="22" height="18" viewBox="0 0 24 20" fill="none"><motion.rect x="8" y="7" width="8" height="6" rx="2" fill="none" stroke={color} strokeWidth="1.5" animate={hovered ? { x: [0, -4, 4, -3, 3, -1.5, 1.5, 0] } : { x: 0 }} transition={{ duration: 0.5, ease: 'easeOut' }} /></svg>
     case 'cascade':
-      return <svg width="22" height="18" viewBox="0 0 24 20" fill="none" style={{ overflow: 'visible' }}>{[0, 1, 2].map(i => <motion.rect key={i} x={5 + i * 6} y="8" width="4" height="5" rx="1" fill={color} animate={hovered ? { scaleY: 1, opacity: 1 } : { scaleY: 0.2, opacity: 0.25 }} style={{ originY: '100%', originX: `${5 + i * 6 + 2}px` }} transition={{ ...t, delay: hovered ? i * 0.08 : 0 }} />)}</svg>
+      return <svg width="22" height="18" viewBox="0 0 24 20" fill="none" style={{ overflow: 'visible' }}>{[0, 1, 2].map(i => <motion.rect key={i} x={5 + i * 6} y="8" width="4" height="5" rx="1" fill={color} initial={{ scaleY: 0.2, opacity: 0.25 }} animate={hovered ? { scaleY: 1, opacity: 1 } : { scaleY: 0.2, opacity: 0.25 }} style={{ originY: '100%', originX: `${5 + i * 6 + 2}px` }} transition={{ ...t, delay: hovered ? i * 0.08 : 0 }} />)}</svg>
     case 'slide':
-      return <svg width="22" height="18" viewBox="0 0 24 20" fill="none" style={{ overflow: 'hidden' }}><motion.rect x="8" y="7" width="8" height="6" rx="2" fill="none" stroke={color} strokeWidth="1.5" animate={hovered ? { x: 0, opacity: 1 } : { x: 7, opacity: 0 }} transition={t} /></svg>
+      return <svg width="22" height="18" viewBox="0 0 24 20" fill="none" style={{ overflow: 'hidden' }}><motion.rect x="8" y="7" width="8" height="6" rx="2" fill="none" stroke={color} strokeWidth="1.5" initial={{ x: 7, opacity: 0 }} animate={hovered ? { x: 0, opacity: 1 } : { x: 7, opacity: 0 }} transition={t} /></svg>
     case 'typewriter':
-      return <svg width="22" height="18" viewBox="0 0 24 20" fill="none" style={{ overflow: 'visible' }}><motion.path d="M 4,10 H 17" stroke={color} strokeWidth="1.5" strokeLinecap="round" fill="none" initial={{ pathLength: 0 }} animate={{ pathLength: hovered ? 1 : 0 }} transition={{ duration: 0.35, ease: 'linear' }} /><motion.line x1="18.5" y1="7" x2="18.5" y2="13" stroke={color} strokeWidth="1.4" strokeLinecap="round" animate={hovered ? { opacity: [0, 1, 0, 1, 0, 1] } : { opacity: 0 }} transition={{ duration: 0.7, ease: 'linear', delay: 0.3 }} /></svg>
+      return <svg width="22" height="18" viewBox="0 0 24 20" fill="none" style={{ overflow: 'visible' }}><motion.path d="M 4,10 H 17" stroke={color} strokeWidth="1.5" strokeLinecap="round" fill="none" initial={{ pathLength: 0 }} animate={{ pathLength: hovered ? 1 : 0 }} transition={{ duration: 0.35, ease: 'linear' }} /><motion.line x1="18.5" y1="7" x2="18.5" y2="13" stroke={color} strokeWidth="1.4" strokeLinecap="round" initial={{ opacity: 0 }} animate={hovered ? { opacity: [0, 1, 0, 1, 0, 1] } : { opacity: 0 }} transition={{ duration: 0.7, ease: 'linear', delay: 0.3 }} /></svg>
     case 'unfold':
-      return <svg width="22" height="18" viewBox="0 0 24 20" fill="none"><motion.rect x="7" y="8" width="10" height="4" rx="1.5" fill="none" stroke={color} strokeWidth="1.5" animate={hovered ? { scaleX: 1, opacity: 1 } : { scaleX: 0.12, opacity: 0.35 }} style={{ originX: '12px', originY: '10px' }} transition={{ type: 'spring', stiffness: 600, damping: 11, mass: 0.5 }} /></svg>
+      return <svg width="22" height="18" viewBox="0 0 24 20" fill="none"><motion.rect x="7" y="8" width="10" height="4" rx="1.5" fill="none" stroke={color} strokeWidth="1.5" initial={{ scaleX: 0.12, opacity: 0.35 }} animate={hovered ? { scaleX: 1, opacity: 1 } : { scaleX: 0.12, opacity: 0.35 }} style={{ originX: '12px', originY: '10px' }} transition={{ type: 'spring', stiffness: 600, damping: 11, mass: 0.5 }} /></svg>
     case 'morph':
       return <svg width="22" height="18" viewBox="0 0 24 20" fill="none"><motion.circle cx="12" cy="10" r="4.5" fill={color} opacity={0.75} animate={hovered ? { scaleX: [1, 1.55, 0.7, 1.25, 0.88, 1], scaleY: [1, 0.6, 1.45, 0.82, 1.12, 1] } : { scaleX: 1, scaleY: 1 }} style={{ originX: '12px', originY: '10px' }} transition={{ duration: 0.65, ease: 'easeInOut' }} /></svg>
     case 'sweep':
       return <svg width="22" height="18" viewBox="0 0 24 20" fill="none" style={{ overflow: 'hidden' }}><rect x="4" y="7.5" width="16" height="5" rx="1.5" fill={color} opacity={0.15} /><motion.rect x="4" y="7.5" width="16" height="5" rx="1.5" fill={color} opacity={0.75} animate={hovered ? { scaleX: 1 } : { scaleX: 0 }} style={{ originX: '4px' }} transition={{ duration: 0.45, ease: [0.2, 0, 0, 1] }} /></svg>
     case 'reveal':
     default:
-      return <svg width="22" height="18" viewBox="0 0 24 20" fill="none" style={{ overflow: 'visible' }}><motion.rect x="8" y="7" width="8" height="6" rx="2" fill="none" stroke={color} strokeWidth="1.5" animate={hovered ? { y: 0, opacity: 1 } : { y: 4, opacity: 0 }} transition={t} /></svg>
+      return <svg width="22" height="18" viewBox="0 0 24 20" fill="none" style={{ overflow: 'visible' }}><motion.rect x="8" y="7" width="8" height="6" rx="2" fill="none" stroke={color} strokeWidth="1.5" initial={{ y: 4, opacity: 0 }} animate={hovered ? { y: 0, opacity: 1 } : { y: 4, opacity: 0 }} transition={t} /></svg>
   }
 }
 
@@ -458,6 +467,7 @@ function EasingRow({ item, isActive, onSelect }: {
   )
 }
 
+
 // ── Icons ─────────────────────────────────────────────────────
 
 function PresetsIcon() {
@@ -483,6 +493,7 @@ function ChevronIcon() {
     </svg>
   )
 }
+
 
 function FileIcon() {
   return (
