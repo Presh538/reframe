@@ -40,9 +40,10 @@ export function EditorLayout() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   // 3D Bridge states
-  const [export3dFn,     setExport3dFn]     = useState<(() => void) | null>(null)
-  const [copyEmbed3dFn,  setCopyEmbed3dFn]  = useState<(() => void) | null>(null)
-  const [changeFile3dFn, setChangeFile3dFn] = useState<(() => void) | null>(null)
+  const [export3dFn,       setExport3dFn]       = useState<(() => void) | null>(null)
+  const [exportWebM3dFn,   setExportWebM3dFn]   = useState<(() => void) | null>(null)
+  const [copyEmbed3dFn,    setCopyEmbed3dFn]    = useState<(() => void) | null>(null)
+  const [changeFile3dFn,   setChangeFile3dFn]   = useState<(() => void) | null>(null)
   const [canExport3d,    setCanExport3d]    = useState(false)
   const [asset3dFileName, setAsset3dFileName] = useState<string | undefined>()
   const [asset3dKind,    setAsset3dKind]    = useState<'svg' | 'image' | undefined>()
@@ -54,12 +55,9 @@ export function EditorLayout() {
   const resetView      = useEditorStore(s => s.resetView)
 
   // ── Library open/close logic ──────────────────────────────────
-  // Auto-open on mount if no SVG is loaded; close when one is selected.
-  useEffect(() => {
-    if (!svgReady) setIsLibraryOpen(true)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
+  // Do NOT auto-open on mount — the PreviewStage empty state is the primary
+  // landing view. The library is opened explicitly via the "Browse templates"
+  // button in the empty state or the library icon in the TopBar.
   useEffect(() => {
     if (svgReady) setIsLibraryOpen(false)
   }, [svgReady])
@@ -124,8 +122,9 @@ export function EditorLayout() {
 
   // Stable bridge callbacks — must never change reference or ThreeDMode's
   // useEffect([onExportReady, ...]) fires → setState → re-render → infinite loop
-  const handleExportReady      = useCallback((fn: () => void)                                   => setExport3dFn(() => fn),    [])
-  const handleCopyEmbedReady   = useCallback((fn: () => void)                                   => setCopyEmbed3dFn(() => fn),  [])
+  const handleExportReady      = useCallback((fn: () => void) => setExport3dFn(() => fn),       [])
+  const handleExportWebMReady  = useCallback((fn: () => void) => setExportWebM3dFn(() => fn),   [])
+  const handleCopyEmbedReady   = useCallback((fn: () => void) => setCopyEmbed3dFn(() => fn),    [])
   const handleAssetChange      = useCallback((hasAsset: boolean, name?: string, kind?: 'svg' | 'image') => {
     setCanExport3d(hasAsset)
     setAsset3dFileName(name)
@@ -144,7 +143,10 @@ export function EditorLayout() {
              transition={{ duration: 0.2 }}
              className="absolute inset-0"
           >
-            <PreviewStage />
+            <PreviewStage
+              onBrowseLibrary={() => setIsLibraryOpen(true)}
+              libraryOpen={isLibraryOpen}
+            />
           </motion.div>
         )}
       </AnimatePresence>
@@ -154,6 +156,7 @@ export function EditorLayout() {
         {appMode === '3d' && (
           <ThreeDMode
             onExportReady={handleExportReady}
+            onExportWebMReady={handleExportWebMReady}
             onCopyEmbedReady={handleCopyEmbedReady}
             onAssetChange={handleAssetChange}
             onRequestFileInput={handleRequestFileInput}
@@ -167,20 +170,26 @@ export function EditorLayout() {
         onTabChange={handleTabChange}
         appMode={appMode}
         onExport3D={export3dFn ?? undefined}
+        onExportWebM3D={exportWebM3dFn ?? undefined}
         onCopyEmbed3D={copyEmbed3dFn ?? undefined}
         canExport3D={canExport3d}
         asset3dFileName={asset3dFileName}
         asset3dKind={asset3dKind}
         onChangeFile3D={changeFile3dFn ?? undefined}
         onBrowseLibrary={() => setIsLibraryOpen(true)}
+        isLibraryOpen={isLibraryOpen}
       />
 
-      {/* Library browser — full-screen overlay (empty state + mid-session) */}
+      {/* Library browser — full-screen overlay (empty state + mid-session).
+          Empty state (svgReady=false): isModal=false → position:absolute so the
+          TopBar at z-30 floats above it and the Reframe logo stays visible.
+          Mid-session (svgReady=true): isModal=true → position:fixed, z=200 so
+          it covers the full viewport as a proper focused modal overlay.       */}
       <AnimatePresence>
         {isLibraryOpen && (
           <LibraryBrowser
             key="library"
-            isModal
+            isModal={!!svgReady}
             onClose={svgReady ? () => setIsLibraryOpen(false) : undefined}
             onUpload={() => {
               // Delegate to the hidden file input inside PreviewStage
@@ -231,7 +240,9 @@ export function EditorLayout() {
 
       {/* BottomBar (Animate mode only) */}
       <AnimatePresence>
-        {appMode === 'animate' && svgReady && <BottomBar key="bottombar" />}
+        {appMode === 'animate' && svgReady && (
+          <BottomBar key="bottombar" onBrowseLibrary={() => setIsLibraryOpen(true)} />
+        )}
       </AnimatePresence>
 
       {/* ? Shortcut hint button — bottom right */}

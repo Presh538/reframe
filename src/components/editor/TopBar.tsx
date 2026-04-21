@@ -19,30 +19,34 @@ const FORMATS: { value: ExportFormat; label: string; desc?: string }[] = [
   { value: 'lottie', label: 'Export Lottie', desc: 'JSON for Lottie player' },
 ]
 
-// 3D export options — GIF turntable + embed code (SVG only)
+// 3D export options — GIF turntable + WebM + embed code (SVG only)
 const FORMATS_3D = [
   { value: 'gif'   as const, label: 'Export GIF'  },
+  { value: 'webm'  as const, label: 'Export WebM' },
   { value: 'embed' as const, label: 'Copy Code'    },
 ]
-type Format3D = 'gif' | 'embed'
+type Format3D = 'gif' | 'webm' | 'embed'
 
 interface TopBarProps {
   activeTab: 'presets' | 'smoothing'
   onTabChange: (tab: 'presets' | 'smoothing') => void
   appMode?: 'animate' | '3d'
   onExport3D?: () => void
+  onExportWebM3D?: () => void
   onCopyEmbed3D?: () => void
   canExport3D?: boolean
   asset3dFileName?: string
   asset3dKind?: 'svg' | 'image'
   onChangeFile3D?: () => void
   onBrowseLibrary?: () => void
+  /** When true the library overlay is already open — hide the Browse button. */
+  isLibraryOpen?: boolean
 }
 
 export function TopBar({
   activeTab, onTabChange, appMode = 'animate',
-  onExport3D, onCopyEmbed3D, canExport3D, asset3dFileName, asset3dKind,
-  onChangeFile3D, onBrowseLibrary,
+  onExport3D, onExportWebM3D, onCopyEmbed3D, canExport3D, asset3dFileName, asset3dKind,
+  onChangeFile3D, onBrowseLibrary, isLibraryOpen,
 }: TopBarProps) {
   const [formatOpen,   setFormatOpen]   = useState(false)
   const [format3d,     setFormat3d]     = useState<Format3D>('gif')
@@ -77,15 +81,18 @@ export function TopBar({
       setExportState({ isRunning: false, progress: 0 })
     } else {
       if (!canExport3D) return
-      if (format3d === 'embed') onCopyEmbed3D?.()
-      else                      onExport3D?.()
+      if      (format3d === 'embed') onCopyEmbed3D?.()
+      else if (format3d === 'webm')  onExportWebM3D?.()
+      else                           onExport3D?.()
     }
   }
 
   const exportLabel = exportState.isRunning
     ? 'Processing'
     : appMode === '3d'
-      ? (format3d === 'embed' ? 'Copy Code' : 'Export GIF')
+      ? format3d === 'embed' ? 'Copy Code'
+        : format3d === 'webm' ? 'Export WebM'
+        : 'Export GIF'
       : format === 'embed'
         ? 'Copy Embed'
         : `Export ${format.toUpperCase()}`
@@ -121,8 +128,8 @@ export function TopBar({
           {/* Reframe logo mark — spins continuously */}
           <ReframeLogo />
 
-          {/* Library button — shown when no file loaded (Animate mode only) */}
-          {!displayFileName && appMode === 'animate' && onBrowseLibrary && (
+          {/* Library button — shown when no file loaded AND library isn't already open */}
+          {!displayFileName && appMode === 'animate' && onBrowseLibrary && !isLibraryOpen && (
             <>
               <div style={{ width: 1, height: 20, background: 'rgba(0,0,0,0.1)', flexShrink: 0 }} />
               <button
@@ -200,36 +207,6 @@ export function TopBar({
                 Change
               </button>
 
-              {/* Library button — only in Animate mode; opens template gallery */}
-              {appMode === 'animate' && onBrowseLibrary && (
-                <button
-                  onClick={onBrowseLibrary}
-                  title="Browse template library"
-                  style={{
-                    background: 'rgba(0,0,0,0.05)',
-                    borderRadius: '50%',
-                    width: 28,
-                    height: 28,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: 'none',
-                    cursor: 'pointer',
-                    flexShrink: 0,
-                    transition: 'background 0.12s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(63,55,201,0.1)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.05)')}
-                >
-                  {/* Grid / library icon */}
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="1" y="1" width="5" height="5" rx="1.5" fill="#3f37c9"/>
-                    <rect x="8" y="1" width="5" height="5" rx="1.5" fill="#3f37c9"/>
-                    <rect x="1" y="8" width="5" height="5" rx="1.5" fill="#3f37c9"/>
-                    <rect x="8" y="8" width="5" height="5" rx="1.5" fill="#3f37c9"/>
-                  </svg>
-                </button>
-              )}
             </>
           )}
         </div>
@@ -477,7 +454,7 @@ function PresetsIcon() {
 
 function SmoothingIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
       <path d="M13.3334 2.5H6.66675C5.74758 2.5 5.00008 3.2475 5.00008 4.16667V15.8333C5.00008 16.7525 5.74758 17.5 6.66675 17.5H13.3334C14.2526 17.5 15.0001 16.7525 15.0001 15.8333V4.16667C15.0001 3.2475 14.2526 2.5 13.3334 2.5ZM1.66675 5.83333V14.1667C1.66675 15.0858 2.41425 15.8333 3.33341 15.8333V4.16667C2.41425 4.16667 1.66675 4.91417 1.66675 5.83333ZM16.6667 4.16667V15.8333C17.5859 15.8333 18.3334 15.0858 18.3334 14.1667V5.83333C18.3334 4.91417 17.5859 4.16667 16.6667 4.16667Z" fill="#854BE2"/>
     </svg>
   )

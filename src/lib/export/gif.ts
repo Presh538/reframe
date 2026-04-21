@@ -8,12 +8,15 @@
  *
  * Phase 2 – Render (parallel, ~max_single_load instead of sum_all_loads):
  *   Launch all SVG-string → canvas conversions with Promise.all so every
- *   image loads concurrently.
+ *   image loads concurrently. Each frame is supersampled at 3× (rendered to
+ *   a 3W×3H canvas with high-quality smoothing, then downscaled to W×H) so
+ *   the browser's bicubic filter produces crisp, anti-aliased edges. The hi-res
+ *   canvas backing store is released immediately after downscaling to cap RAM.
  *
- * Phase 3 – Encode (global palette from 8 sample frames, quality 2):
- *   Build a composite palette from up to 8 evenly-spaced frames at NeuQuant
- *   quality 2 (near-maximum), then encode every frame using that global palette.
- *   setTransparent marks chroma-key pixels as transparent.
+ * Phase 3 – Encode (global palette from 16 sample frames, quality 1 = maximum):
+ *   Build a composite palette from up to 16 evenly-spaced frames at NeuQuant
+ *   quality 1 (absolute maximum — samples every pixel), then encode every frame
+ *   using that global palette. setTransparent marks chroma-key pixels transparent.
  *
  * Transparency:
  *   GIF supports only 1-bit transparency. We use a chroma-key approach:
@@ -50,9 +53,10 @@ interface GifEncoderInstance {
 
 // ── Config ────────────────────────────────────────────────────
 
-const FPS           = 15          // 10 was choppy; 15 is visibly smoother without bloating file size
-const MAX_EXPORT_PX = 480          // 360 was too small for retina/2x displays
-const MAX_FRAMES    = 90           // 10 fps × 24 = 2.4 s hard cap — 15 fps × 90 = 6 s
+const FPS           = 24          // Film-standard cadence — motion is smooth rather than stuttery
+const MAX_EXPORT_PX = 1200         // High-resolution output; feels sharp on retina and 2K displays
+const MAX_FRAMES    = 144          // 24 fps × 6 s hard cap
+const SUPERSAMPLE   = 3           // Render at 3× then downscale — bicubic filter eliminates aliasing
 
 // Chroma key — fully-saturated magenta is vanishingly unlikely in real SVGs.
 const CHROMA_KEY_NUM = 0xFF00FF
@@ -132,15 +136,23 @@ function yieldToMain(): Promise<void> {
 /**
  * Converts a serialised SVG string to a canvas at the target dimensions.
  *
+ * Supersampling (SUPERSAMPLE ×):
+ *   The SVG is drawn onto a (SS×W) × (SS×H) canvas with high-quality smoothing
+ *   enabled, then downscaled onto the W × H output canvas. The browser's
+ *   bicubic/lanczos filter smooths diagonal edges and curves — effectively
+ *   multiplying perceived sharpness before the GIF encoder sees any pixels.
+ *   The hi-res canvas backing store is freed immediately after the downscale
+ *   (canvas.width = 0) to avoid accumulating multi-GB of off-screen pixel data.
+ *
  * Transparent mode (transparent=true):
- *   Draws SVG on a CLEAR canvas so anti-aliased edges composite against
- *   nothing (not against magenta). Then walks the pixel buffer:
+ *   Draws on a CLEAR hi-res canvas so SVG edges composite against nothing
+ *   (not against magenta), preventing pink fringing. After downscaling:
  *   - alpha < 128  → replaced with fully-opaque magenta (chroma key)
  *   - alpha >= 128 → kept as-is with alpha forced to 255
- *   This gives clean edges with no pink fringe.
  *
  * Solid mode (transparent=false):
- *   Fills with the background colour then draws the SVG on top.
+ *   Fills hi-res canvas with the background colour then draws the SVG on top
+ *   before downscaling.
  */
 function svgStringToCanvas(
   svgString: string,
@@ -150,7 +162,7 @@ function svgStringToCanvas(
   background: string | 'transparent',
 ): Promise<HTMLCanvasElement | null> {
   return new Promise(resolve => {
-    const timer = setTimeout(() => resolve(null), 3000)
+    const timer = setTimeout(() => resolve(null), 8000)
 
     try {
       const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
@@ -159,16 +171,41 @@ function svgStringToCanvas(
 
       img.onload = () => {
         clearTimeout(timer)
+
+        // ── Step 1: render at SUPERSAMPLE× resolution ───────────
+        const SS    = SUPERSAMPLE
+        const hiRes = document.createElement('canvas')
+        hiRes.width  = W * SS
+        hiRes.height = H * SS
+        const hiCtx = hiRes.getContext('2d')!
+        hiCtx.imageSmoothingEnabled  = true
+        hiCtx.imageSmoothingQuality  = 'high'
+
+        if (!transparent) {
+          hiCtx.fillStyle = background as string
+          hiCtx.fillRect(0, 0, W * SS, H * SS)
+        }
+        // Browsers scale SVG images smoothly at any drawImage size regardless
+        // of the width/height attributes baked into the serialised SVG string.
+        hiCtx.drawImage(img, 0, 0, W * SS, H * SS)
+
+        // ── Step 2: downscale to output canvas ──────────────────
+        // High-quality bicubic filter applied during the downscale smooths all
+        // edges and curves — aliasing is eliminated before encoding.
         const canvas = document.createElement('canvas')
         canvas.width  = W
         canvas.height = H
         const ctx = canvas.getContext('2d', { willReadFrequently: transparent })!
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+        ctx.drawImage(hiRes, 0, 0, W, H)
+
+        // Release the hi-res backing store immediately — don't let SS²×frames
+        // worth of pixel data accumulate while the rest of the batch finishes.
+        hiRes.width  = 0
+        hiRes.height = 0
 
         if (transparent) {
-          // Draw on clear canvas — no chroma-key pre-fill, so SVG edges don't
-          // composite against magenta and produce pink fringing.
-          ctx.drawImage(img, 0, 0, W, H)
-
           // Walk the pixel buffer: replace fully-transparent pixels with the
           // chroma key so the GIF encoder can mark them as the transparent index.
           const id = ctx.getImageData(0, 0, W, H)
@@ -186,10 +223,6 @@ function svgStringToCanvas(
             }
           }
           ctx.putImageData(id, 0, 0)
-        } else {
-          ctx.fillStyle = background as string
-          ctx.fillRect(0, 0, W, H)
-          ctx.drawImage(img, 0, 0, W, H)
         }
 
         URL.revokeObjectURL(url)
@@ -262,7 +295,7 @@ async function encodeGif(
 
     // Pick up to 4 evenly-spaced sample frames; always include the last frame
     // so late-appearing colours are represented.
-    const sampleCount = Math.min(8, frames.length)
+    const sampleCount = Math.min(16, frames.length)
     const stride = Math.max(1, Math.floor((frames.length - 1) / Math.max(1, sampleCount - 1)))
     const sampleIndices: number[] = []
     for (let s = 0; s < sampleCount; s++) {
@@ -270,7 +303,7 @@ async function encodeGif(
     }
     sampleIndices[sampleIndices.length - 1] = frames.length - 1
 
-    // Tile samples: up to 4 cols × 2 rows (covers 8 samples)
+    // Tile samples: up to 4 cols × 4 rows (covers 16 samples)
     const cols   = Math.min(sampleCount, 4)
     const rows   = Math.ceil(sampleCount / cols)
     const tiled  = document.createElement('canvas')
@@ -283,7 +316,7 @@ async function encodeGif(
 
     const probe = new GIFEncoder(tiled.width, tiled.height)
     probe.writeHeader()
-    probe.setQuality(2)
+    probe.setQuality(1)  // quality 1 = maximum — NeuQuant samples every pixel
     probe.addFrame(tCtx.getImageData(0, 0, tiled.width, tiled.height).data)
 
     if (probe.colorTab) {
@@ -294,11 +327,11 @@ async function encodeGif(
       encoder.setGlobalPalette(palette)
     } else {
       // Fallback: per-frame NeuQuant (colour may drift but at least renders)
-      encoder.setQuality(2)
+      encoder.setQuality(1)
     }
     encoder.setTransparent(CHROMA_KEY_NUM)
   } else {
-    encoder.setQuality(2)
+    encoder.setQuality(1)  // quality 1 = maximum NeuQuant accuracy
   }
 
   // One yield to flush the progress bar update to React before the encode loop.

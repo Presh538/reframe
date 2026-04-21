@@ -176,11 +176,14 @@ export function LibraryBrowser({
       }}
     >
       {/* ── Header ──────────────────────────────────────────── */}
+      {/* padding-top accounts for the floating TopBar (≈80px) in both
+          inline (empty-state) and modal contexts so content is never
+          clipped behind the translucent TopBar pills.              */}
       <div style={{
         display:        'flex',
         alignItems:     'center',
         justifyContent: 'space-between',
-        padding:        '22px 28px 0',
+        padding:        '90px 28px 0',
         flexShrink:     0,
       }}>
         <div>
@@ -306,6 +309,9 @@ export function LibraryBrowser({
   )
 
   // ── Modal wrapper (mid-session) ───────────────────────────────
+  // Uses position:fixed so it escapes parent stacking contexts (ThreeDMode
+  // carries zIndex:10 which would otherwise cap its children below the TopBar
+  // at z-30). Fixed + zIndex:200 renders on top of the entire viewport.
   if (isModal) {
     return (
       <motion.div
@@ -314,9 +320,9 @@ export function LibraryBrowser({
         exit={{    opacity: 0 }}
         transition={{ duration: 0.18 }}
         style={{
-          position: 'absolute',
+          position: 'fixed',
           inset:    0,
-          zIndex:   40,
+          zIndex:   200,
           background: 'var(--bg, #f0f0f0)',
           // dot pattern matching the artboard
           backgroundImage: 'radial-gradient(circle, #d8d8d8 1.5px, transparent 1.5px)',
@@ -329,5 +335,17 @@ export function LibraryBrowser({
   }
 
   // ── Inline (empty state) ──────────────────────────────────────
-  return content
+  // zIndex 25: above PreviewStage and its drag-drop overlay (no explicit
+  // z-index / auto), below TopBar (z-30) so the logo stays visible.
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{    opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      style={{ position: 'absolute', inset: 0, zIndex: 25 }}
+    >
+      {content}
+    </motion.div>
+  )
 }

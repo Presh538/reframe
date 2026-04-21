@@ -212,22 +212,18 @@ interface ControlsProps {
   onDepth:        (d: number) => void
   light:          number
   onLight:        (l: number) => void
-  orbitSpeed:     number           // drag rotation sensitivity
+  orbitSpeed:     number
   onOrbitSpeed:   (s: number) => void
-  dampingFactor:  number           // orbit inertia / smoothness
+  dampingFactor:  number
   onDampingFactor:(d: number) => void
   isPlaying:      boolean
   motionType:     'spin' | 'float' | 'sway' | 'breathe' | 'wobble'
   onMotionType:   (t: 'spin' | 'float' | 'sway' | 'breathe' | 'wobble') => void
   onPlayToggle:   () => void
   exportStatus:   ExportStatus
-  onExportGIF:    () => void
-  onExportWebM:   () => void
   onResetView:    () => void
   onOpenLibrary:  () => void
   onSnapCamera:   (preset: CameraPreset) => void
-  onCopyEmbed:    () => void
-  isSvgAsset:     boolean
   bgColor:        string
   onBgColor:      (c: string) => void
 }
@@ -247,9 +243,8 @@ function Controls({
   orbitSpeed, onOrbitSpeed,
   dampingFactor, onDampingFactor,
   isPlaying, motionType, onMotionType, onPlayToggle,
-  exportStatus, onExportGIF, onExportWebM,
+  exportStatus,
   onResetView, onOpenLibrary, onSnapCamera,
-  onCopyEmbed, isSvgAsset,
   bgColor, onBgColor,
 }: ControlsProps) {
   const [active, setActive] = useState<Active3D>(null)
@@ -341,23 +336,6 @@ function Controls({
                     {preset.replace('-', ' ')}
                   </button>
                 ))}
-              </div>
-            </Popover>
-          )}
-          {active === 'export' && (
-            <Popover key="export">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontFamily: 'var(--font-geist-sans), sans-serif', fontSize: 11, fontWeight: 600, color: '#888', letterSpacing: '0.06em', textTransform: 'uppercase', padding: '2px 0 4px' }}>Export As</span>
-                <button onClick={() => { onExportGIF(); setActive(null) }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'transparent', fontFamily: 'var(--font-geist-sans), sans-serif', fontSize: 13, fontWeight: 500, color: '#545454', transition: 'background 0.12s' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  GIF (transparent)
-                </button>
-                <button onClick={() => { onExportWebM(); setActive(null) }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'transparent', fontFamily: 'var(--font-geist-sans), sans-serif', fontSize: 13, fontWeight: 500, color: '#545454', transition: 'background 0.12s' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  WebM (video)
-                </button>
               </div>
             </Popover>
           )}
@@ -569,7 +547,7 @@ function Controls({
           {/* Background color */}
           <Tooltip label="Export background" disabled={active === 'bg'}>
             <motion.button
-              style={active === 'bg' ? pillActiveStyle : iconPillStyle}
+              style={active === 'bg' ? pillActiveStyle : pillStyle}
               onClick={() => toggle('bg')}
               initial="rest" whileHover="hover"
             >
@@ -582,22 +560,24 @@ function Controls({
                 border: '1px solid rgba(0,0,0,0.15)',
                 flexShrink: 0,
               }} />
+              BG
             </motion.button>
           </Tooltip>
 
           {/* Library — browse SVG templates */}
           <Tooltip label="Browse templates">
             <motion.button
-              style={iconPillStyle}
+              style={pillStyle}
               onClick={onOpenLibrary}
               initial="rest" whileHover="hover"
             >
-              <svg width="16" height="16" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect x="1" y="1" width="5" height="5" rx="1.5" fill="#AFAFAF"/>
                 <rect x="8" y="1" width="5" height="5" rx="1.5" fill="#AFAFAF"/>
                 <rect x="1" y="8" width="5" height="5" rx="1.5" fill="#AFAFAF"/>
                 <rect x="8" y="8" width="5" height="5" rx="1.5" fill="#AFAFAF"/>
               </svg>
+              Templates
             </motion.button>
           </Tooltip>
 
@@ -611,46 +591,6 @@ function Controls({
               <ResetIcon />
             </motion.button>
           </Tooltip>
-
-          {/* Export dropdown */}
-          <Tooltip label="Export" disabled={active === 'export'}>
-            <motion.button
-              style={active === 'export' ? { ...iconPillStyle, background: 'rgba(63,55,201,0.1)', border: '1px solid rgba(63,55,201,0.2)' } : iconPillStyle}
-              onClick={() => toggle('export')}
-              initial="rest" whileHover="hover"
-            >
-              <ExportIcon color={active === 'export' ? '#3f37c9' : '#AFAFAF'} />
-            </motion.button>
-          </Tooltip>
-
-          {/* Embed CTA — hero button for SVG assets */}
-          {isSvgAsset && (
-            <Tooltip label="Copy live 3D embed code">
-              <motion.button
-                onClick={onCopyEmbed}
-                initial="rest" whileHover="hover"
-                whileTap={{ scale: 0.92 }}
-                transition={SPRING.snappy}
-                style={{
-                  ...pillStyle,
-                  background: 'linear-gradient(135deg, #3f37c9 0%, #6c63ff 100%)',
-                  border: '1px solid rgba(255,255,255,0.3)',
-                  color: 'white',
-                  padding: '7px 14px',
-                  boxShadow: '0 2px 12px rgba(63,55,201,0.35)',
-                  fontWeight: 600,
-                  gap: 5,
-                }}
-              >
-                <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-                  <path d="M4 5L1.5 7L4 9" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M10 5L12.5 7L10 9" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M8 2.5L6 11.5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-                Embed
-              </motion.button>
-            </Tooltip>
-          )}
 
           {/* Play / Pause */}
           <Tooltip label={isPlaying ? `Pause ${motionType}` : `Play ${motionType}`} kbd="⎵">
@@ -681,13 +621,14 @@ function Controls({
 // ── Main component ────────────────────────────────────────────────
 
 export interface ThreeDModeProps {
-  onExportReady?:      (fn: () => void) => void
-  onCopyEmbedReady?:   (fn: () => void) => void
-  onAssetChange?:      (hasAsset: boolean, fileName?: string, kind?: 'svg' | 'image') => void
-  onRequestFileInput?: (fn: () => void) => void
+  onExportReady?:       (fn: () => void) => void
+  onExportWebMReady?:   (fn: () => void) => void
+  onCopyEmbedReady?:    (fn: () => void) => void
+  onAssetChange?:       (hasAsset: boolean, fileName?: string, kind?: 'svg' | 'image') => void
+  onRequestFileInput?:  (fn: () => void) => void
 }
 
-export function ThreeDMode({ onExportReady, onCopyEmbedReady, onAssetChange, onRequestFileInput }: ThreeDModeProps) {
+export function ThreeDMode({ onExportReady, onExportWebMReady, onCopyEmbedReady, onAssetChange, onRequestFileInput }: ThreeDModeProps) {
   const svgSource   = useEditorStore(s => s.svgSource)
   const svgFileName = useEditorStore(s => s.svgFileName)
 
@@ -752,7 +693,7 @@ export function ThreeDMode({ onExportReady, onCopyEmbedReady, onAssetChange, onR
     }
   }, [exportStatus, asset, isPlaying, setIsPlaying])
 
-  // Register export function with parent
+  // Register export functions with parent (TopBar dropdown triggers them)
   useEffect(() => {
     onExportReady?.(handleExportGIF)
   }, [onExportReady, handleExportGIF])
@@ -792,6 +733,11 @@ export function ThreeDMode({ onExportReady, onCopyEmbedReady, onAssetChange, onR
       setTimeout(() => { setExportStatus('idle'); if (wasPlaying) setIsPlaying(true) }, 2400)
     }
   }, [exportStatus, asset, isPlaying, setIsPlaying, toast])
+
+  // Register WebM exporter with parent after declaration
+  useEffect(() => {
+    onExportWebMReady?.(handleExportWebM)
+  }, [onExportWebMReady, handleExportWebM])
 
   // ── Camera preset snap ────────────────────────────────────────
   const handleSnapCamera = useCallback((preset: CameraPreset) => {
@@ -950,13 +896,11 @@ export function ThreeDMode({ onExportReady, onCopyEmbedReady, onAssetChange, onR
             dampingFactor={dampingFactor} onDampingFactor={setDampingFactor}
             isPlaying={isPlaying}      motionType={motionType}  onMotionType={setMotionType}
             onPlayToggle={togglePlaying}
-            exportStatus={exportStatus} onExportGIF={handleExportGIF} onExportWebM={handleExportWebM}
+            exportStatus={exportStatus}
             onResetView={() => sceneRef.current?.resetView()}
             onOpenLibrary={() => setIsLibraryOpen(true)}
             onSnapCamera={handleSnapCamera}
             bgColor={bgColor} onBgColor={setBgColor}
-            onCopyEmbed={handleCopyEmbed}
-            isSvgAsset={asset?.kind === 'svg'}
           />
         )}
       </AnimatePresence>
