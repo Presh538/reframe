@@ -47,7 +47,7 @@ import {
 
 export interface SceneRendererRef {
   captureGIF(frames: number, fps: number, onProgress: (p: number) => void): Promise<Blob>
-  captureWebM(frames: number, fps: number, onProgress: (p: number) => void): Promise<Blob>
+  captureWebM(frames: number, fps: number, bgColor: string, onProgress: (p: number) => void): Promise<Blob>
   resetView(): void
   snapCamera(preset: CameraPreset): void
 }
@@ -883,7 +883,7 @@ export const SceneRenderer = forwardRef<SceneRendererRef, SceneRendererProps>(
 
     // ── WebM capture ──────────────────────────────────────────────
     const captureWebM = useCallback(
-      (frames: number, fps: number, onProgress: (p: number) => void): Promise<Blob> =>
+      (frames: number, fps: number, bgColor: string, onProgress: (p: number) => void): Promise<Blob> =>
         new Promise((resolve, reject) => {
           const state = stateRef.current
           if (!state) return reject(new Error('Scene not initialised'))
@@ -910,19 +910,54 @@ export const SceneRenderer = forwardRef<SceneRendererRef, SceneRendererProps>(
             wobble:  (2 * Math.PI) / 0.53,
           }
 
-          const canvas = renderer.domElement
+          // ── HD export: render at 1920×1080 regardless of viewport ──
+          // Save current renderer dimensions and camera aspect so we can restore after.
+          const canvas      = renderer.domElement
+          const prevW       = canvas.width
+          const prevH       = canvas.height
+          const prevAspect  = camera.aspect
+          const EXPORT_W    = 1920
+          const EXPORT_H    = 1080
+
+          // Render at 1:1 pixel ratio (no display scaling needed for file output)
+          renderer.setPixelRatio(1)
+          renderer.setSize(EXPORT_W, EXPORT_H)
+          camera.aspect = EXPORT_W / EXPORT_H
+          camera.updateProjectionMatrix()
+
+          // ── Composite canvas: fixes pre-multiplied alpha black halos ──
+          // WebGL with alpha:true renders transparent pixels with premultiplied
+          // black baked into the RGB. MediaRecorder has no alpha channel, so
+          // capturing the raw canvas produces dark halos around anti-aliased edges.
+          // Solution: draw each frame onto a 2D canvas with a solid background
+          // first, then stream that composited canvas to the recorder.
+          const composite = document.createElement('canvas')
+          composite.width  = EXPORT_W
+          composite.height = EXPORT_H
+          const ctx2d = composite.getContext('2d')!
+
+          const fillColor = (bgColor && bgColor !== 'transparent') ? bgColor : '#000000'
+
           const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
             ? 'video/webm;codecs=vp9'
             : 'video/webm'
 
-          const stream  = canvas.captureStream(0)
-          const track   = stream.getVideoTracks()[0] as CanvasCaptureMediaStreamTrack & { requestFrame?: () => void }
-          const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 6_000_000 })
+          // Stream the composite canvas — NOT the raw WebGL canvas
+          const stream   = composite.captureStream(0)
+          const track    = stream.getVideoTracks()[0] as CanvasCaptureMediaStreamTrack & { requestFrame?: () => void }
+          // 20 Mbps VP9 gives broadcast-quality 1080p
+          const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 20_000_000 })
           const chunks: Blob[] = []
           recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
 
           recorder.onstop = () => {
-            // Restore state
+            // Restore renderer to original viewport size and aspect
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+            renderer.setSize(prevW / Math.min(window.devicePixelRatio, 2), prevH / Math.min(window.devicePixelRatio, 2), false)
+            camera.aspect = prevAspect
+            camera.updateProjectionMatrix()
+
+            // Restore scene state
             group.position.copy(savedPos)
             group.scale.copy(savedScale)
             group.rotation.copy(savedRot)
@@ -972,6 +1007,14 @@ export const SceneRenderer = forwardRef<SceneRendererRef, SceneRendererProps>(
 
             controls.update()
             renderer.render(scene, camera)
+
+            // Composite: fill background first, then draw WebGL frame on top.
+            // This converts premultiplied-alpha edge pixels into properly
+            // anti-aliased pixels against the chosen background — no black halos.
+            ctx2d.fillStyle = fillColor
+            ctx2d.fillRect(0, 0, EXPORT_W, EXPORT_H)
+            ctx2d.drawImage(canvas, 0, 0, EXPORT_W, EXPORT_H)
+
             if (typeof track.requestFrame === 'function') track.requestFrame()
 
             onProgress((i + 1) / frames)

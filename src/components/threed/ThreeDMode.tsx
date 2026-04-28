@@ -717,7 +717,7 @@ export function ThreeDMode({ onExportReady, onExportWebMReady, onCopyEmbedReady,
     setExportStatus('rendering')
     setExportProgress(0)
     try {
-      const blob = await sceneRef.current.captureWebM(90, 30, p => setExportProgress(p))
+      const blob = await sceneRef.current.captureWebM(90, 30, bgColor, p => setExportProgress(p))
       const url  = URL.createObjectURL(blob)
       const a    = Object.assign(document.createElement('a'), {
         href: url,
