@@ -444,6 +444,12 @@ export const SceneRenderer = forwardRef<SceneRendererRef, SceneRendererProps>(
         canvas,
         antialias: true,
         alpha: true,
+        // Straight (non-premultiplied) alpha — the canvas framebuffer stores
+        // rgba as-is without baking the alpha into the RGB channels.
+        // This eliminates both dark and bright fringing when ctx2d.drawImage()
+        // composites the WebGL canvas during WebM export, because the 2D
+        // canvas can read the edge pixels correctly without un-premultiplying.
+        premultipliedAlpha: false,
         preserveDrawingBuffer: true,
         logarithmicDepthBuffer: true,
       })
