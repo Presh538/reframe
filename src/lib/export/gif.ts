@@ -54,9 +54,11 @@ interface GifEncoderInstance {
 // ── Config ────────────────────────────────────────────────────
 
 const FPS           = 24          // Film-standard cadence — motion is smooth rather than stuttery
-const MAX_EXPORT_PX = 1200         // High-resolution output; feels sharp on retina and 2K displays
-const MAX_FRAMES    = 144          // 24 fps × 6 s hard cap
-const SUPERSAMPLE   = 3           // Render at 3× then downscale — bicubic filter eliminates aliasing
+const MAX_EXPORT_PX = 900         // Scale the longest edge to this — crisp for GIF without OOM risk
+const MAX_FRAMES    = 144         // 24 fps × 6 s hard cap
+const SUPERSAMPLE   = 3           // Render at up to 3× then downscale — bicubic filter eliminates aliasing
+const MAX_SS_PX     = 1800        // Hard cap on hi-res canvas edge — prevents OOM on tiny SVGs scaled up
+const BATCH_SIZE    = 8           // Frames rendered in parallel per batch — limits peak canvas RAM
 
 // Chroma key — fully-saturated magenta is vanishingly unlikely in real SVGs.
 const CHROMA_KEY_NUM = 0xFF00FF
@@ -104,14 +106,23 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
 
   restorePlayback(svgEl)
 
-  // ── Phase 2: Render all SVG strings → canvases in parallel ──
-
-  onProgress?.(32)
+  // ── Phase 2: Render SVG strings → canvases in batches ──────
 
   const transparent = background === 'transparent'
-  const canvases = await Promise.all(
-    svgStrings.map(svg => svgStringToCanvas(svg, W, H, transparent, background))
-  )
+  // Render in batches — launching all frames simultaneously via Promise.all
+  // is catastrophic for small SVGs scaled up (e.g. 24px icon → 900px export
+  // → 2700×2700 hi-res canvas × 144 frames ≈ 7 GB in memory at once → tab crash).
+  const canvases: Array<HTMLCanvasElement | null> = []
+  for (let b = 0; b < svgStrings.length; b += BATCH_SIZE) {
+    const batch = svgStrings.slice(b, b + BATCH_SIZE)
+    const results = await Promise.all(
+      batch.map(svg => svgStringToCanvas(svg, W, H, transparent, background))
+    )
+    canvases.push(...results)
+    // Update progress through the render phase (32–70 %)
+    onProgress?.(32 + Math.round((canvases.length / svgStrings.length) * 38))
+    await yieldToMain()
+  }
 
   const frames = canvases.filter((c): c is HTMLCanvasElement => c !== null)
 
@@ -176,7 +187,11 @@ function svgStringToCanvas(
         clearTimeout(timer)
 
         // ── Step 1: render at SUPERSAMPLE× resolution ───────────
-        const SS    = SUPERSAMPLE
+        // Adaptive SS: never let the hi-res canvas exceed MAX_SS_PX on any edge.
+        // A 900px output with SS=3 → 2700px hi-res, which is fine.
+        // But if the output were 300px (tall narrow SVG), SS=3 → 900px — also fine.
+        // The cap matters when MAX_EXPORT_PX is large; clamp SS to keep RAM safe.
+        const SS    = Math.max(1, Math.min(SUPERSAMPLE, Math.floor(MAX_SS_PX / Math.max(W, H))))
         const hiRes = document.createElement('canvas')
         hiRes.width  = W * SS
         hiRes.height = H * SS
