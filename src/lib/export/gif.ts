@@ -76,7 +76,10 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
   const vb   = svgEl.viewBox?.baseVal
   const srcW = vb?.width  ?? svgEl.clientWidth  ?? 400
   const srcH = vb?.height ?? svgEl.clientHeight ?? 400
-  const scale = Math.min(MAX_EXPORT_PX / Math.max(srcW, srcH), 1)
+  // Always scale so the longest edge equals MAX_EXPORT_PX — no cap at 1.
+  // Without this, small-viewBox icons (e.g. 24×24 or 100×100) export as
+  // tiny GIFs that look pixelated when displayed at normal viewing size.
+  const scale = MAX_EXPORT_PX / Math.max(srcW, srcH)
   const W = Math.round(srcW * scale)
   const H = Math.round(srcH * scale)
 
