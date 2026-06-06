@@ -2,23 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Theme tokens ── */
+/* ── Design tokens ── */
 :root {
-  color-scheme: light;
-  --bg:             #e8e8e8;
-  --surface:        #ffffff;
-  --surface-2:      #f4f4f4;
-  --surface-3:      #ebebeb;
-  --border:         #dcdcdc;
-  --border-subtle:  #eaeaea;
-  --text:           #111111;
-  --text-soft:      #555555;   /* inactive items, secondary labels   */
-  --text-faint:     #999999;   /* section headers, meta, separators  */
-  --text-very-faint:#cccccc;   /* divider dots, barely-there chrome  */
-  --muted:          #777777;
-  --canvas-tile:    #e0e0e0;
-}
+  color-scheme: dark;
 
+  /* Backgrounds */
+  --bg:             #0D0D0D;
+  --surface:        #141414;
+  --surface-2:      #1C1C1C;
+  --surface-3:      #242424;
+  --surface-hover:  #2A2A2A;
+
+  /* Text */
+  --text:           #FFFFFF;
+  --text-soft:      #888888;
+  --text-faint:     #555555;
+  --text-very-faint:#333333;
+  --muted:          #666666;
+
+  /* Accent — orange */
+  --accent:         #F97316;
+  --accent-subtle:  rgba(249, 115, 22, 0.12);
+  --accent-border:  rgba(249, 115, 22, 0.3);
+
+  /* Structural */
+  --border:         rgba(255, 255, 255, 0.06);
+  --border-strong:  rgba(255, 255, 255, 0.12);
+  --canvas-tile:    #1A1A1A;
+  --radius:         12px;
+  --radius-sm:      8px;
+  --radius-pill:    999px;
+}
 
 html,
 body {
@@ -30,7 +44,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Dot-grid canvas pattern (matches Figma "Dots" layer) ── */
+/* ── Dot-grid canvas pattern ── */
 @layer utilities {
   .canvas-bg {
     background-color: var(--bg);
@@ -53,21 +67,20 @@ body {
   }
 }
 
-/* ── Logo spin keyframe (used in SVG <g> inline style) ── */
+/* ── Logo spin ── */
 @keyframes spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
 
-/* ── Physical press feedback on every button ── */
-/* Scale down 3% on press — like a real physical click */
+/* ── Physical press feedback ── */
 @layer base {
   button:active:not(:disabled) {
     transform: scale(0.97);
   }
 }
 
-/* ── Smooth transitions for all interactive surfaces ── */
+/* ── Smooth transitions ── */
 @layer base {
   button {
     transition:
@@ -77,7 +90,6 @@ body {
       box-shadow       0.15s cubic-bezier(0.4, 0, 0.2, 1),
       transform        0.1s  cubic-bezier(0.4, 0, 0.2, 1);
   }
-  /* Don't transition transform on buttons that already have explicit animations */
   button[style*='animation'] {
     transition:
       background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
@@ -89,13 +101,13 @@ body {
 /* ── Focus-visible ring ── */
 @layer base {
   :focus-visible {
-    outline: 2px solid rgba(63, 55, 201, 0.6);
+    outline: 2px solid rgba(249, 115, 22, 0.6);
     outline-offset: 2px;
     border-radius: 4px;
   }
 }
 
-/* ── Range input ── */
+/* ── Range input — dark styled ── */
 input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
@@ -119,7 +131,7 @@ input[type='range']::-webkit-slider-thumb {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #3f37c9;
+  background: var(--accent);
   margin-top: -5px;
   transition: transform 0.1s;
 }
@@ -130,6 +142,6 @@ input[type='range']::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #3f37c9;
+  background: var(--accent);
   border: none;
 }

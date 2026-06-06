@@ -49,10 +49,10 @@ export function ThreeDEasingPanel({ onClose }: Props) {
           width: 396,
           padding: 8,
           borderRadius: 14,
-          background: 'rgba(251,251,251,0.82)',
+          background: '#181818',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06)',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07)',
         }}>
 
           {/* Panel header */}
@@ -63,12 +63,12 @@ export function ThreeDEasingPanel({ onClose }: Props) {
             <button
               onClick={onClose}
               style={{
-                background: 'rgba(0,0,0,0.06)', border: 'none', borderRadius: '50%',
+                background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: '50%',
                 width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', flexShrink: 0, transition: 'background 0.12s',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.12)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.06)')}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.13)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
               aria-label="Close"
             >
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -92,7 +92,7 @@ export function ThreeDEasingPanel({ onClose }: Props) {
 
           {/* Footer hint */}
           <p style={{
-            ...f, fontSize: 10, color: '#ccc',
+            ...f, fontSize: 10, color: '#555',
             textAlign: 'center', padding: '8px 0 2px', margin: 0,
           }}>
             Controls how the model responds to drag rotation
@@ -113,7 +113,7 @@ function FeelCard({
   onSelect: (f: ThreeDOrbitFeel) => void
   index:    number
 }) {
-  const accent = isActive ? '#3f37c9' : '#afafaf'
+  const accent = isActive ? '#F97316' : '#555'
 
   return (
     <motion.button
@@ -131,8 +131,8 @@ function FeelCard({
         gap: 8,
         padding: '10px 12px 10px',
         borderRadius: 10,
-        border: isActive ? '1.5px solid rgba(63,55,201,0.4)' : '1.5px solid rgba(0,0,0,0.06)',
-        background: isActive ? 'rgba(63,55,201,0.06)' : 'rgba(255,255,255,0.55)',
+        border: isActive ? '1.5px solid rgba(249,115,22,0.4)' : '1.5px solid rgba(255,255,255,0.07)',
+        background: isActive ? 'rgba(249,115,22,0.10)' : '#1A1A1A',
         cursor: 'pointer',
         textAlign: 'left',
         transition: 'background 0.15s, border 0.15s',
@@ -141,7 +141,7 @@ function FeelCard({
       {/* Curve preview */}
       <svg width="44" height="28" viewBox="0 0 44 28" fill="none" style={{ flexShrink: 0 }}>
         {/* Baseline */}
-        <line x1="2" y1="26" x2="42" y2="26" stroke="rgba(0,0,0,0.07)" strokeWidth="1"/>
+        <line x1="2" y1="26" x2="42" y2="26" stroke="rgba(255,255,255,0.08)" strokeWidth="1"/>
         {/* Feel curve */}
         <path d={feel.curvePath} stroke={accent} strokeWidth="1.8" strokeLinecap="round" fill="none"/>
         {/* Speed dots — higher speed = dots closer together */}
@@ -161,14 +161,14 @@ function FeelCard({
       <div>
         <p style={{
           ...f, fontSize: 13, fontWeight: 600, lineHeight: '18px',
-          color: isActive ? '#3f37c9' : '#222',
+          color: isActive ? '#F97316' : '#CCCCCC',
           margin: 0,
         }}>
           {feel.name}
         </p>
         <p style={{
           ...f, fontSize: 11, lineHeight: '16px',
-          color: '#aaa', margin: 0, marginTop: 1,
+          color: '#555', margin: 0, marginTop: 1,
         }}>
           {feel.description}
         </p>
@@ -186,7 +186,7 @@ function FeelCard({
               position: 'absolute', top: 8, right: 8,
               width: 14, height: 14,
               borderRadius: '50%',
-              background: '#3f37c9',
+              background: '#F97316',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >

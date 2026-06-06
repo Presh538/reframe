@@ -90,11 +90,11 @@ export function KeyboardShortcutsOverlay({ open, onClose }: Props) {
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             onClick={e => e.stopPropagation()}
             style={{
-              background: 'rgba(251,251,251,0.96)',
+              background: 'rgba(20,20,20,0.96)',
               backdropFilter: 'blur(24px)',
               WebkitBackdropFilter: 'blur(24px)',
               borderRadius: 20,
-              boxShadow: '0 24px 80px rgba(0,0,0,0.20), 0 0 0 1px rgba(0,0,0,0.06)',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.07)',
               padding: '28px 32px',
               minWidth: 360,
               maxWidth: 440,
@@ -104,10 +104,10 @@ export function KeyboardShortcutsOverlay({ open, onClose }: Props) {
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#111', lineHeight: '22px' }}>
+                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#FFFFFF', lineHeight: '22px' }}>
                   Keyboard Shortcuts
                 </h2>
-                <p style={{ margin: '2px 0 0', fontSize: 12, color: '#888', lineHeight: '18px' }}>
+                <p style={{ margin: '2px 0 0', fontSize: 12, color: '#666', lineHeight: '18px' }}>
                   Press ? to open / close
                 </p>
               </div>
@@ -115,15 +115,15 @@ export function KeyboardShortcutsOverlay({ open, onClose }: Props) {
                 onClick={onClose}
                 style={{
                   width: 30, height: 30, borderRadius: '50%', border: 'none',
-                  background: 'rgba(0,0,0,0.07)', cursor: 'pointer',
+                  background: 'rgba(255,255,255,0.07)', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'background 0.12s',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.13)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.13)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
               >
                 <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-                  <path d="M1 1L13 13M13 1L1 13" stroke="#555" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M1 1L13 13M13 1L1 13" stroke="#888" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
               </button>
             </div>
@@ -138,14 +138,14 @@ export function KeyboardShortcutsOverlay({ open, onClose }: Props) {
                     fontWeight: 600,
                     letterSpacing: '0.08em',
                     textTransform: 'uppercase',
-                    color: '#afafaf',
+                    color: '#555',
                   }}>
                     {group.group}
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {group.rows.map((row, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                        <span style={{ fontSize: 12, color: '#555', lineHeight: '18px' }}>
+                        <span style={{ fontSize: 12, color: '#AAAAAA', lineHeight: '18px' }}>
                           {row.label}
                         </span>
                         <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
@@ -154,12 +154,12 @@ export function KeyboardShortcutsOverlay({ open, onClose }: Props) {
                               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                               minWidth: 22, height: 22, padding: '0 5px',
                               borderRadius: 5,
-                              background: 'white',
-                              border: '1px solid rgba(0,0,0,0.12)',
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+                              background: 'rgba(255,255,255,0.08)',
+                              border: '1px solid rgba(255,255,255,0.12)',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
                               fontSize: 11,
                               fontWeight: 500,
-                              color: '#333',
+                              color: '#CCCCCC',
                               fontFamily: 'var(--font-geist-mono, monospace)',
                               lineHeight: 1,
                             }}>

@@ -52,10 +52,10 @@ export function ThreeDPresetPanel({ onClose }: Props) {
           flexDirection: 'column',
           gap: 4,
           borderRadius: 14,
-          background: 'rgba(251,251,251,0.82)',
+          background: '#181818',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06)',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07)',
         }}>
 
           {/* Panel header */}
@@ -66,12 +66,12 @@ export function ThreeDPresetPanel({ onClose }: Props) {
             <button
               onClick={onClose}
               style={{
-                background: 'rgba(0,0,0,0.06)', border: 'none', borderRadius: '50%',
+                background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: '50%',
                 width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', flexShrink: 0, transition: 'background 0.12s',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.12)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.06)')}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.13)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
               aria-label="Close"
             >
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -115,7 +115,7 @@ function CategoryGroup({
         initial={{ opacity: 0, x: -6 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ type: 'spring', stiffness: 500, damping: 30, delay: startIndex * 0.03 }}
-        style={{ ...f, fontSize: 11, fontWeight: 400, color: '#afafaf', padding: '6px 8px 4px', margin: 0 }}
+        style={{ ...f, fontSize: 11, fontWeight: 400, color: '#555', padding: '6px 8px 4px', margin: 0 }}
       >
         {category}
       </motion.p>
@@ -162,8 +162,8 @@ function PresetCard({
         gap: 6,
         padding: '10px 10px 8px',
         borderRadius: 10,
-        border: isActive ? '1.5px solid rgba(63,55,201,0.4)' : '1.5px solid rgba(0,0,0,0.06)',
-        background: isActive ? 'rgba(63,55,201,0.06)' : 'rgba(255,255,255,0.55)',
+        border: isActive ? '1.5px solid rgba(249,115,22,0.4)' : '1.5px solid rgba(255,255,255,0.07)',
+        background: isActive ? 'rgba(249,115,22,0.10)' : '#1A1A1A',
         cursor: 'pointer',
         textAlign: 'left',
         transition: 'background 0.15s, border 0.15s',
@@ -176,14 +176,14 @@ function PresetCard({
       <div>
         <p style={{
           ...f, fontSize: 12, fontWeight: 600, lineHeight: '16px',
-          color: isActive ? '#3f37c9' : '#222',
+          color: isActive ? '#F97316' : '#CCCCCC',
           margin: 0,
         }}>
           {preset.name}
         </p>
         <p style={{
           ...f, fontSize: 10, lineHeight: '14px',
-          color: '#aaa', margin: 0, marginTop: 1,
+          color: '#555', margin: 0, marginTop: 1,
         }}>
           {preset.description}
         </p>
@@ -201,7 +201,7 @@ function PresetCard({
               position: 'absolute', top: 7, right: 7,
               width: 14, height: 14,
               borderRadius: '50%',
-              background: '#3f37c9',
+              background: '#F97316',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >
@@ -218,7 +218,7 @@ function PresetCard({
 // ── Thumbnail — small 3D visual showing depth + material feel ─────
 
 function PresetThumb({ preset, isActive }: { preset: ThreeDPreset; isActive: boolean }) {
-  const accent = isActive ? '#3f37c9' : '#545454'
+  const accent = isActive ? '#F97316' : '#555'
   // Depth bar: normalise depth 6-80 → 10-36px
   const depthW = 10 + ((preset.depth - 6) / (80 - 6)) * 26
   // Light circle: normalise light 0.3-2 → 4-14px
@@ -228,7 +228,7 @@ function PresetThumb({ preset, isActive }: { preset: ThreeDPreset; isActive: boo
     <div style={{
       width: '100%', height: 46,
       borderRadius: 6,
-      background: 'rgba(0,0,0,0.04)',
+      background: 'rgba(255,255,255,0.04)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -243,13 +243,13 @@ function PresetThumb({ preset, isActive }: { preset: ThreeDPreset; isActive: boo
           <>
             {/* Top face */}
             <path d="M22 4 L40 13 L22 22 L4 13 Z"
-              fill="rgba(63,55,201,0.08)" stroke={accent} strokeWidth="1.2"/>
+              fill="rgba(249,115,22,0.08)" stroke={accent} strokeWidth="1.2"/>
             {/* Left face */}
             <path d={`M4 13 L4 ${13 + depthW * 0.55} L22 ${22 + depthW * 0.55} L22 22 Z`}
-              fill="rgba(63,55,201,0.05)" stroke={accent} strokeWidth="1.2"/>
+              fill="rgba(249,115,22,0.05)" stroke={accent} strokeWidth="1.2"/>
             {/* Right face */}
             <path d={`M40 13 L40 ${13 + depthW * 0.55} L22 ${22 + depthW * 0.55} L22 22 Z`}
-              fill="rgba(63,55,201,0.1)" stroke={accent} strokeWidth="1.2"/>
+              fill="rgba(249,115,22,0.1)" stroke={accent} strokeWidth="1.2"/>
           </>
         ) : (
           // Flat: filled faces with tonal contrast
@@ -267,7 +267,7 @@ function PresetThumb({ preset, isActive }: { preset: ThreeDPreset; isActive: boo
       <div style={{
         width: lightR, height: lightR,
         borderRadius: '50%',
-        background: isActive ? '#3f37c9' : '#c8c8d0',
+        background: isActive ? '#F97316' : '#444',
         opacity: 0.7,
         flexShrink: 0,
       }} />
