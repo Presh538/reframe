@@ -11,6 +11,11 @@ import { SceneRenderer, type SceneRendererRef, type CameraPreset } from './Scene
 import { LibraryBrowser } from '@/components/editor/LibraryBrowser'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useToast } from '@/components/ui/Toast'
+import {
+  trackThreedAssetUploaded,
+  trackThreedExportStarted,
+  trackThreedExportCompleted,
+} from '@/lib/analytics'
 
 // ── Constants ─────────────────────────────────────────────────────
 
@@ -70,15 +75,19 @@ function EmptyState({ onFileSelected }: EmptyStateProps) {
     if (file.type === 'image/svg+xml' || file.name.endsWith('.svg')) {
       reader.onload = ev => {
         const text = ev.target?.result
-        if (typeof text === 'string')
+        if (typeof text === 'string') {
+          trackThreedAssetUploaded({ assetKind: 'svg', fileName: file.name })
           onFileSelected({ kind: 'svg', data: text, name: file.name })
+        }
       }
       reader.readAsText(file)
     } else {
       reader.onload = ev => {
         const url = ev.target?.result
-        if (typeof url === 'string')
+        if (typeof url === 'string') {
+          trackThreedAssetUploaded({ assetKind: 'image', fileName: file.name })
           onFileSelected({ kind: 'image', data: url, name: file.name })
+        }
       }
       reader.readAsDataURL(file)
     }
@@ -676,6 +685,7 @@ export function ThreeDMode({ onExportReady, onExportWebMReady, onCopyEmbedReady,
     setIsPlaying(false)
     setExportStatus('rendering')
     setExportProgress(0)
+    trackThreedExportStarted({ format: 'gif' })
     try {
       const blob = await sceneRef.current.captureGIF(72, 24, p => setExportProgress(p))
       const url  = URL.createObjectURL(blob)
@@ -685,6 +695,7 @@ export function ThreeDMode({ onExportReady, onExportWebMReady, onCopyEmbedReady,
       })
       a.click()
       URL.revokeObjectURL(url)
+      trackThreedExportCompleted({ format: 'gif' })
       setExportStatus('done')
       setTimeout(() => { setExportStatus('idle'); if (wasPlaying) setIsPlaying(true) }, 2400)
     } catch {
@@ -716,6 +727,7 @@ export function ThreeDMode({ onExportReady, onExportWebMReady, onCopyEmbedReady,
     setIsPlaying(false)
     setExportStatus('rendering')
     setExportProgress(0)
+    trackThreedExportStarted({ format: 'webm' })
     try {
       const blob = await sceneRef.current.captureWebM(90, 30, bgColor, p => setExportProgress(p))
       const url  = URL.createObjectURL(blob)
@@ -725,6 +737,7 @@ export function ThreeDMode({ onExportReady, onExportWebMReady, onCopyEmbedReady,
       })
       a.click()
       URL.revokeObjectURL(url)
+      trackThreedExportCompleted({ format: 'webm' })
       setExportStatus('done')
       setTimeout(() => { setExportStatus('idle'); if (wasPlaying) setIsPlaying(true) }, 2400)
     } catch (err) {
@@ -770,13 +783,19 @@ export function ThreeDMode({ onExportReady, onExportWebMReady, onCopyEmbedReady,
     if (file.type === 'image/svg+xml' || file.name.endsWith('.svg')) {
       reader.onload = ev => {
         const text = ev.target?.result
-        if (typeof text === 'string') setAsset({ kind: 'svg', data: text, name: file.name })
+        if (typeof text === 'string') {
+          trackThreedAssetUploaded({ assetKind: 'svg', fileName: file.name })
+          setAsset({ kind: 'svg', data: text, name: file.name })
+        }
       }
       reader.readAsText(file)
     } else {
       reader.onload = ev => {
         const url = ev.target?.result
-        if (typeof url === 'string') setAsset({ kind: 'image', data: url, name: file.name })
+        if (typeof url === 'string') {
+          trackThreedAssetUploaded({ assetKind: 'image', fileName: file.name })
+          setAsset({ kind: 'image', data: url, name: file.name })
+        }
       }
       reader.readAsDataURL(file)
     }

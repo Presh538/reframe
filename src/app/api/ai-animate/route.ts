@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateText, Output } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
 import { z } from 'zod'
+import { getPostHogClient } from '@/lib/posthog-server'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -189,6 +190,15 @@ export async function POST(request: NextRequest) {
       output: Output.object({ schema: AnimateResponseSchema }),
       system: SYSTEM,
       prompt: userMessage,
+    })
+
+    getPostHogClient().capture({
+      distinctId: 'server_ai',
+      event:      'ai_animate_succeeded',
+      properties: {
+        presetId:     output.presetId,
+        promptLength: prompt.length,
+      },
     })
 
     return NextResponse.json(output)
