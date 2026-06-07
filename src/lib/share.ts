@@ -13,9 +13,11 @@
  * Prerequisites:
  *  – SHARE_SECRET env var (≥ 32 chars) in .env.local and Vercel env settings
  *
- * Node.js runtime only (uses Buffer + CompressionStream).
+ * Node.js runtime only (uses Buffer + zlib).
  * Do NOT import this in Edge functions or client components.
  */
+
+import { gzipSync, gunzipSync } from 'zlib'
 
 const ALG_NAME = 'HMAC' as const
 const ALG_HASH = 'SHA-256' as const
@@ -64,21 +66,15 @@ const b64uDecode = (str: string): Uint8Array =>
 const toArrayBuffer = (u8: Uint8Array): ArrayBuffer =>
   u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer
 
-// ── gzip helpers (Web Streams, available Node.js 18+ / Vercel) ───
-async function gzipCompress(text: string): Promise<Uint8Array> {
-  const cs     = new CompressionStream('gzip')
-  const writer = cs.writable.getWriter()
-  writer.write(new TextEncoder().encode(text))
-  writer.close()
-  return new Uint8Array(await new Response(cs.readable).arrayBuffer())
+// ── gzip helpers (Node.js zlib — synchronous, reliable in serverless) ───
+// zlib.gzipSync / gunzipSync are guaranteed to work in any Node.js runtime
+// and do not have the async-stream pitfalls of CompressionStream / DecompressionStream.
+function gzipCompress(text: string): Uint8Array {
+  return new Uint8Array(gzipSync(Buffer.from(text, 'utf8')))
 }
 
-async function gzipDecompress(data: Uint8Array): Promise<string> {
-  const ds     = new DecompressionStream('gzip')
-  const writer = ds.writable.getWriter()
-  writer.write(toArrayBuffer(data))
-  writer.close()
-  return new TextDecoder().decode(await new Response(ds.readable).arrayBuffer())
+function gzipDecompress(data: Uint8Array): string {
+  return gunzipSync(Buffer.from(data)).toString('utf8')
 }
 
 // ── Security: strip any residual dangerous SVG constructs ─────────
@@ -112,7 +108,7 @@ export async function createShareToken(svg: string): Promise<string> {
   }
 
   const sanitized  = serverSanitize(svg)
-  const compressed = await gzipCompress(sanitized)
+  const compressed = gzipCompress(sanitized)
 
   if (compressed.length > MAX_GZIP_BYTES) {
     throw new Error(
@@ -176,7 +172,7 @@ export async function verifyShareToken(token: string): Promise<VerifyResult> {
 
   // Decompress and return the SVG
   try {
-    const svg = await gzipDecompress(b64uDecode(payload))
+    const svg = gzipDecompress(b64uDecode(payload))
     return { ok: true, svg }
   } catch {
     return { ok: false, reason: 'invalid' }
