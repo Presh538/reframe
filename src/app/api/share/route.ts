@@ -12,6 +12,7 @@
  *  – No user-controlled data is reflected verbatim in response
  */
 
+import { after }       from 'next/server'
 import { NextResponse } from 'next/server'
 import { z }            from 'zod'
 import { createShareToken, SHARE_TTL_DAYS } from '@/lib/share'
@@ -87,9 +88,11 @@ export async function POST(request: Request) {
   const url       = `${APP_URL}/s/${token}`
   const expiresAt = new Date(Date.now() + SHARE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString()
 
-  getPostHogClient().capture({
-    distinctId: `server_${ip}`,
-    event:      'share_created',
+  // Fire analytics after the response is sent — never blocks or crashes the route
+  after(() => {
+    try {
+      getPostHogClient()?.capture({ distinctId: `server_${ip}`, event: 'share_created' })
+    } catch { /* non-critical */ }
   })
 
   return NextResponse.json({ token, url, expiresAt }, { status: 201 })

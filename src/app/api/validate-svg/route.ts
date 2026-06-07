@@ -63,7 +63,7 @@ const RequestSchema = z.object({
 // external hrefs on <use> are caught by EXTERNAL_REFS below.
 const FORBIDDEN_ELEMENTS = /<(script|foreignObject|iframe|embed|object|link|image|feImage|animate|set|animateTransform|animateMotion)[\s>/]/gi
 const FORBIDDEN_ATTRS = /\s(on\w+|javascript:)/gi
-const EXTERNAL_REFS = /\s(href|src|xlink:href)\s*=\s*["'](?!#|data:image\/(png|jpeg|gif|webp|svg\+xml))/gi
+const EXTERNAL_REFS = /\s(href|src|xlink:href)\s*=\s*["'](?!#|data:image\/(png|jpeg|gif|webp))/gi
 
 // ── Handler ───────────────────────────────────────────────────
 export async function POST(request: Request) {

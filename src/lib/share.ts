@@ -86,7 +86,7 @@ async function gzipDecompress(data: Uint8Array): Promise<string> {
 // Sanitization happens both here (server) and in PreviewCanvas (DOMPurify).
 const FORBIDDEN_ELEMENTS = /<(script|foreignObject|iframe|embed|object|link|image|feImage|animate|set|animateTransform|animateMotion)[\s>/]/gi
 const FORBIDDEN_ATTRS    = /\s(on\w+|javascript:)/gi
-const EXTERNAL_REFS      = /\s(href|src|xlink:href)\s*=\s*["'](?!#|data:image\/(png|jpeg|gif|webp|svg\+xml))/gi
+const EXTERNAL_REFS      = /\s(href|src|xlink:href)\s*=\s*["'](?!#|data:image\/(png|jpeg|gif|webp))/gi
 
 function serverSanitize(svg: string): string {
   FORBIDDEN_ELEMENTS.lastIndex = 0

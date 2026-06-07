@@ -7,11 +7,12 @@
  * Uses Claude Haiku via the Vercel AI SDK for fast, cheap structured output.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { generateText, Output } from 'ai'
-import { anthropic } from '@ai-sdk/anthropic'
-import { z } from 'zod'
-import { getPostHogClient } from '@/lib/posthog-server'
+import { after, type NextRequest } from 'next/server'
+import { NextResponse }            from 'next/server'
+import { generateText, Output }    from 'ai'
+import { anthropic }               from '@ai-sdk/anthropic'
+import { z }                       from 'zod'
+import { getPostHogClient }        from '@/lib/posthog-server'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -150,8 +151,9 @@ RULES:
 
 export async function POST(request: NextRequest) {
   if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('[ai-animate] ANTHROPIC_API_KEY is not configured')
     return NextResponse.json(
-      { error: 'ANTHROPIC_API_KEY is not set. Add it to .env.local.' },
+      { error: 'AI features are temporarily unavailable. Please try again later.' },
       { status: 503 }
     )
   }
@@ -192,13 +194,14 @@ export async function POST(request: NextRequest) {
       prompt: userMessage,
     })
 
-    getPostHogClient().capture({
-      distinctId: 'server_ai',
-      event:      'ai_animate_succeeded',
-      properties: {
-        presetId:     output.presetId,
-        promptLength: prompt.length,
-      },
+    after(() => {
+      try {
+        getPostHogClient()?.capture({
+          distinctId: 'server_ai',
+          event:      'ai_animate_succeeded',
+          properties: { presetId: output.presetId, promptLength: prompt.length },
+        })
+      } catch { /* non-critical */ }
     })
 
     return NextResponse.json(output)
