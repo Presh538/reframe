@@ -11,6 +11,7 @@ import { ControlsSidebar } from './ControlsSidebar'
 import { AIPromptBar } from './AIPromptBar'
 import { useToast } from '@/components/ui/Toast'
 import { sanitizeSvgClient, normalizeSvgElement, extractLayerInfo } from '@/lib/svg/sanitize'
+import { EditorAnalytics } from '@/components/EditorAnalytics'
 
 export type AppMode = 'animate' | '3d'
 
@@ -238,6 +239,9 @@ export function EditorLayout() {
       </AnimatePresence>
 
       <KeyboardShortcutsOverlay open={showShortcuts} onClose={() => setShowShortcuts(false)} />
+
+      {/* Headless analytics observer — no UI, fires PostHog events on store changes */}
+      <EditorAnalytics />
     </div>
   )
 }

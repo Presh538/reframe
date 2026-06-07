@@ -5,6 +5,7 @@ import { motion } from 'motion/react'
 import { useEditorStore, selectSvgReady, liveSvgRef } from '@/lib/store/editor'
 import { getPreset } from '@/lib/presets'
 import { clearAnimations, computeSequenceDuration, hasMeaningfulGroups } from '@/lib/svg/animate'
+import DOMPurify from 'dompurify'
 import { validateSvgFile, sanitizeSvgClient, normalizeSvgElement, extractLayerInfo } from '@/lib/svg/sanitize'
 import { autoGroupSvg } from '@/lib/svg/autoGroup'
 import { useToast } from '@/components/ui/Toast'
@@ -255,7 +256,13 @@ export function PreviewStage() {
     //   • <style> blocks apply correctly (same document context)
     //   • url(#id) references inside <defs> resolve without issues
     //   • No namespace adoption step that can silently drop attributes
-    containerRef.current.innerHTML = source
+    // DOMPurify runs here as a write-site guarantee — callers sanitize upstream
+    // too, but keeping it here means future call paths can't accidentally bypass it.
+    containerRef.current.innerHTML = DOMPurify.sanitize(source, {
+      USE_PROFILES: { svg: true, svgFilters: true },
+      ADD_TAGS:     ['style'],
+      FORBID_TAGS:  ['script', 'foreignObject', 'iframe', 'embed', 'object'],
+    })
     const svgEl = containerRef.current.querySelector('svg') as SVGSVGElement | null
     if (!svgEl) { toast('Could not render SVG', 'error'); return }
 
