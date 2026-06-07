@@ -9,6 +9,7 @@
 import { triggerDownload } from './css'
 import { getPreset } from '@/lib/presets'
 import { liveSvgRef } from '@/lib/store/editor'
+import { trackExportCompleted, trackExportFailed } from '@/lib/analytics'
 import type { ExportFormat, AnimParams } from '@/types'
 
 export interface RunExportOptions {
@@ -20,6 +21,10 @@ export interface RunExportOptions {
   onSuccess: (msg: string) => void
   /** Called with the generated HTML when format === 'embed' */
   onEmbedCode?: (html: string) => void
+  /** Export quality 1–100. Only used by GIF (default 95). */
+  quality?: number
+  /** Frames per second. Only used by GIF and WebM (default: 24 for GIF, 30 for WebM). */
+  fps?: number
 }
 
 export async function runExport({
@@ -30,6 +35,8 @@ export async function runExport({
   onError,
   onSuccess,
   onEmbedCode,
+  quality,
+  fps,
 }: RunExportOptions): Promise<void> {
   if (!activePresetId) return
 
@@ -44,10 +51,12 @@ export async function runExport({
     return
   }
 
+  const startMs = Date.now()
+
   try {
     if (format === 'gif') {
       const { exportGif } = await import('./gif')
-      const blob = await exportGif({ svgEl, onProgress })
+      const blob = await exportGif({ svgEl, onProgress, quality, fps })
       triggerDownload(blob, `reframe-${preset.id}.gif`)
       onSuccess('GIF downloaded ✓')
 
@@ -79,8 +88,11 @@ export async function runExport({
         onSuccess('Embed code copied ✓')
       }
     }
+
+    trackExportCompleted({ format, durationMs: Date.now() - startMs })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Export failed'
+    trackExportFailed({ format, reason: msg })
     onError(msg)
   }
 }

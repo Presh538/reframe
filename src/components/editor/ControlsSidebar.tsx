@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useEditorStore } from '@/lib/store/editor'
 import { SPRING } from '@/lib/motion'
@@ -25,14 +25,10 @@ const DROPDOWN_PRESETS = PRIMARY_PRESET_IDS
   .map(id => PRESETS.find(p => p.id === id))
   .filter((preset): preset is NonNullable<typeof preset> => Boolean(preset))
 
-const EASING_OPTIONS: { id: EasingType; name: string }[] = [
-  { id: 'linear',      name: 'Linear' },
-  { id: 'ease',        name: 'Ease' },
-  { id: 'ease-in',     name: 'Ease In' },
-  { id: 'ease-out',    name: 'Ease Out' },
-  { id: 'ease-in-out', name: 'Ease In Out' },
-  { id: 'spring',      name: 'Spring' },
-]
+// All 8 easing types — derived from EASING_NAMES so they stay in sync
+const EASING_OPTIONS: { id: EasingType; name: string }[] = (
+  Object.entries(EASING_NAMES) as [EasingType, string][]
+).map(([id, name]) => ({ id, name }))
 
 interface ControlsSidebarProps {
   onOpenPresets:  () => void
@@ -159,8 +155,8 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
         <div style={{ position: 'relative', width: 333 }}>
           <SelectorRow
             label="Preset"
-            value={activePreset?.name ?? 'Draw On'}
-            icon={<PresetIcon id={activePresetId ?? 'draw-on'} />}
+            value={activePreset?.name ?? '— Please select'}
+            icon={activePresetId ? <PresetIcon id={activePresetId} /> : <Icon src="/figma-icons/keyframes.svg" size={18} />}
             onClick={onOpenPresets}
             active={presetsOpen}
             disabled={!hasFile}
@@ -233,7 +229,7 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
                   <ParamRow label="Target">
                     <ChipGroup
                       options={[
-                        { value: 'all',    label: 'All Layers' },
+                        { value: 'all',    label: 'All' },
                         { value: 'groups', label: 'Groups' },
                         { value: 'paths',  label: 'Paths' },
                       ]}
@@ -246,7 +242,7 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
                     <Slider
                       value={params.speed} min={0.25} max={4} step={0.25}
                       displayValue={`${params.speed % 1 === 0 ? params.speed : parseFloat(params.speed.toFixed(2))}x`}
-                      onChange={v => set('speed')(v)}
+                      onChange={set('speed')}
                     />
                   </ParamRow>
 
@@ -254,15 +250,16 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
                     <Slider
                       value={params.delay} min={0} max={2} step={0.1}
                       displayValue={`${params.delay.toFixed(1)}s`}
-                      onChange={v => set('delay')(v)}
+                      onChange={set('delay')}
                     />
                   </ParamRow>
 
                   <ParamRow label="Loop">
                     <ChipGroup
                       options={[
-                        { value: 'once', label: 'Loop Once' },
-                        { value: 'loop', label: 'Continuous Loop' },
+                        { value: 'once',   label: 'Play Once' },
+                        { value: 'loop',   label: 'Loop' },
+                        { value: 'bounce', label: 'Bounce' },
                       ]}
                       value={params.loop}
                       onChange={v => set('loop')(v as AnimParams['loop'])}
@@ -492,68 +489,131 @@ function ChipGroup({
       {options.map(opt => {
         const isActive = value === opt.value
         return (
-          <motion.button
+          <ChipButton
             key={opt.value}
+            label={opt.label}
+            isActive={isActive}
             onClick={() => onChange(opt.value)}
-            whileTap={{ scale: 0.94 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-            style={{
-              flex: 1, height: 34, padding: '8px',
-              borderRadius: 8, border: 'none',
-              background: isActive ? '#1E1E1E' : '#0E0E0F',
-              ...f, fontSize: 14, fontWeight: 400,
-              color: isActive ? '#CFCFCF' : '#979797',
-              letterSpacing: 0.028, lineHeight: '18px',
-              cursor: 'pointer',
-              transition: 'background 0.12s, color 0.12s',
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#1A1A1A'; e.currentTarget.style.color = '#CFCFCF' }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = isActive ? '#1E1E1E' : '#0E0E0F'
-              e.currentTarget.style.color = isActive ? '#CFCFCF' : '#979797'
-            }}
-          >
-            {opt.label}
-          </motion.button>
+          />
         )
       })}
     </div>
   )
 }
 
+function ChipButton({ label, isActive, onClick }: { label: string; isActive: boolean; onClick: () => void }) {
+  return (
+    <motion.button
+      onClick={onClick}
+      whileTap={{ scale: 0.94 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      style={{
+        flex: 1, height: 34, padding: '8px',
+        borderRadius: 8, border: 'none',
+        background: isActive ? '#232323' : '#0E0E0F',
+        ...f, fontSize: 13, fontWeight: isActive ? 500 : 400,
+        color: isActive ? '#E8E8E8' : '#979797',
+        letterSpacing: 0.028, lineHeight: '18px',
+        cursor: 'pointer',
+        transition: 'background 0.12s, color 0.12s',
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        outline: 'none',
+        boxShadow: isActive ? 'inset 0 0 0 0.5px rgba(255,255,255,0.12)' : 'none',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.background = isActive ? '#2A2A2A' : '#181818'
+        e.currentTarget.style.color = '#E0E0E0'
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.background = isActive ? '#232323' : '#0E0E0F'
+        e.currentTarget.style.color = isActive ? '#E8E8E8' : '#979797'
+      }}
+    >
+      {label}
+    </motion.button>
+  )
+}
+
 function Slider({ value, min, max, step, displayValue, onChange }: {
   value: number; min: number; max: number; step: number; displayValue: string; onChange: (v: number) => void
 }) {
-  const trackRef = useRef<HTMLDivElement>(null)
-  const pct = (value - min) / (max - min)
+  const trackRef   = useRef<HTMLDivElement>(null)
+  const draggingRef = useRef(false)
+  const [localValue, setLocalValue] = useState(value)
   const THUMB_W = 16
 
-  const snap = (raw: number) => Math.round(Math.max(min, Math.min(max, raw)) / step) * step
+  // Keep local in sync when store changes (e.g. preset switch) but not during drag
+  useEffect(() => {
+    if (!draggingRef.current) setLocalValue(value)
+  }, [value])
 
-  const posToValue = (clientX: number) => {
+  const snap = useCallback((raw: number) =>
+    Math.round(Math.max(min, Math.min(max, raw)) / step) * step,
+    [min, max, step]
+  )
+
+  const posToValue = useCallback((clientX: number) => {
     const track = trackRef.current
-    if (!track) return value
+    if (!track) return min
     const rect   = track.getBoundingClientRect()
     const usable = rect.width - THUMB_W
     const ratio  = Math.max(0, Math.min(1, (clientX - rect.left - THUMB_W / 2) / usable))
     return snap(ratio * (max - min) + min)
-  }
+  }, [max, min, snap])
 
   const startDrag = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault()
-    onChange(posToValue(e.clientX))
-    const move = (ev: PointerEvent) => onChange(posToValue(ev.clientX))
-    const up   = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
+    draggingRef.current = true
+    const initial = posToValue(e.clientX)
+    setLocalValue(initial)
+
+    const move = (ev: PointerEvent) => {
+      const v = posToValue(ev.clientX)
+      setLocalValue(v)
+    }
+    const up = (ev: PointerEvent) => {
+      draggingRef.current = false
+      const final = posToValue(ev.clientX)
+      setLocalValue(final)
+      onChange(final)
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
   }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    let next = localValue
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp')  next = snap(localValue + step)
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = snap(localValue - step)
+    else if (e.key === 'Home') next = min
+    else if (e.key === 'End')  next = max
+    else return
+    e.preventDefault()
+    setLocalValue(next)
+    onChange(next)
+  }
+
+  const pct = (localValue - min) / (max - min)
+
+  // Always derive display label from local value — smooth during drag
+  const lv = localValue
+  const computedDisplay = displayValue.endsWith('x')
+    ? `${lv % 1 === 0 ? lv : parseFloat(lv.toFixed(2))}x`
+    : `${lv.toFixed(1)}s`
 
   return (
     <div
       ref={trackRef}
       onPointerDown={startDrag}
-      style={{ position: 'relative', width: 266, height: 34, cursor: 'pointer', background: '#0E0E0F', borderRadius: 8, overflow: 'hidden' }}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+      role="slider"
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={localValue}
+      style={{ position: 'relative', width: 266, height: 34, cursor: 'pointer', background: '#0E0E0F', borderRadius: 8, overflow: 'hidden', outline: 'none' }}
     >
       <img
         src="/figma-icons/slider-grid.svg"
@@ -587,7 +647,7 @@ function Slider({ value, min, max, step, displayValue, onChange }: {
         color: '#979797', textAlign: 'right', letterSpacing: 0.028,
         whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 2,
       }}>
-        {displayValue}
+        {computedDisplay}
       </span>
     </div>
   )

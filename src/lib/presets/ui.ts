@@ -108,6 +108,7 @@ export const uiPresets: Preset[] = [
       `)
       B.targets(el, p.scope).forEach((e, i) => {
         e.style.transformOrigin = 'top center'
+        e.style.willChange = 'transform, opacity'
         const delay = p.delay + i * 0.1
         const kf = p.direction === 'out' ? 'rf-eu-out' : 'rf-eu-in'
         B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both cubic-bezier(.34,1.56,.64,1)`, delay)
@@ -133,6 +134,7 @@ export const uiPresets: Preset[] = [
       `)
       B.targets(el, p.scope).forEach((e, i) => {
         e.style.transformOrigin = 'left center'
+        e.style.willChange = 'transform, opacity'
         const delay = p.delay + i * 0.1
         const kf = p.direction === 'out' ? 'rf-prog-out' : 'rf-prog-in'
         B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both cubic-bezier(.4,0,.2,1)`, delay)
@@ -159,6 +161,7 @@ export const uiPresets: Preset[] = [
       `)
       B.targets(el, p.scope).forEach((e, i) => {
         e.style.transformOrigin = 'center'
+        e.style.willChange = 'transform, opacity'
         const delay = p.delay + i * 0.2
         B.anim(e, `rf-ping ${d} ${delay.toFixed(3)}s infinite ${B.ease(p)}`, delay)
       })
@@ -180,6 +183,7 @@ export const uiPresets: Preset[] = [
         @keyframes rf-fb-r { from { opacity: 1; filter: blur(0); transform: scale(1) } to { opacity: 0; filter: blur(8px); transform: scale(1.05) } }
       `)
       B.targets(el, p.scope).forEach((e, i) => {
+        e.style.willChange = 'transform, opacity, filter'
         const kf = p.direction === 'out' ? 'rf-fb-r' : 'rf-fb'
         const delay = p.delay + i * 0.07
         B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ${B.ease(p)}`, delay)

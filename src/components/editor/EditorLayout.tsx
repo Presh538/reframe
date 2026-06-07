@@ -9,6 +9,8 @@ import { LibraryBrowser } from './LibraryBrowser'
 import { KeyboardShortcutsOverlay } from '@/components/ui/KeyboardShortcutsOverlay'
 import { ControlsSidebar } from './ControlsSidebar'
 import { AIPromptBar } from './AIPromptBar'
+import { useToast } from '@/components/ui/Toast'
+import { sanitizeSvgClient, normalizeSvgElement, extractLayerInfo } from '@/lib/svg/sanitize'
 
 export type AppMode = 'animate' | '3d'
 
@@ -25,6 +27,7 @@ export function EditorLayout() {
   const [appMode,        setAppMode]        = useState<AppMode>('animate')
   const [isLibraryOpen,  setIsLibraryOpen]  = useState(false)
   const [showShortcuts,  setShowShortcuts]  = useState(false)
+  const [showInfo,       setShowInfo]       = useState(false)
 
   // 3D Bridge states
   const [export3dFn,       setExport3dFn]       = useState<(() => void) | null>(null)
@@ -35,15 +38,53 @@ export function EditorLayout() {
   const [asset3dFileName,  setAsset3dFileName]  = useState<string | undefined>()
   const [asset3dKind,      setAsset3dKind]      = useState<'svg' | 'image' | undefined>()
 
-  const svgReady       = useEditorStore(selectSvgReady)
-  const updateParam    = useEditorStore(s => s.updateParam)
-  const params         = useEditorStore(s => s.params)
+  const svgReady         = useEditorStore(selectSvgReady)
+  const updateParam      = useEditorStore(s => s.updateParam)
+  const params           = useEditorStore(s => s.params)
   const restartAnimation = useEditorStore(s => s.restartAnimation)
-  const resetView      = useEditorStore(s => s.resetView)
+  const resetView        = useEditorStore(s => s.resetView)
+  const setSvgSource     = useEditorStore(s => s.setSvgSource)
+  const setActivePreset  = useEditorStore(s => s.setActivePreset)
+  const { toast }        = useToast()
 
   useEffect(() => {
     if (svgReady) setIsLibraryOpen(false)
   }, [svgReady])
+
+  // ── Try an example — loads Logo White.svg from /public ─────────
+  const handleTryExample = useCallback(async () => {
+    try {
+      const raw = await fetch('/example-logo.svg').then(r => r.text())
+      const sanitized = await sanitizeSvgClient(raw)
+
+      // Try server validation first (same path as PreviewStage)
+      try {
+        const res = await fetch('/api/validate-svg', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ svg: sanitized }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setSvgSource(data.sanitized, 'Logo White.svg', data.layers)
+          setActivePreset(null)
+          return
+        }
+      } catch { /* fall through to client-side path */ }
+
+      // Client-side fallback
+      const doc = new DOMParser().parseFromString(sanitized, 'image/svg+xml')
+      const svgEl = doc.querySelector('svg') as SVGSVGElement | null
+      if (svgEl) {
+        normalizeSvgElement(svgEl)
+        setSvgSource(sanitized, 'Logo White.svg', extractLayerInfo(svgEl))
+        setActivePreset(null)
+      }
+    } catch (err) {
+      console.error('[handleTryExample]', err)
+      toast('Could not load example', 'error')
+    }
+  }, [setSvgSource, setActivePreset, toast])
 
   // ── Global keyboard shortcuts ──────────────────────────────────
   useEffect(() => {
@@ -52,7 +93,7 @@ export function EditorLayout() {
       if (inInput) return
 
       if (e.key === '?') { e.preventDefault(); setShowShortcuts(s => !s); return }
-      if (e.key === 'Escape') { setShowShortcuts(false); setActivePanel(null); return }
+      if (e.key === 'Escape') { setShowShortcuts(false); setShowInfo(false); setActivePanel(null); return }
 
       if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undoEditor(); return }
       if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redoEditor(); return }
@@ -182,6 +223,7 @@ export function EditorLayout() {
           <EmptyStateModal
             key="empty-modal"
             onBrowseLibrary={() => setIsLibraryOpen(true)}
+            onTryExample={handleTryExample}
             onUpload={() => {
               document.querySelector<HTMLInputElement>('input[type="file"][accept*="svg"]')?.click()
             }}
@@ -189,12 +231,173 @@ export function EditorLayout() {
         )}
       </AnimatePresence>
 
+      <InfoButton onClick={() => setShowInfo(true)} />
+
+      <AnimatePresence>
+        {showInfo && <InfoModal key="info-modal" onClose={() => setShowInfo(false)} />}
+      </AnimatePresence>
+
       <KeyboardShortcutsOverlay open={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
   )
 }
 
-function EmptyStateModal({ onBrowseLibrary, onUpload }: { onBrowseLibrary: () => void; onUpload: () => void }) {
+function InfoButton({ onClick }: { onClick: () => void }) {
+  return (
+    <motion.button
+      onClick={onClick}
+      aria-label="About Reframeo"
+      whileHover={{
+        scale: 1.05,
+        backgroundColor: 'rgba(255,255,255,0.09)',
+        borderColor: 'rgba(255,255,255,0.12)',
+      }}
+      whileTap={{ scale: 0.94 }}
+      style={{
+        position: 'absolute',
+        right: 40,
+        bottom: 40,
+        zIndex: 45,
+        width: 52,
+        height: 52,
+        borderRadius: 40,
+        border: '0.8px solid rgba(255,255,255,0.06)',
+        background: 'rgba(255,255,255,0.06)',
+        boxShadow: '0 2px 4px 1px rgba(0,0,0,0.65), inset 0 2px 4px rgba(57,57,57,0.45)',
+        backdropFilter: 'blur(17px)',
+        WebkitBackdropFilter: 'blur(17px)',
+        cursor: 'pointer',
+        display: 'grid',
+        placeItems: 'center',
+        transition: 'background 0.15s, border-color 0.15s, transform 0.15s',
+      }}
+    >
+      <img
+        src="/figma-icons/question.svg"
+        alt=""
+        width={24}
+        height={24}
+        style={{ display: 'block', width: 24, height: 24, maxWidth: 'none', flexShrink: 0 }}
+      />
+    </motion.button>
+  )
+}
+
+function InfoModal({ onClose }: { onClose: () => void }) {
+  return (
+    <motion.div
+      className="absolute inset-0 select-none"
+      style={{
+        zIndex: 80,
+        background: 'rgba(17,17,17,0.70)',
+        backdropFilter: 'blur(7px)',
+        WebkitBackdropFilter: 'blur(7px)',
+      }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+    >
+      <motion.article
+        initial={{ opacity: 0, y: 14, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        style={{
+          position: 'absolute',
+          right: 92,
+          bottom: 88,
+          width: 554,
+          height: 454,
+          maxWidth: 'calc(100vw - 124px)',
+          borderRadius: 28,
+          overflow: 'hidden',
+          background: 'rgba(46,46,46,0.85)',
+          border: '0.5px solid rgba(36,36,49,0.64)',
+          boxShadow: '0 16px 70px rgba(0,0,0,0.5)',
+          backdropFilter: 'blur(25px)',
+          WebkitBackdropFilter: 'blur(25px)',
+          boxSizing: 'border-box',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            left: 15.5,
+            top: 15.5,
+            width: 512,
+            maxWidth: 'calc(100% - 31px)',
+            color: '#979797',
+            fontFamily: 'var(--font-geist-sans), sans-serif',
+            fontSize: 14,
+            lineHeight: '20px',
+            fontWeight: 400,
+            letterSpacing: 0.028,
+          }}
+        >
+          <p style={{ margin: 0 }}>
+            Reframeo is a free, browser-native animation tool created by designer and builder{' '}
+            <a
+              href="https://www.prefolio.work/"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: '#D06523', textDecoration: 'underline', textUnderlineOffset: 2 }}
+            >
+              Precious Ogar
+            </a>
+            . Built for designers, developers, and creative teams, Reframeo removes the complexity traditionally associated with motion design. There&apos;s nothing to install, no account to create, and no steep learning curve. Simply upload an SVG, choose a motion style, and export a polished animation in seconds.
+          </p>
+
+          <p style={{ margin: '20px 0 0' }}>
+            The idea behind Reframeo came from a simple observation: most graphics spend their entire lives standing still. While animation can dramatically improve how a logo, icon, illustration, or product graphic feels, existing tools often require timelines, keyframes, plugins, or expensive software. Reframeo was built to make motion more accessible by reducing the process to a few simple decisions.
+          </p>
+
+          <p style={{ margin: '20px 0 0' }}>
+            Today, Reframeo helps designers and developers transform static SVGs into polished animations directly in the browser. Whether you&apos;re building a product, launching a brand, creating content, or experimenting with ideas, our goal is to make high-quality motion feel effortless—so you can spend less time learning animation software and more time bringing your work to life.
+          </p>
+        </div>
+
+      </motion.article>
+
+      <motion.button
+        onClick={onClose}
+        aria-label="Close about Reframeo"
+        whileHover={{
+          scale: 1.05,
+          backgroundColor: 'rgba(255,255,255,0.09)',
+          borderColor: 'rgba(255,255,255,0.12)',
+        }}
+        whileTap={{ scale: 0.94 }}
+        style={{
+          position: 'absolute',
+          right: 40,
+          bottom: 40,
+          width: 52,
+          height: 52,
+          borderRadius: 40,
+          border: '0.8px solid rgba(255,255,255,0.06)',
+          background: 'rgba(255,255,255,0.06)',
+          boxShadow: '0 2px 4px 1px rgba(0,0,0,0.65), inset 0 2px 4px rgba(57,57,57,0.45)',
+          backdropFilter: 'blur(17px)',
+          WebkitBackdropFilter: 'blur(17px)',
+          cursor: 'pointer',
+          display: 'grid',
+          placeItems: 'center',
+        }}
+      >
+        <img
+          src="/figma-icons/xmark.svg"
+          alt=""
+          width={24}
+          height={24}
+          style={{ display: 'block', width: 24, height: 24, maxWidth: 'none', flexShrink: 0 }}
+        />
+      </motion.button>
+    </motion.div>
+  )
+}
+
+function EmptyStateModal({ onBrowseLibrary, onTryExample, onUpload }: { onBrowseLibrary: () => void; onTryExample: () => void; onUpload: () => void }) {
   return (
     <motion.div
       className="absolute inset-0 flex items-start justify-center select-none"
@@ -240,7 +443,7 @@ function EmptyStateModal({ onBrowseLibrary, onUpload }: { onBrowseLibrary: () =>
           }}
         >
           <img
-            src="/figma-icons/modal-preview.svg"
+            src="/figma-icons/start-modal-preview.png"
             alt=""
             width={538}
             height={344}
@@ -280,7 +483,7 @@ function EmptyStateModal({ onBrowseLibrary, onUpload }: { onBrowseLibrary: () =>
         </div>
 
         <motion.button
-          onClick={onBrowseLibrary}
+          onClick={onTryExample}
           whileHover={{
             scale: 1.03,
             backgroundColor: 'rgba(255,255,255,0.09)',

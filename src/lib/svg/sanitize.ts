@@ -115,7 +115,7 @@ export function normalizeSvgElement(svgEl: SVGSVGElement): void {
   const vbParts = svgEl.getAttribute('viewBox')?.trim().split(/[\s,]+/) ?? []
   const vbW = parseFloat(vbParts[2] ?? '') || 1
   const vbH = parseFloat(vbParts[3] ?? '') || 1
-  svgEl.style.cssText = `width:100%;max-width:100%;max-height:100%;aspect-ratio:${vbW}/${vbH};display:block`
+  svgEl.style.cssText = `width:100%;max-width:100%;max-height:100%;aspect-ratio:${vbW}/${vbH};display:block;overflow:hidden`
 
   // 3. xlink:href → href on <use> elements so older Illustrator/Figma exports resolve.
   //    After normalisation, enforce that every <use href> is a same-document fragment

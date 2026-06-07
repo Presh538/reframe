@@ -3,17 +3,19 @@ import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
-import { ToastProvider } from '@/components/ui/Toast'
-import { MobileGate } from '@/components/ui/MobileGate'
+import { ToastProvider }     from '@/components/ui/Toast'
+import { MobileGate }         from '@/components/ui/MobileGate'
+import { PostHogProvider }    from '@/components/providers/PostHogProvider'
 import './globals.css'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://reframeo.com'
+const APP_URL  = process.env.NEXT_PUBLIC_APP_URL ?? 'https://reframeo.com'
 const APP_NAME = 'Reframe'
-const TITLE = 'Reframe — Free SVG Animator Online'
+const TITLE    = 'Reframe — Free SVG Animator Online'
 const DESCRIPTION =
   'The easiest SVG animator online. Upload any SVG, pick from 30+ animation presets, fine-tune speed and easing, then export as GIF, CSS, or Lottie JSON. No code, no After Effects — just instant motion in seconds.'
 
-const OG_IMAGE = 'https://ik.imagekit.io/legacystudio/Reframe/Meta%20Image.png'
+// Self-hosted OG image — served from /public, no external CDN dependency
+const OG_IMAGE = '/og-image.png'
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -43,36 +45,40 @@ export const metadata: Metadata = {
     'animate logo SVG',
     'SVG motion',
     'Lottie creator',
+    'SVG to animation',
+    'online animation tool',
+    'SVG editor',
   ],
-  authors: [{ name: APP_NAME, url: APP_URL }],
-  creator: APP_NAME,
+  authors:   [{ name: APP_NAME, url: APP_URL }],
+  creator:   APP_NAME,
   publisher: APP_NAME,
+  category:  'Design Tools',
 
   // ── Open Graph ──────────────────────────────────────────────────
   openGraph: {
-    type: 'website',
-    url: APP_URL,
-    siteName: APP_NAME,
-    title: TITLE,
+    type:        'website',
+    url:         APP_URL,
+    siteName:    APP_NAME,
+    title:       TITLE,
     description: DESCRIPTION,
-    locale: 'en_US',
+    locale:      'en_US',
     images: [
       {
-        url: OG_IMAGE,
-        width: 2400,
-        height: 1260,
-        alt: 'Reframe — Free SVG Animator Online',
-        type: 'image/png',
+        url:    OG_IMAGE,
+        width:  1200,
+        height: 630,
+        alt:    'Reframe — Free SVG Animator Online',
+        type:   'image/png',
       },
     ],
   },
 
   // ── Twitter / X ─────────────────────────────────────────────────
   twitter: {
-    card: 'summary_large_image',
-    title: TITLE,
+    card:        'summary_large_image',
+    title:       TITLE,
     description: DESCRIPTION,
-    images: [OG_IMAGE],
+    images:      [OG_IMAGE],
   },
 
   // ── Google Search Console verification ──────────────────────────
@@ -83,21 +89,21 @@ export const metadata: Metadata = {
   // ── Icons ────────────────────────────────────────────────────────
   icons: {
     icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/logo.svg', type: 'image/svg+xml' },
     ],
-    shortcut: '/favicon.svg',
-    apple: '/favicon.svg',
+    shortcut:    '/logo.svg',
+    apple:       '/logo.svg',
   },
 
   // ── Robots ───────────────────────────────────────────────────────
   robots: {
-    index: true,
+    index:  true,
     follow: true,
     googleBot: {
-      index: true,
+      index:  true,
       follow: true,
       'max-image-preview': 'large',
-      'max-snippet': -1,
+      'max-snippet':       -1,
     },
   },
 
@@ -108,9 +114,9 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#e8e8e8',
-  colorScheme: 'light',
-  width: 'device-width',
+  themeColor:   '#0D0D0D',
+  colorScheme:  'dark',
+  width:        'device-width',
   initialScale: 1,
 }
 
@@ -129,8 +135,9 @@ const jsonLd = {
     price: '0',
     priceCurrency: 'USD',
   },
-  screenshot: OG_IMAGE,
-  image: OG_IMAGE,
+  screenshot: `${APP_URL}/og-image.png`,
+  image:      `${APP_URL}/og-image.png`,
+  logo:       `${APP_URL}/logo.svg`,
   featureList: [
     '30+ animation presets',
     'Export animated SVG as GIF',
@@ -163,7 +170,9 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <MobileGate />
-        <ToastProvider>{children}</ToastProvider>
+        <PostHogProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </PostHogProvider>
         <Analytics />
         <SpeedInsights />
       </body>

@@ -6,6 +6,7 @@ import { useEditorStore, selectSvgReady, liveSvgRef } from '@/lib/store/editor'
 import { getPreset } from '@/lib/presets'
 import { clearAnimations, computeSequenceDuration, hasMeaningfulGroups } from '@/lib/svg/animate'
 import { validateSvgFile, sanitizeSvgClient, normalizeSvgElement, extractLayerInfo } from '@/lib/svg/sanitize'
+import { autoGroupSvg } from '@/lib/svg/autoGroup'
 import { useToast } from '@/components/ui/Toast'
 
 const ZOOM_MIN = 0.1
@@ -28,6 +29,7 @@ export function PreviewStage() {
 
   // ── Store subscriptions ───────────────────────────────────────
   const svgSource      = useEditorStore(s => s.svgSource)
+  const svgFileName    = useEditorStore(s => s.svgFileName)
   const activePresetId = useEditorStore(s => s.activePresetId)
   const params         = useEditorStore(s => s.params)
   const isPlaying      = useEditorStore(s => s.isPlaying)
@@ -54,6 +56,12 @@ export function PreviewStage() {
   paramsRef.current        = params
   activePresetIdRef.current = activePresetId
   isPlayingRef.current     = isPlaying
+
+  // Tracks which svgSource string has already been auto-grouped so we never
+  // loop: if autoGroupSvg runs and calls setSvgSource, the effect re-fires with
+  // the new source. On that second run this ref matches the original source (not
+  // the new one), so we skip auto-grouping and apply the preset normally.
+  const autoGroupedSourceRef = useRef<string | null>(null)
 
   // JS-managed loop restart — fires after the full staggered sequence ends
   const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -262,9 +270,32 @@ export function PreviewStage() {
     // Expose the live SVG element via liveSvgRef so export utilities can reach it
     // without a fragile document.querySelector('.rf-preview-container svg') query.
     liveSvgRef.current = svgRef.current
+
     // Analyse the freshly-injected SVG and update the store so the Groups chip
     // can reflect whether this file actually has animatable <g> elements.
-    if (svgRef.current) setSvgHasGroups(hasMeaningfulGroups(svgRef.current))
+    if (svgRef.current) {
+      const hasGroups = hasMeaningfulGroups(svgRef.current)
+      setSvgHasGroups(hasGroups)
+
+      // ── Smart auto-grouping ───────────────────────────────────
+      // When the SVG has no groups, cluster its direct children
+      // into spatial bands so scope:'groups' and stagger presets
+      // produce meaningful per-layer animations automatically.
+      // Guard with autoGroupedSourceRef so we run exactly once per
+      // loaded file and never loop if the auto-grouped SVG itself
+      // re-triggers this effect.
+      if (!hasGroups && svgSource !== autoGroupedSourceRef.current) {
+        autoGroupedSourceRef.current = svgSource   // mark before async to avoid races
+        const result = autoGroupSvg(svgRef.current)
+        if (result) {
+          const layers = extractLayerInfo(svgRef.current)
+          setSvgSource(result.svg, svgFileName, layers)
+          toast(`${result.groupCount} animation layers detected`, 'info')
+          return   // wait for the next render — preset applied then
+        }
+      }
+    }
+
     clearLoopTimer()
     if (!activePresetId) return
     const preset = getPreset(activePresetId)
@@ -358,7 +389,7 @@ export function PreviewStage() {
   // The effect is a no-op for all other param changes (speed, delay, etc.).
   useEffect(() => {
     if (params.scope === 'groups' && !svgHasGroups && svgSource) {
-      toast("This SVG has no groups — switch to 'All' or 'Paths'", 'info')
+      toast("No groupable layers found — try 'All' or 'Paths' scope", 'info')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.scope, svgHasGroups, svgSource])
