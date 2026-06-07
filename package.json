@@ -10,9 +10,11 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.81",
     "@types/three": "^0.176.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
+    "ai": "^6.0.197",
     "clsx": "^2.1.1",
     "dompurify": "^3.1.6",
     "geist": "^1.7.0",

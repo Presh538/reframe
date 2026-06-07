@@ -1,108 +1,291 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { motion } from 'motion/react'
+import { motion, AnimatePresence } from 'motion/react'
 import { SPRING } from '@/lib/motion'
+import { useEditorStore } from '@/lib/store/editor'
+import type { AnimateResponse } from '@/app/api/ai-animate/route'
+import type { AnimParams } from '@/types'
+
+// ── Types ─────────────────────────────────────────────────────
+
+type Status = 'idle' | 'loading' | 'success' | 'error'
+
+// ── Component ─────────────────────────────────────────────────
 
 export function AIPromptBar() {
-  const [value, setValue] = useState('')
+  const [value, setValue]               = useState('')
+  const [status, setStatus]             = useState<Status>('idle')
+  const [explanation, setExplanation]   = useState('')
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const handleSubmit = () => {
-    if (!value.trim()) return
-    // AI prompt — endpoint not yet implemented
+  // Store selectors
+  const activePresetId  = useEditorStore(s => s.activePresetId)
+  const params          = useEditorStore(s => s.params)
+  const svgLayers       = useEditorStore(s => s.svgLayers)
+  const svgFileName     = useEditorStore(s => s.svgFileName)
+  const setActivePreset = useEditorStore(s => s.setActivePreset)
+  const updateParam     = useEditorStore(s => s.updateParam)
+  const restartAnimation = useEditorStore(s => s.restartAnimation)
+  const setPlaying      = useEditorStore(s => s.setPlaying)
+
+  const isLoading = status === 'loading'
+
+  // ── Submit ───────────────────────────────────────────────────
+
+  const handleSubmit = async () => {
+    const prompt = value.trim()
+
+    // Empty input → toggle suggestions panel
+    if (!prompt) {
+      setSuggestionsOpen(open => !open)
+      return
+    }
+
+    setSuggestionsOpen(false)
+    setStatus('loading')
     setValue('')
+
+    try {
+      const res = await fetch('/api/ai-animate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          context: {
+            currentPresetId: activePresetId,
+            currentParams: params,
+            svgLayers: svgLayers
+              ? { groups: svgLayers.groups, paths: svgLayers.paths, total: svgLayers.total }
+              : null,
+            svgFileName: svgFileName || '',
+          },
+        }),
+      })
+
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(error || `HTTP ${res.status}`)
+      }
+
+      const data: AnimateResponse = await res.json()
+
+      // Apply preset
+      setActivePreset(data.presetId)
+
+      // Apply each param individually
+      const paramKeys = Object.keys(data.params) as (keyof AnimParams)[]
+      for (const key of paramKeys) {
+        updateParam(key, data.params[key] as never)
+      }
+
+      // Restart + play so the user sees the result immediately
+      restartAnimation()
+      setPlaying(true)
+
+      // Show explanation briefly
+      setExplanation(data.explanation)
+      setStatus('success')
+      setTimeout(() => setStatus('idle'), 3000)
+
+    } catch (err) {
+      console.error('[AIPromptBar]', err)
+      setExplanation(err instanceof Error ? err.message : 'Something went wrong')
+      setStatus('error')
+      setTimeout(() => setStatus('idle'), 4000)
+    }
   }
 
+  // ── Render ───────────────────────────────────────────────────
+
   return (
-    <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
+    <>
+      {/* Suggestions backdrop */}
+      {suggestionsOpen && (
+        <button
+          aria-label="Close smart suggestions"
+          onClick={() => setSuggestionsOpen(false)}
+          className="fixed inset-0 z-20 cursor-default"
+          style={{ background: 'transparent', border: 'none' }}
+        />
+      )}
+
+      {/* Suggestions panel */}
+      <AnimatePresence>
+        {suggestionsOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+            transition={SPRING.dropdown}
+            className="absolute z-40 pointer-events-auto"
+            style={{
+              left: 'calc(50% - 141px)',
+              bottom: 'calc(50px + 54px + 8px)',
+              width: 283,
+              borderRadius: 14,
+              background: 'rgba(39,39,39,0.70)',
+              backdropFilter: 'blur(14px)',
+              WebkitBackdropFilter: 'blur(14px)',
+              padding: 12,
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 18, marginBottom: 6 }}>
+              <AILogoMark size={18} />
+              <span style={{ fontFamily: 'var(--font-geist-sans), sans-serif', fontSize: 14, fontWeight: 400, color: '#979797', letterSpacing: 0.028 }}>
+                Try asking…
+              </span>
+            </div>
+            <div style={{ display: 'grid', gap: 4 }}>
+              {SUGGESTIONS.map(s => (
+                <button
+                  key={s}
+                  onClick={() => {
+                    setValue(s)
+                    setSuggestionsOpen(false)
+                    setTimeout(() => inputRef.current?.focus(), 0)
+                  }}
+                  style={{
+                    height: 34,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '0 8px',
+                    border: 'none',
+                    borderRadius: 8,
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    color: '#FFFFFF',
+                    width: '100%',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                >
+                  <img src="/figma-icons/keyframes.svg" alt="" width={16} height={16} style={{ flexShrink: 0, opacity: 0.6 }} />
+                  <span style={{ fontFamily: 'var(--font-geist-sans), sans-serif', fontSize: 13, fontWeight: 400, letterSpacing: 0.02 }}>
+                    {s}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Main bar */}
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
+        className="absolute bottom-[50px] left-1/2 z-30 pointer-events-auto"
+        initial={{ opacity: 0, scale: 0.96, x: '-50%', y: 8 }}
+        animate={{ opacity: 1, scale: 1, x: '-50%', y: 0 }}
         transition={{ ...SPRING.entrance, delay: 0.06 }}
-        className="flex items-center gap-[10px] px-[10px] py-[8px]"
         style={{
           borderRadius: 999,
-          background: 'rgba(18,18,18,0.90)',
-          border: '1px solid rgba(255,255,255,0.07)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          minWidth: 340,
-          maxWidth: 480,
+          padding: '1px',
+          background: 'linear-gradient(90deg, #FF5C35 0%, #D44FD8 50%, #5B4BF5 100%)',
         }}
       >
-        {/* Reframe logo mark */}
-        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-          <AILogoMark />
-        </div>
-
-        {/* Input */}
-        <input
-          ref={inputRef}
-          value={value}
-          onChange={e => setValue(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') handleSubmit() }}
-          placeholder="Refine your animation..."
+        <div
+          className="flex items-center gap-[6px] pl-[14px] pr-[8px] py-[8px]"
           style={{
-            flex: 1,
-            background: 'transparent',
-            border: 'none',
-            outline: 'none',
-            fontFamily: 'var(--font-geist-sans), sans-serif',
-            fontSize: 13,
-            fontWeight: 400,
-            color: '#CCCCCC',
-            caretColor: '#F97316',
-            minWidth: 0,
-          }}
-        />
-
-        {/* Send button */}
-        <motion.button
-          onClick={handleSubmit}
-          whileTap={{ scale: 0.88 }}
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: '50%',
-            background: value.trim() ? '#F97316' : 'rgba(249,115,22,0.20)',
-            border: 'none',
-            cursor: value.trim() ? 'pointer' : 'default',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            transition: 'background 0.15s',
+            borderRadius: 999,
+            background: '#1B1B1B',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            width: 436,
           }}
         >
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-            <path d="M6.5 11V2M6.5 2L2.5 6M6.5 2L10.5 6" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </motion.button>
+          {/* Logo */}
+          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+            <AILogoMark size={20} />
+          </div>
+
+          {/* Input / status */}
+          <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+            <input
+              ref={inputRef}
+              className="ai-prompt-input"
+              value={value}
+              onChange={e => setValue(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !isLoading) handleSubmit() }}
+              placeholder={
+                status === 'loading' ? 'Applying…'
+                : status === 'success' ? explanation
+                : status === 'error'   ? explanation
+                : 'Refine your animation…'
+              }
+              disabled={isLoading}
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                fontFamily: 'var(--font-geist-sans), sans-serif',
+                fontSize: 14,
+                fontWeight: 400,
+                color: status === 'error' ? '#F87171'
+                     : status === 'success' ? '#F97316'
+                     : '#CCCCCC',
+                caretColor: '#D06523',
+              }}
+            />
+          </div>
+
+          {/* Send / loading button */}
+          <motion.button
+            onClick={isLoading ? undefined : handleSubmit}
+            whileHover={isLoading ? {} : { scale: 1.06, backgroundColor: '#E0762D' }}
+            whileTap={isLoading ? {} : { scale: 0.88 }}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              background: isLoading ? 'rgba(208,101,35,0.4)' : '#D06523',
+              border: 'none',
+              cursor: isLoading ? 'default' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              transition: 'background 0.15s',
+            }}
+          >
+            {isLoading ? <SpinnerIcon /> : <img src="/figma-icons/send-arrow.svg" alt="" width={20} height={20} />}
+          </motion.button>
+        </div>
       </motion.div>
-    </div>
+    </>
   )
 }
 
-function AILogoMark() {
+// ── Suggestions ───────────────────────────────────────────────
+
+const SUGGESTIONS = [
+  'Make it bounce in slowly',
+  'Loop it continuously',
+  'Draw the paths one by one',
+  'Make it feel snappy and fast',
+]
+
+// ── Spinner ───────────────────────────────────────────────────
+
+function SpinnerIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <path d="M4.65843 19.6614C4.48954 16.3625 6.22763 14.2747 7.21952 15.1853L7.31778 15.2864C5.73323 16.6047 5.83457 20.0232 6.937 22.3808C6.62991 23.043 6.44873 23.2515 6.12937 23.276C5.45378 23.1902 4.75056 21.4641 4.65843 19.6553" fill="#F97316"/>
-      <path d="M7.03835 22.1325C7.05677 22.0865 8.64747 17.267 7.3178 15.2864C8.90235 14.2747 9.95258 17.6931 9.19101 21.3844C8.98219 22.3962 8.59527 23.5857 7.94425 23.5091C7.57268 23.3956 7.33008 23.1136 6.93701 22.387C6.96772 22.3103 7.01071 22.2091 7.03835 22.1325Z" fill="#F97316"/>
-      <path d="M12.965 0.726704C13.9446 0.254563 16.3583 -0.401529 16.1341 0.322012C13.4287 0.898392 11.7459 2.5049 12.2648 3.41852C12.0326 3.49088 11.789 3.51998 11.5463 3.50437C10.4807 3.31735 10.8031 2.12473 12.1604 1.18352C12.4141 1.01389 12.6788 0.861284 12.9527 0.726704" fill="#F97316"/>
-      <path d="M16.3737 0.279079C17.0339 0.171774 18.5048 0.0184815 17.8477 0.892249C17.2673 1.65871 14.4698 3.78948 12.7409 3.65151C12.5579 3.63849 12.3872 3.55493 12.2649 3.41851C14.307 2.71336 15.9929 0.613256 16.1342 0.322001L16.3737 0.279079Z" fill="#F97316"/>
-      <path d="M15.047 10.4975C15.1562 10.3127 15.3064 10.1554 15.4861 10.0377C15.7932 11.1414 17.4023 11.8618 18.0748 12.1224C18.4076 12.2478 18.747 12.3553 19.0913 12.4444C20.0818 12.7271 21.1213 12.796 22.1406 12.6467C23.369 15.0197 21.6032 15.8229 19.2356 15.0595C19.0483 14.9982 18.8026 14.9032 18.6214 14.8296C16.3152 13.8454 14.3223 11.868 15.0501 10.4975" fill="#F97316"/>
-      <path d="M15.6918 9.05655C17.2702 6.9687 23.4795 8.62733 23.6945 11.2026C23.7835 12.2757 22.5521 12.5608 22.159 12.6559C21.397 11.4655 20.264 10.5584 18.9346 10.0744C17.5896 9.56548 16.2753 9.55321 15.5045 10.0468C15.459 9.87906 15.4533 9.70301 15.4879 9.53268C15.5226 9.36235 15.5966 9.20246 15.7041 9.06574" fill="#F97316"/>
-      <path d="M0.242486 11.5277C0.427282 11.0221 0.654299 10.5329 0.921142 10.0653C0.94878 10.3412 1.09311 10.3994 1.53531 10.3075C1.68406 10.2704 1.82982 10.2222 1.97137 10.1634C2.77637 9.82207 3.49422 9.30446 4.07183 8.64883C4.13324 10.0407 1.74413 12.0519 0.736892 12.6559C0.245557 12.9349 -0.215069 13.1096 0.107369 11.9569C0.144219 11.8251 0.199494 11.6503 0.242486 11.5246" fill="#F97316"/>
-      <path d="M1.39995 8.85126C3.14419 5.69956 4.41245 6.15637 4.64583 6.87685C4.73796 7.15891 4.78402 7.76594 4.07465 8.64891C4.02552 8.06946 3.50655 7.84259 2.84632 8.10932C1.84215 8.52934 1.17271 9.64531 0.920898 10.0653C0.920898 9.91204 0.954678 9.65451 1.39995 8.83899" fill="#F97316"/>
-      <path d="M0.306903 17.5061C0.233203 14.0754 2.92633 11.5155 3.80459 12.2942C3.90271 12.4131 3.97495 12.5511 4.01672 12.6994C4.05849 12.8478 4.06886 13.0031 4.04719 13.1557C3.99106 13.1496 3.93443 13.1496 3.87829 13.1557C2.91098 13.2569 1.11453 15.3294 1.22816 18.7202C1.16325 18.7776 1.09096 18.826 1.0132 18.8643C0.377533 19.0973 0.306903 17.8832 0.306903 17.5061Z" fill="#F97316"/>
-      <path d="M1.26494 19.0329L1.2373 18.7263C2.0173 17.9752 3.91508 14.6794 4.03484 13.1649C5.74837 13.5543 2.94469 20.2777 2.21997 20.6578L2.14934 20.6854C1.61502 20.7927 1.34785 19.6982 1.27415 19.0329" fill="#F97316"/>
-      <path d="M15.3542 4.06848C17.0247 2.03889 21.8306 1.65872 21.9565 3.06595C21.943 3.33216 21.834 3.58464 21.6494 3.77722C18.8672 3.16405 15.9499 4.41492 15.5077 5.54622C14.5404 5.12007 15.1147 4.30148 15.3143 4.05928" fill="#F97316"/>
-      <path d="M15.5597 5.56765C15.6426 5.59831 15.7071 5.6167 15.7531 5.62897C17.2056 5.98767 20.3932 5.1415 21.6614 3.78946C23.3381 4.21561 23.6452 5.21201 22.3401 6.00913C21.2745 6.66522 18.6551 7.29679 16.5239 6.77559C16.183 6.66522 15.2802 6.36477 15.532 5.54925H15.5597" fill="#F97316"/>
-      <path d="M10.6404 15.1271C10.8185 14.6427 11.1931 14.0724 11.967 14.1092C11.2607 15.6973 12.7163 18.9716 14.74 20.3697C14.3346 22.0252 13.6068 22.1785 13.0694 22.016C11.3743 21.3078 9.89417 17.1107 10.6312 15.1271" fill="#F97316"/>
-      <path d="M12.0037 14.0356C12.9987 12.1777 16.1279 14.2073 17 17.2824C17.5742 19.2997 16.9109 21.1882 15.2005 20.5996C15.0409 20.5357 14.8868 20.4588 14.7398 20.3697C15.225 17.5368 13.7449 14.5844 12.191 14.1521C12.1211 14.1289 12.0491 14.1125 11.9761 14.1031C11.9808 14.0772 11.9869 14.0516 11.9945 14.0264" fill="#F97316"/>
-      <path d="M6.53758 3.11498C6.58364 3.08125 7.67072 2.2872 8.14363 2.14617C6.14144 3.535 6.44852 4.46702 7.18553 4.59885C7.26613 4.60799 7.34752 4.60799 7.42812 4.59885C7.49261 4.59885 7.52025 4.59885 7.59395 4.57432C7.19541 5.05702 6.63828 5.38293 6.02168 5.49408C4.94381 5.58299 4.66436 4.96675 5.39215 4.12058C5.73648 3.74508 6.12053 3.40791 6.53758 3.11498Z" fill="#F97316"/>
-      <path d="M8.79171 1.75373C9.2815 1.47777 9.79543 1.24688 10.3271 1.06392C10.5789 0.996468 10.6926 1.00873 10.6127 1.26933C10.6127 1.29692 9.44273 4.17576 7.61865 4.58045C8.42935 3.67602 8.84699 2.04805 8.23282 2.12777H8.15298C8.34644 2.00513 8.52455 1.88863 8.80093 1.73534" fill="#F97316"/>
+    <svg
+      width="16" height="16" viewBox="0 0 16 16" fill="none"
+      style={{ animation: 'ai-spin 0.8s linear infinite', flexShrink: 0 }}
+    >
+      <style>{`@keyframes ai-spin { to { transform: rotate(360deg) } }`}</style>
+      <circle cx="8" cy="8" r="6" stroke="white" strokeWidth="2" strokeLinecap="round"
+        strokeDasharray="24 12" />
     </svg>
   )
+}
+
+// ── Logo mark ─────────────────────────────────────────────────
+
+function AILogoMark({ size = 20 }: { size?: number }) {
+  return <img src="/figma-icons/ai-logo.svg" alt="" width={size} height={size} style={{ flexShrink: 0 }} />
 }
