@@ -1,25 +1,19 @@
 'use client'
 
 import { useRef, useEffect, useCallback, useState, type DragEvent, type ChangeEvent } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion } from 'motion/react'
 import { useEditorStore, selectSvgReady, liveSvgRef } from '@/lib/store/editor'
 import { getPreset } from '@/lib/presets'
 import { clearAnimations, computeSequenceDuration, hasMeaningfulGroups } from '@/lib/svg/animate'
 import { validateSvgFile, sanitizeSvgClient, normalizeSvgElement, extractLayerInfo } from '@/lib/svg/sanitize'
+import { autoGroupSvg } from '@/lib/svg/autoGroup'
 import { useToast } from '@/components/ui/Toast'
 
 const ZOOM_MIN = 0.1
 const ZOOM_MAX = 1        // Cap at 100% — preview fits the SVG at native size
 const ZOOM_FACTOR = 1.08  // per scroll tick
 
-interface PreviewStageProps {
-  /** Opens the template library overlay — wired in from EditorLayout. */
-  onBrowseLibrary?: () => void
-  /** When true the library overlay is visible — suppress the empty state so they don't overlap. */
-  libraryOpen?: boolean
-}
-
-export function PreviewStage({ onBrowseLibrary, libraryOpen }: PreviewStageProps) {
+export function PreviewStage() {
   const containerRef  = useRef<HTMLDivElement>(null)
   const canvasRef     = useRef<HTMLDivElement>(null)   // receives the CSS transform
   const sectionRef    = useRef<HTMLElement>(null)
@@ -35,6 +29,7 @@ export function PreviewStage({ onBrowseLibrary, libraryOpen }: PreviewStageProps
 
   // ── Store subscriptions ───────────────────────────────────────
   const svgSource      = useEditorStore(s => s.svgSource)
+  const svgFileName    = useEditorStore(s => s.svgFileName)
   const activePresetId = useEditorStore(s => s.activePresetId)
   const params         = useEditorStore(s => s.params)
   const isPlaying      = useEditorStore(s => s.isPlaying)
@@ -61,6 +56,12 @@ export function PreviewStage({ onBrowseLibrary, libraryOpen }: PreviewStageProps
   paramsRef.current        = params
   activePresetIdRef.current = activePresetId
   isPlayingRef.current     = isPlaying
+
+  // Tracks which svgSource string has already been auto-grouped so we never
+  // loop: if autoGroupSvg runs and calls setSvgSource, the effect re-fires with
+  // the new source. On that second run this ref matches the original source (not
+  // the new one), so we skip auto-grouping and apply the preset normally.
+  const autoGroupedSourceRef = useRef<string | null>(null)
 
   // JS-managed loop restart — fires after the full staggered sequence ends
   const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -269,9 +270,32 @@ export function PreviewStage({ onBrowseLibrary, libraryOpen }: PreviewStageProps
     // Expose the live SVG element via liveSvgRef so export utilities can reach it
     // without a fragile document.querySelector('.rf-preview-container svg') query.
     liveSvgRef.current = svgRef.current
+
     // Analyse the freshly-injected SVG and update the store so the Groups chip
     // can reflect whether this file actually has animatable <g> elements.
-    if (svgRef.current) setSvgHasGroups(hasMeaningfulGroups(svgRef.current))
+    if (svgRef.current) {
+      const hasGroups = hasMeaningfulGroups(svgRef.current)
+      setSvgHasGroups(hasGroups)
+
+      // ── Smart auto-grouping ───────────────────────────────────
+      // When the SVG has no groups, cluster its direct children
+      // into spatial bands so scope:'groups' and stagger presets
+      // produce meaningful per-layer animations automatically.
+      // Guard with autoGroupedSourceRef so we run exactly once per
+      // loaded file and never loop if the auto-grouped SVG itself
+      // re-triggers this effect.
+      if (!hasGroups && svgSource !== autoGroupedSourceRef.current) {
+        autoGroupedSourceRef.current = svgSource   // mark before async to avoid races
+        const result = autoGroupSvg(svgRef.current)
+        if (result) {
+          const layers = extractLayerInfo(svgRef.current)
+          setSvgSource(result.svg, svgFileName, layers)
+          toast(`${result.groupCount} animation layers detected`, 'info')
+          return   // wait for the next render — preset applied then
+        }
+      }
+    }
+
     clearLoopTimer()
     if (!activePresetId) return
     const preset = getPreset(activePresetId)
@@ -365,7 +389,7 @@ export function PreviewStage({ onBrowseLibrary, libraryOpen }: PreviewStageProps
   // The effect is a no-op for all other param changes (speed, delay, etc.).
   useEffect(() => {
     if (params.scope === 'groups' && !svgHasGroups && svgSource) {
-      toast("This SVG has no groups — switch to 'All' or 'Paths'", 'info')
+      toast("No groupable layers found — try 'All' or 'Paths' scope", 'info')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.scope, svgHasGroups, svgSource])
@@ -478,9 +502,9 @@ export function PreviewStage({ onBrowseLibrary, libraryOpen }: PreviewStageProps
         // Both background and outlineColor transition at the same speed — previously
         // the border snapped on/off while the background faded, creating two-speed feedback.
         transition: 'background 0.15s, outline-color 0.15s',
-        background: isDragOver ? 'rgba(63,55,201,0.06)' : 'transparent',
+        background: isDragOver ? 'rgba(249,115,22,0.06)' : 'transparent',
         outline: '2px dashed',
-        outlineColor: isDragOver ? 'rgba(63,55,201,0.35)' : 'transparent',
+        outlineColor: isDragOver ? 'rgba(249,115,22,0.35)' : 'transparent',
         outlineOffset: -8,
       }}
     >
@@ -508,76 +532,6 @@ export function PreviewStage({ onBrowseLibrary, libraryOpen }: PreviewStageProps
           }}
         />
 
-        <AnimatePresence>
-          {!svgReady && !libraryOpen && (
-            /* Empty state — upload-first, browse-templates secondary.
-               Hidden while the library overlay is open to avoid overlap. */
-            <motion.div
-              key="empty"
-              className="flex flex-col items-center gap-[20px] text-center select-none absolute inset-0 justify-center"
-              style={{ background: 'transparent' }}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8, scale: 0.97 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-            >
-              {/* Animated upload icon */}
-              <motion.div
-                animate={{ y: [0, -7, 0] }}
-                transition={{ repeat: Infinity, duration: 2.6, ease: 'easeInOut' }}
-                style={{ cursor: 'default' }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50" fill="none">
-                  <path d="M39.5833 20.8333H10.4167C8.11875 20.8333 6.25 22.7021 6.25 25V41.6667C6.25 43.9646 8.11875 45.8333 10.4167 45.8333H39.5833C41.8812 45.8333 43.75 43.9646 43.75 41.6667V25C43.75 22.7021 41.8812 20.8333 39.5833 20.8333ZM10.4167 12.5H39.5833V16.6667H10.4167V12.5ZM14.5833 4.16666H35.4167V8.33332H14.5833V4.16666Z" fill="#545454"/>
-                </svg>
-              </motion.div>
-
-              {/* Headline */}
-              <div className="flex flex-col gap-[6px] items-center">
-                <p style={{ fontFamily: 'var(--font-geist-sans), sans-serif', fontWeight: 600, fontSize: 22, lineHeight: '28px', color: '#111111', margin: 0 }}>
-                  Drop an SVG to get started
-                </p>
-                <p style={{ fontFamily: 'var(--font-geist-sans), sans-serif', fontWeight: 400, fontSize: 15, lineHeight: '22px', color: '#888', margin: 0 }}>
-                  Drag a file here, or use the buttons below
-                </p>
-              </div>
-
-              {/* Primary action */}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                style={{
-                  background: '#3f37c9', borderRadius: 74, padding: '12px 24px',
-                  fontFamily: 'var(--font-geist-sans), sans-serif', fontWeight: 500,
-                  fontSize: 15, lineHeight: '22px', color: 'white', whiteSpace: 'nowrap',
-                  border: 'none', cursor: 'pointer', transition: 'opacity 0.15s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
-                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-              >
-                Upload SVG File
-              </button>
-
-              {/* Secondary action */}
-              {onBrowseLibrary && (
-                <button
-                  onClick={onBrowseLibrary}
-                  style={{
-                    background: 'transparent', border: 'none', cursor: 'pointer',
-                    fontFamily: 'var(--font-geist-sans), sans-serif', fontWeight: 500,
-                    fontSize: 14, lineHeight: '20px', color: '#3f37c9',
-                    padding: '4px 8px', borderRadius: 8,
-                    transition: 'opacity 0.15s',
-                    marginTop: -8,
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
-                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                >
-                  or browse templates →
-                </button>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       <input

@@ -56,3 +56,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+FEATURES.md
+.gitignore
+Reframeo_Technical_Documentation.docx
+Reframe_Product_Document.docx

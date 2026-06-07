@@ -70,10 +70,28 @@ export interface GifExportOptions {
   onProgress?: (pct: number) => void
   /** Background colour, or 'transparent' (default) for a transparent GIF. */
   background?: string | 'transparent'
+  /**
+   * Frames per second (default 24). Clamped 1–60.
+   * Higher fps = smoother motion, larger file size.
+   */
+  fps?: number
+  /**
+   * Export quality 1–100 (default 95). Maps to GIF NeuQuant quality:
+   * 100 % → encoder quality 1 (max, every pixel sampled).
+   * Lower values reduce palette accuracy and file size.
+   */
+  quality?: number
 }
 
 export async function exportGif(opts: GifExportOptions): Promise<Blob> {
-  const { svgEl, onProgress, background = 'transparent' } = opts
+  const { svgEl, onProgress, background = 'transparent', fps: fpsProp, quality: qualityProp } = opts
+
+  // Dynamic fps with hard clamp
+  const fpsToUse   = Math.max(1, Math.min(60, fpsProp ?? FPS))
+  // Map user quality (1-100) → GIF encoder quality (1-10), inverted (1 = best)
+  const gifQuality = qualityProp != null
+    ? Math.max(1, Math.round(11 - (qualityProp / 100) * 9))
+    : 1
 
   const vb   = svgEl.viewBox?.baseVal
   const srcW = vb?.width  ?? svgEl.clientWidth  ?? 400
@@ -86,8 +104,10 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
   const H = Math.round(srcH * scale)
 
   const duration   = computeSequenceDuration(svgEl) / 1000
-  const frameCount = Math.min(Math.ceil(duration * FPS), MAX_FRAMES)
-  const frameDelay = Math.round(1000 / FPS)
+  // Cap at 8 s regardless of fps to prevent runaway file sizes
+  const maxFrames  = Math.min(Math.ceil(fpsToUse * 8), 600)
+  const frameCount = Math.min(Math.ceil(duration * fpsToUse), maxFrames)
+  const frameDelay = Math.round(1000 / fpsToUse)
 
   // ── Phase 1: Serialise all frames (synchronous, no waits) ───
 
@@ -134,7 +154,7 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
 
   onProgress?.(70)
 
-  const blob = await encodeGif(frames, frameDelay, W, H, transparent, (p) => {
+  const blob = await encodeGif(frames, frameDelay, W, H, transparent, gifQuality, (p) => {
     onProgress?.(70 + Math.round(p * 30))
   })
 
@@ -281,6 +301,7 @@ async function encodeGif(
   W: number,
   H: number,
   transparent: boolean,
+  quality: number,
   onProgress?: (pct: number) => void,
 ): Promise<Blob> {
   const GIFEncoder = getEncoder()
@@ -345,11 +366,11 @@ async function encodeGif(
       encoder.setGlobalPalette(palette)
     } else {
       // Fallback: per-frame NeuQuant (colour may drift but at least renders)
-      encoder.setQuality(1)
+      encoder.setQuality(quality)
     }
     encoder.setTransparent(CHROMA_KEY_NUM)
   } else {
-    encoder.setQuality(1)  // quality 1 = maximum NeuQuant accuracy
+    encoder.setQuality(quality)
   }
 
   // One yield to flush the progress bar update to React before the encode loop.

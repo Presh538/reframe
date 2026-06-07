@@ -188,18 +188,26 @@ export function clearAnimations(svgEl: SVGSVGElement): void {
     el.removeAttribute('data-rf-clipped')
   })
 
-  // Clear animation styles from all animated elements (includes clip rects)
+  // Clear ALL inline styles set by presets — prevents state bleed between preset switches.
+  // Each property must be explicitly listed because SVGElement.style has no reset() method
+  // and setting style.cssText = '' would wipe Reframe's own layout styles.
   svgEl.querySelectorAll<SVGElement>('[data-rf-anim]').forEach(el => {
-    el.style.animation = ''
-    el.style.strokeDasharray = ''
+    el.style.animation      = ''
+    el.style.strokeDasharray  = ''
     el.style.strokeDashoffset = ''
-    el.style.opacity = ''
-    el.style.clipPath = ''
+    el.style.opacity          = ''
+    el.style.fillOpacity      = ''
+    el.style.strokeOpacity    = ''
+    el.style.clipPath         = ''
+    el.style.transformOrigin  = ''
+    el.style.transform        = ''
+    el.style.filter           = ''
+    el.style.willChange       = ''
     el.removeAttribute('data-rf-anim')
     el.removeAttribute('data-rf-delay')
   })
 
-  // Remove stroke / stroke-width that were injected by the Draw On preset
+  // Remove stroke / stroke-width injected by draw-type presets
   svgEl.querySelectorAll('[data-rf-stroke-added]').forEach(el => {
     el.removeAttribute('stroke')
     el.removeAttribute('data-rf-stroke-added')
@@ -207,6 +215,13 @@ export function clearAnimations(svgEl: SVGSVGElement): void {
   svgEl.querySelectorAll('[data-rf-sw-added]').forEach(el => {
     el.removeAttribute('stroke-width')
     el.removeAttribute('data-rf-sw-added')
+  })
+
+  // Restore fills that path-in preset replaced with 'none'
+  svgEl.querySelectorAll('[data-rf-fill-saved]').forEach(el => {
+    const saved = el.getAttribute('data-rf-fill-saved')
+    if (saved !== null) el.setAttribute('fill', saved)
+    el.removeAttribute('data-rf-fill-saved')
   })
 }
 

@@ -73,9 +73,9 @@ function CategoryTab({ id, label, active, onClick }: {
         lineHeight: '20px',
         whiteSpace: 'nowrap',
         transition: 'background 0.15s, color 0.15s',
-        background: active ? '#3f37c9'            : 'rgba(0,0,0,0.05)',
-        color:      active ? 'white'              : '#545454',
-        boxShadow:  active ? '0 1px 6px rgba(63,55,201,0.25)' : 'none',
+        background: active ? '#F97316'            : 'rgba(255,255,255,0.06)',
+        color:      active ? 'white'              : '#888888',
+        boxShadow:  active ? '0 1px 6px rgba(249,115,22,0.25)' : 'none',
       }}
     >
       {label}
@@ -101,11 +101,11 @@ function SVGCard({ item, onSelect }: { item: LibraryItem; onSelect: (item: Libra
         gap:           10,
         padding:       '16px 12px 14px',
         borderRadius:  16,
-        border:        hovered ? '1.5px solid rgba(63,55,201,0.35)' : '1.5px solid rgba(0,0,0,0.06)',
-        background:    hovered ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.82)',
+        border:        hovered ? '1.5px solid rgba(249,115,22,0.35)' : '1.5px solid rgba(255,255,255,0.07)',
+        background:    hovered ? '#1C1C1C' : '#141414',
         boxShadow:     hovered
-          ? '0 8px 24px rgba(63,55,201,0.12), 0 2px 8px rgba(0,0,0,0.06)'
-          : '0 1px 4px rgba(0,0,0,0.06)',
+          ? '0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(249,115,22,0.2)'
+          : '0 1px 4px rgba(0,0,0,0.3)',
         cursor:        'pointer',
         transition:    'border 0.15s, background 0.15s, box-shadow 0.15s',
         width:         '100%',
@@ -120,7 +120,7 @@ function SVGCard({ item, onSelect }: { item: LibraryItem; onSelect: (item: Libra
           alignItems: 'center',
           justifyContent: 'center',
           borderRadius: 10,
-          background: 'rgba(0,0,0,0.02)',
+          background: 'rgba(255,255,255,0.03)',
           overflow: 'hidden',
           padding: 10,
         }}
@@ -134,7 +134,7 @@ function SVGCard({ item, onSelect }: { item: LibraryItem; onSelect: (item: Libra
         fontWeight: 500,
         fontSize:   13,
         lineHeight: '18px',
-        color:      hovered ? '#3f37c9' : '#545454',
+        color:      hovered ? '#F97316' : '#888888',
         transition: 'color 0.15s',
       }}>
         {item.name}
@@ -192,7 +192,7 @@ export function LibraryBrowser({
             fontWeight: 600,
             fontSize:   20,
             lineHeight: '28px',
-            color:      '#111',
+            color:      '#FFFFFF',
             margin:     0,
           }}>
             Start with a template
@@ -216,18 +216,18 @@ export function LibraryBrowser({
               style={{
                 padding:    '8px 16px',
                 borderRadius: 34,
-                border:     '1.5px solid rgba(0,0,0,0.12)',
-                background: 'rgba(255,255,255,0.8)',
+                border:     '1.5px solid rgba(255,255,255,0.10)',
+                background: 'rgba(255,255,255,0.06)',
                 fontFamily: 'var(--font-geist-sans), sans-serif',
                 fontWeight: 500,
                 fontSize:   13,
-                color:      '#545454',
+                color:      '#AAAAAA',
                 cursor:     'pointer',
                 transition: 'background 0.12s, border-color 0.12s',
                 whiteSpace: 'nowrap',
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = 'rgba(0,0,0,0.2)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.8)'; e.currentTarget.style.borderColor = 'rgba(0,0,0,0.12)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)' }}
             >
               {uploadLabel}
             </button>
@@ -242,7 +242,7 @@ export function LibraryBrowser({
                 height:     34,
                 borderRadius: '50%',
                 border:     'none',
-                background: 'rgba(0,0,0,0.07)',
+                background: 'rgba(255,255,255,0.07)',
                 cursor:     'pointer',
                 display:    'flex',
                 alignItems: 'center',
@@ -250,11 +250,11 @@ export function LibraryBrowser({
                 transition: 'background 0.12s',
                 flexShrink: 0,
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.13)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.07)')}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M1 1L13 13M13 1L1 13" stroke="#545454" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M1 1L13 13M13 1L1 13" stroke="#888888" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </button>
           )}
@@ -323,9 +323,8 @@ export function LibraryBrowser({
           position: 'fixed',
           inset:    0,
           zIndex:   200,
-          background: 'var(--bg, #f0f0f0)',
-          // dot pattern matching the artboard
-          backgroundImage: 'radial-gradient(circle, #d8d8d8 1.5px, transparent 1.5px)',
+          background: 'var(--bg, #0D0D0D)',
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.07) 1.5px, transparent 1.5px)',
           backgroundSize:  '27px 27px',
         }}
       >

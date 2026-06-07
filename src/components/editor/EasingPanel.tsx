@@ -131,10 +131,10 @@ export function EasingPanel({ onClose }: EasingPanelProps) {
           flexDirection: 'column',
           gap: 8,
           borderRadius: 14,
-          background: 'rgba(251,251,251,0.80)',
+          background: '#181818',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06)',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07)',
         }}>
 
           {/* Header */}
@@ -146,7 +146,7 @@ export function EasingPanel({ onClose }: EasingPanelProps) {
               ...f,
               fontSize: 13,
               fontWeight: 500,
-              color: '#111',
+              color: '#FFFFFF',
               margin: 0,
               lineHeight: '20px',
             }}>
@@ -156,7 +156,7 @@ export function EasingPanel({ onClose }: EasingPanelProps) {
               ...f,
               fontSize: 11,
               fontWeight: 400,
-              color: '#afafaf',
+              color: '#555',
               margin: '2px 0 0',
               lineHeight: '16px',
             }}>
@@ -165,7 +165,7 @@ export function EasingPanel({ onClose }: EasingPanelProps) {
           </div>
 
           {/* Divider */}
-          <div style={{ flexShrink: 0, height: 1, background: 'rgba(0,0,0,0.06)', margin: '0 4px' }} />
+          <div style={{ flexShrink: 0, height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 4px' }} />
 
           {/* Scrollable list */}
           <div
@@ -206,7 +206,7 @@ function Group({
         fontSize: 11,
         fontWeight: 400,
         lineHeight: '16px',
-        color: '#afafaf',
+        color: '#555',
         padding: '6px 8px 2px',
         margin: 0,
       }}>
@@ -236,7 +236,7 @@ function Row({
   onSelect: (id: EasingType) => void
 }) {
   const [hovered, setHovered] = useState(false)
-  const color = isActive ? '#3f37c9' : '#999'
+  const color = isActive ? '#F97316' : '#555'
 
   return (
     <motion.button
@@ -251,7 +251,7 @@ function Row({
         padding: '7px 8px',
         borderRadius: 8,
         border: 'none',
-        background: isActive ? 'rgba(63,55,201,0.08)' : hovered ? 'rgba(0,0,0,0.04)' : 'transparent',
+        background: isActive ? 'rgba(249,115,22,0.10)' : hovered ? 'rgba(255,255,255,0.05)' : 'transparent',
         cursor: 'pointer',
         textAlign: 'left',
         transition: 'background 0.1s',
@@ -265,14 +265,14 @@ function Row({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: isActive ? 'rgba(63,55,201,0.07)' : 'rgba(0,0,0,0.04)',
+        background: isActive ? 'rgba(249,115,22,0.10)' : 'rgba(255,255,255,0.06)',
         borderRadius: 6,
         transition: 'background 0.1s',
       }}>
         <svg width="28" height="20" viewBox="0 0 28 20" fill="none" style={{ overflow: 'visible' }}>
           {/* Grid lines */}
-          <line x1="2" y1="18" x2="26" y2="18" stroke={isActive ? 'rgba(63,55,201,0.12)' : 'rgba(0,0,0,0.08)'} strokeWidth="0.75"/>
-          <line x1="2" y1="2"  x2="26" y2="2"  stroke={isActive ? 'rgba(63,55,201,0.12)' : 'rgba(0,0,0,0.08)'} strokeWidth="0.75"/>
+          <line x1="2" y1="18" x2="26" y2="18" stroke={isActive ? 'rgba(249,115,22,0.20)' : 'rgba(255,255,255,0.08)'} strokeWidth="0.75"/>
+          <line x1="2" y1="2"  x2="26" y2="2"  stroke={isActive ? 'rgba(249,115,22,0.20)' : 'rgba(255,255,255,0.08)'} strokeWidth="0.75"/>
           {/* Static curve */}
           <path
             d={item.path}
@@ -288,7 +288,7 @@ function Row({
           {/* Traveling dot — cx linear, cy uses the actual easing */}
           <motion.circle
             r={2}
-            fill={isActive ? '#3f37c9' : '#555'}
+            fill={isActive ? '#F97316' : '#666'}
             initial={{ cx: 2, cy: 18 }}
             animate={hovered ? { cx: 26, cy: 2 } : { cx: 2, cy: 18 }}
             transition={{
@@ -307,7 +307,7 @@ function Row({
           fontWeight: isActive ? 500 : 400,
           fontSize: 13,
           lineHeight: '20px',
-          color: isActive ? '#111' : '#3d3d3d',
+          color: isActive ? '#FFFFFF' : '#AAAAAA',
         }}>
           {item.name}
         </span>
@@ -316,7 +316,7 @@ function Row({
           display: 'block',
           fontSize: 11,
           lineHeight: '16px',
-          color: isActive ? 'rgba(63,55,201,0.7)' : '#aaa',
+          color: isActive ? 'rgba(249,115,22,0.7)' : '#555',
         }}>
           {item.description}
         </span>

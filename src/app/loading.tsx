@@ -1,10 +1,9 @@
 /**
  * loading.tsx — server-rendered shell for the editor.
  *
- * Next.js streams this to the browser immediately (zero JS required)
- * while the client bundle downloads and hydrates. This is what triggers
- * FCP — the browser paints the canvas background + top bar skeleton
- * instead of a blank white page.
+ * Next.js streams this to the browser immediately while the client bundle
+ * compiles / downloads. Dark theme matches the actual editor so the
+ * loading → loaded transition is invisible.
  */
 
 export default function Loading() {
@@ -13,13 +12,13 @@ export default function Loading() {
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: '#e8e8e8',
-        backgroundImage: 'radial-gradient(circle, #e0e0e0 1.5px, transparent 1.5px)',
+        backgroundColor: '#0D0D0D',
+        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.07) 1.5px, transparent 1.5px)',
         backgroundSize: '27px 27px',
         overflow: 'hidden',
       }}
     >
-      {/* Top bar skeleton */}
+      {/* Top bar skeleton — mirrors TopBar layout */}
       <div
         style={{
           position: 'absolute',
@@ -33,24 +32,24 @@ export default function Loading() {
           pointerEvents: 'none',
         }}
       >
-        {/* Left — Presets / Easing tabs */}
+        {/* Left — Presets / Easing tab skeletons */}
         <div style={{ display: 'flex', gap: 8 }}>
-          {['Presets', 'Easing'].map(label => (
+          {[48, 42].map((w, i) => (
             <div
-              key={label}
+              key={i}
               style={{
                 height: 36,
                 borderRadius: 100,
-                background: 'rgba(255,255,255,0.72)',
-                backdropFilter: 'blur(8px)',
+                background: 'rgba(255,255,255,0.06)',
+                border: '0.5px solid rgba(255,255,255,0.08)',
                 padding: '0 16px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
               }}
             >
-              <div style={{ width: 10, height: 10, borderRadius: 3, background: '#d4d4d4' }} />
-              <div style={{ width: label === 'Presets' ? 48 : 42, height: 12, borderRadius: 6, background: '#d4d4d4' }} />
+              <div style={{ width: 10, height: 10, borderRadius: 3, background: 'rgba(255,255,255,0.12)' }} />
+              <div style={{ width: w, height: 11, borderRadius: 6, background: 'rgba(255,255,255,0.10)' }} />
             </div>
           ))}
         </div>
@@ -59,10 +58,10 @@ export default function Loading() {
         <div
           style={{
             height: 36,
-            width: 140,
+            width: 130,
             borderRadius: 100,
-            background: '#3f37c9',
-            opacity: 0.25,
+            background: 'rgba(249,115,22,0.18)',
+            border: '0.5px solid rgba(249,115,22,0.25)',
           }}
         />
       </div>

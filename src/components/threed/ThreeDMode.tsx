@@ -22,8 +22,8 @@ type Active3D     = 'speed' | 'delay' | 'depth' | 'light' | 'motion' | 'camera' 
 // ── Shared pill styles — mirrors BottomBar ────────────────────────
 
 const pillStyle: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.6)',
-  border: '1px solid white',
+  background: 'rgba(255,255,255,0.07)',
+  border: '1px solid rgba(255,255,255,0.08)',
   borderRadius: 34,
   display: 'flex',
   alignItems: 'center',
@@ -34,7 +34,7 @@ const pillStyle: React.CSSProperties = {
   fontWeight: 500,
   fontSize: 14,
   lineHeight: '20px',
-  color: '#545454',
+  color: '#AAAAAA',
   whiteSpace: 'nowrap' as const,
   transition: 'background 0.12s',
   flexShrink: 0,
@@ -42,10 +42,10 @@ const pillStyle: React.CSSProperties = {
 
 const pillActiveStyle: React.CSSProperties = {
   ...pillStyle,
-  background: 'rgba(255,255,255,0.95)',
-  border: '1px solid rgba(63,55,201,0.2)',
-  boxShadow: '0 0 0 1.5px #3f37c9',
-  color: '#3f37c9',
+  background: 'rgba(249,115,22,0.12)',
+  border: '1px solid rgba(249,115,22,0.4)',
+  boxShadow: '0 0 0 1.5px #F97316',
+  color: '#F97316',
 }
 
 const iconPillStyle: React.CSSProperties = {
@@ -133,12 +133,12 @@ function Popover({ children }: { children: React.ReactNode }) {
         transition={SPRING.dropdown}
         style={{
           transformOrigin: 'center bottom',
-          background: 'rgba(251,251,251,0.72)',
+          background: '#1A1A1A',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(0,0,0,0.06)',
+          border: '1px solid rgba(255,255,255,0.07)',
           borderRadius: 14,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.06)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07)',
           padding: 16,
           minWidth: 200,
         }}
@@ -185,7 +185,7 @@ function SliderRow({
       <input
         type="range" min={min} max={max} step={step} value={value}
         onChange={e => onChange(Number(e.target.value))}
-        style={{ width: '100%', accentColor: '#3f37c9' }}
+        style={{ width: '100%', accentColor: '#F97316' }}
       />
     </div>
   )
@@ -197,7 +197,7 @@ function Divider() {
   return (
     <div style={{
       width: 1, height: 26,
-      background: 'rgba(0,0,0,0.08)',
+      background: 'rgba(255,255,255,0.08)',
       flexShrink: 0, marginLeft: 2, marginRight: 2,
     }} />
   )
@@ -326,11 +326,11 @@ function Controls({
                       padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
                       background: 'transparent',
                       fontFamily: 'var(--font-geist-sans), sans-serif',
-                      fontSize: 13, fontWeight: 500, color: '#545454',
+                      fontSize: 13, fontWeight: 500, color: '#AAAAAA',
                       transition: 'background 0.12s',
                       textTransform: 'capitalize',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
                     {preset.replace('-', ' ')}
@@ -348,22 +348,22 @@ function Controls({
                   <button
                     onClick={() => onBgColor('transparent')}
                     style={{
-                      width: 28, height: 28, borderRadius: 7, border: bgColor === 'transparent' ? '2px solid #3f37c9' : '2px solid rgba(0,0,0,0.12)',
-                      background: 'white', cursor: 'pointer', position: 'relative', overflow: 'hidden',
-                      boxShadow: bgColor === 'transparent' ? '0 0 0 1px #3f37c9' : 'none',
+                      width: 28, height: 28, borderRadius: 7, border: bgColor === 'transparent' ? '2px solid #F97316' : '2px solid rgba(255,255,255,0.12)',
+                      background: '#333', cursor: 'pointer', position: 'relative', overflow: 'hidden',
+                      boxShadow: bgColor === 'transparent' ? '0 0 0 1px #F97316' : 'none',
                     }}
                     title="Transparent"
                   >
-                    <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-conic-gradient(#ddd 0% 25%, white 0% 50%)', backgroundSize: '8px 8px' }} />
+                    <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-conic-gradient(#444 0% 25%, #222 0% 50%)', backgroundSize: '8px 8px' }} />
                   </button>
                   {/* Color swatch */}
                   <div style={{ position: 'relative' }}>
                     <button
                       style={{
-                        width: 28, height: 28, borderRadius: 7, border: bgColor !== 'transparent' ? '2px solid #3f37c9' : '2px solid rgba(0,0,0,0.12)',
+                        width: 28, height: 28, borderRadius: 7, border: bgColor !== 'transparent' ? '2px solid #F97316' : '2px solid rgba(255,255,255,0.12)',
                         background: bgColor !== 'transparent' ? bgColor : '#1a1a2e',
                         cursor: 'pointer',
-                        boxShadow: bgColor !== 'transparent' ? '0 0 0 1px #3f37c9' : 'none',
+                        boxShadow: bgColor !== 'transparent' ? '0 0 0 1px #F97316' : 'none',
                       }}
                       onClick={() => document.getElementById('3d-bg-picker')?.click()}
                     />
@@ -375,7 +375,7 @@ function Controls({
                       style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
                     />
                   </div>
-                  <span style={{ fontFamily: 'var(--font-geist-sans), sans-serif', fontSize: 12, color: '#888' }}>
+                  <span style={{ fontFamily: 'var(--font-geist-sans), sans-serif', fontSize: 12, color: '#666' }}>
                     {bgColor === 'transparent' ? 'Transparent' : bgColor}
                   </span>
                 </div>
@@ -400,19 +400,19 @@ function Controls({
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10,
                       padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                      background: motionType === opt.id ? 'rgba(63,55,201,0.08)' : 'transparent',
+                      background: motionType === opt.id ? 'rgba(249,115,22,0.08)' : 'transparent',
                       fontFamily: 'var(--font-geist-sans), sans-serif',
                       fontSize: 13, fontWeight: 500,
-                      color: motionType === opt.id ? '#3f37c9' : '#545454',
+                      color: motionType === opt.id ? '#F97316' : '#AAAAAA',
                       transition: 'background 0.12s, color 0.12s',
                     }}
-                    onMouseEnter={e => { if (motionType !== opt.id) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }}
+                    onMouseEnter={e => { if (motionType !== opt.id) e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
                     onMouseLeave={e => { if (motionType !== opt.id) e.currentTarget.style.background = 'transparent' }}
                   >
                     <span style={{ opacity: motionType === opt.id ? 1 : 0.55, flexShrink: 0 }}>{opt.icon}</span>
                     {opt.label}
                     {motionType === opt.id && (
-                      <span style={{ marginLeft: 'auto', fontSize: 10, color: '#3f37c9', fontWeight: 600, opacity: 0.7 }}>
+                      <span style={{ marginLeft: 'auto', fontSize: 10, color: '#F97316', fontWeight: 600, opacity: 0.7 }}>
                         active
                       </span>
                     )}
@@ -426,12 +426,12 @@ function Controls({
         {/* ── Main bar ── */}
         <div
           className="flex items-center gap-[6px] px-[6px] py-[5px] backdrop-blur-md"
-          style={{ borderRadius: 74, background: 'rgba(251,251,251,0.6)' }}
+          style={{ borderRadius: 74, background: 'rgba(18,18,18,0.88)', border: '1px solid rgba(255,255,255,0.07)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}
         >
           {/* Material toggle — Flat / Glass */}
           <div style={{
             display: 'flex', gap: 3,
-            background: 'rgba(0,0,0,0.05)',
+            background: 'rgba(255,255,255,0.05)',
             borderRadius: 10, padding: 3,
           }}>
             {MATERIAL_OPTIONS.map(opt => (
@@ -442,9 +442,9 @@ function Controls({
                   borderRadius: 8, padding: '4px 12px', border: 'none',
                   fontFamily: 'var(--font-geist-sans), sans-serif',
                   fontSize: 14, fontWeight: 500, cursor: 'pointer',
-                  background: material === opt.id ? 'white' : 'transparent',
-                  color:      material === opt.id ? '#3f37c9' : '#545454',
-                  boxShadow:  material === opt.id ? '0 0 0 1.5px #3f37c9' : 'none',
+                  background: material === opt.id ? 'rgba(249,115,22,0.12)' : 'transparent',
+                  color:      material === opt.id ? '#F97316' : '#888',
+                  boxShadow:  material === opt.id ? '0 0 0 1.5px #F97316' : 'none',
                   transition: 'background 0.12s, color 0.12s, box-shadow 0.12s',
                   lineHeight: '20px',
                 }}
@@ -463,7 +463,7 @@ function Controls({
               onClick={() => toggle('speed')}
               initial="rest" whileHover="hover"
             >
-              <SpeedometerIcon color={active === 'speed' ? '#3f37c9' : '#AFAFAF'} />
+              <SpeedometerIcon color={active === 'speed' ? '#F97316' : '#AFAFAF'} />
               Speed
             </motion.button>
           </Tooltip>
@@ -475,7 +475,7 @@ function Controls({
               onClick={() => toggle('delay')}
               initial="rest" whileHover="hover"
             >
-              <DelayIcon color={active === 'delay' ? '#3f37c9' : '#AFAFAF'} />
+              <DelayIcon color={active === 'delay' ? '#F97316' : '#AFAFAF'} />
               Delay
             </motion.button>
           </Tooltip>
@@ -487,7 +487,7 @@ function Controls({
               onClick={() => toggle('depth')}
               initial="rest" whileHover="hover"
             >
-              <DepthIcon color={active === 'depth' ? '#3f37c9' : '#AFAFAF'} />
+              <DepthIcon color={active === 'depth' ? '#F97316' : '#AFAFAF'} />
               Depth
             </motion.button>
           </Tooltip>
@@ -499,7 +499,7 @@ function Controls({
               onClick={() => toggle('light')}
               initial="rest" whileHover="hover"
             >
-              <LightIcon color={active === 'light' ? '#3f37c9' : '#AFAFAF'} />
+              <LightIcon color={active === 'light' ? '#F97316' : '#AFAFAF'} />
               Light
             </motion.button>
           </Tooltip>
@@ -509,11 +509,11 @@ function Controls({
           {/* Motion type selector */}
           <Tooltip label="Motion style" disabled={active === 'motion'}>
             <motion.button
-              style={active === 'motion' ? pillActiveStyle : (isPlaying ? { ...pillStyle, color: '#3f37c9' } : pillStyle)}
+              style={active === 'motion' ? pillActiveStyle : (isPlaying ? { ...pillStyle, color: '#F97316' } : pillStyle)}
               onClick={() => toggle('motion')}
               initial="rest" whileHover="hover"
             >
-              <MotionIcon color={active === 'motion' || isPlaying ? '#3f37c9' : '#AFAFAF'} />
+              <MotionIcon color={active === 'motion' || isPlaying ? '#F97316' : '#AFAFAF'} />
               Motion
             </motion.button>
           </Tooltip>
@@ -539,7 +539,7 @@ function Controls({
               onClick={() => toggle('camera')}
               initial="rest" whileHover="hover"
             >
-              <CameraIcon color={active === 'camera' ? '#3f37c9' : '#AFAFAF'} />
+              <CameraIcon color={active === 'camera' ? '#F97316' : '#AFAFAF'} />
               View
             </motion.button>
           </Tooltip>
@@ -554,10 +554,10 @@ function Controls({
               <div style={{
                 width: 16, height: 16, borderRadius: 4,
                 background: bgColor === 'transparent'
-                  ? 'repeating-conic-gradient(#aaa 0% 25%, white 0% 50%)'
+                  ? 'repeating-conic-gradient(#444 0% 25%, #222 0% 50%)'
                   : bgColor,
                 backgroundSize: '8px 8px',
-                border: '1px solid rgba(0,0,0,0.15)',
+                border: '1px solid rgba(255,255,255,0.12)',
                 flexShrink: 0,
               }} />
               BG
@@ -598,9 +598,9 @@ function Controls({
               style={{
                 ...iconPillStyle,
                 background: exportStatus === 'rendering'
-                  ? 'rgba(63,55,201,0.5)'
-                  : '#3f37c9',
-                border: '1px solid white',
+                  ? 'rgba(249,115,22,0.5)'
+                  : '#F97316',
+                border: '1px solid rgba(255,255,255,0.2)',
                 cursor: exportStatus !== 'idle' ? 'default' : 'pointer',
               }}
               onClick={exportStatus === 'idle' ? onPlayToggle : undefined}
@@ -857,7 +857,7 @@ export function ThreeDMode({ onExportReady, onExportWebMReady, onCopyEmbedReady,
               position: 'absolute', inset: 0,
               display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(245,245,245,0.7)',
+              background: 'rgba(10,10,10,0.75)',
               backdropFilter: 'blur(8px)',
               zIndex: 30,
               gap: 12,
@@ -865,17 +865,17 @@ export function ThreeDMode({ onExportReady, onExportWebMReady, onCopyEmbedReady,
           >
             <p style={{
               fontFamily: 'var(--font-geist-sans), sans-serif',
-              fontSize: 14, fontWeight: 600, color: '#3f37c9', margin: 0,
+              fontSize: 14, fontWeight: 600, color: '#F97316', margin: 0,
             }}>
               Rendering GIF… {Math.round(exportProgress * 100)}%
             </p>
             <div style={{
               width: 200, height: 4,
-              background: 'rgba(63,55,201,0.15)',
+              background: 'rgba(249,115,22,0.15)',
               borderRadius: 99, overflow: 'hidden',
             }}>
               <motion.div
-                style={{ height: '100%', background: '#3f37c9', borderRadius: 99 }}
+                style={{ height: '100%', background: '#F97316', borderRadius: 99 }}
                 animate={{ width: `${exportProgress * 100}%` }}
                 transition={{ duration: 0.1 }}
               />

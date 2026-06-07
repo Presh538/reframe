@@ -78,6 +78,7 @@ export const illustrationPresets: Preset[] = [
       `)
       B.allTargets(el).forEach((e, i) => {
         e.style.transformOrigin = 'center'
+        e.style.willChange = 'transform, opacity'
         const delay = p.delay + i * 0.05   // tight 50 ms stagger
         const kf = p.direction === 'out' ? 'rf-ss-out' : 'rf-ss-in'
         B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both`, delay)
@@ -194,7 +195,7 @@ export const illustrationPresets: Preset[] = [
       `)
       B.allTargets(el).forEach((e, i) => {
         e.style.transformOrigin = 'center'
-        e.style.opacity = '0'
+        e.style.willChange = 'transform, opacity'
         const delay = p.delay + i * 0.11
         B.anim(e, `rf-stag ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ${B.ease(p)}`, delay)
       })

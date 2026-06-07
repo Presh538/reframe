@@ -16,6 +16,7 @@ export const iconPresets: Preset[] = [
       `)
       B.targets(el, p.scope).forEach(e => {
         e.style.transformOrigin = 'center'
+        e.style.willChange = 'transform'
         B.anim(e, `rf-wig ${d} ${p.delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both`, p.delay)
       })
     },
@@ -36,6 +37,7 @@ export const iconPresets: Preset[] = [
       `)
       B.targets(el, p.scope).forEach(e => {
         e.style.transformOrigin = 'center'
+        e.style.willChange = 'transform, opacity'
         B.anim(e, `rf-pulse ${d} ${p.delay.toFixed(3)}s infinite ease-in-out`, p.delay)
       })
     },
@@ -56,6 +58,7 @@ export const iconPresets: Preset[] = [
       `)
       B.targets(el, p.scope).forEach(e => {
         e.style.transformOrigin = 'center'
+        e.style.willChange = 'transform'
         B.anim(e, `rf-spin ${d} ${p.delay.toFixed(3)}s infinite linear`, p.delay)
       })
     },
@@ -87,6 +90,8 @@ export const iconPresets: Preset[] = [
         if (!hasStroke) {
           const fill = e.getAttribute('fill') ?? ''
           if (fill && fill !== 'none' && !fill.startsWith('url(')) {
+            // Save original fill so clearAnimations can restore it
+            e.setAttribute('data-rf-fill-saved', fill)
             e.setAttribute('stroke', fill)
             e.setAttribute('fill', 'none')
             e.setAttribute('data-rf-stroke-added', '1')
@@ -119,6 +124,7 @@ export const iconPresets: Preset[] = [
       `)
       B.targets(el, p.scope).forEach((e, i) => {
         e.style.transformOrigin = 'center'
+        e.style.willChange = 'transform, opacity'
         const delay = p.delay + i * 0.05
         B.anim(e, `rf-pop ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both cubic-bezier(.34,1.56,.64,1)`, delay)
       })
@@ -145,6 +151,7 @@ export const iconPresets: Preset[] = [
       `)
       B.targets(el, p.scope).forEach((e, i) => {
         e.style.transformOrigin = 'center'
+        e.style.willChange = 'transform'
         const delay = p.delay + i * 0.06
         B.anim(e, `rf-tada ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both`, delay)
       })
@@ -191,6 +198,7 @@ export const iconPresets: Preset[] = [
       `)
       B.targets(el, p.scope).forEach((e, i) => {
         e.style.transformOrigin = 'center'
+        e.style.willChange = 'transform, opacity'
         const delay = p.delay + i * 0.07
         const kf = p.direction === 'out' ? 'rf-flip-out' : 'rf-flip-in'
         B.anim(e, `${kf} ${d} ${delay.toFixed(3)}s ${B.iter(p)} ${B.dir(p)} both ${B.ease(p)}`, delay)

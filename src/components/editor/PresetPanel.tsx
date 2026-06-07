@@ -111,10 +111,10 @@ export function PresetPanel({ onClose }: PresetPanelProps) {
           flexDirection: 'column',
           gap: 8,
           borderRadius: 14,
-          background: 'rgba(251,251,251,0.80)',
+          background: '#181818',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06)',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07)',
         }}>
 
           {/* Search bar */}
@@ -123,14 +123,14 @@ export function PresetPanel({ onClose }: PresetPanelProps) {
             display: 'flex',
             alignItems: 'center',
             gap: 6,
-            background: 'rgba(255,255,255,0.55)',
-            border: '1px solid rgba(255,255,255,0.9)',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: 9,
             padding: '7px 10px',
           }}>
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ flexShrink: 0, opacity: 0.38 }}>
-              <circle cx="6.5" cy="6.5" r="4" stroke="#111" strokeWidth="1.4"/>
-              <path d="M9.5 9.5L12.5 12.5" stroke="#111" strokeWidth="1.4" strokeLinecap="round"/>
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ flexShrink: 0, opacity: 0.4 }}>
+              <circle cx="6.5" cy="6.5" r="4" stroke="#888" strokeWidth="1.4"/>
+              <path d="M9.5 9.5L12.5 12.5" stroke="#888" strokeWidth="1.4" strokeLinecap="round"/>
             </svg>
             <input
               placeholder="Search presets…"
@@ -144,9 +144,9 @@ export function PresetPanel({ onClose }: PresetPanelProps) {
                 outline: 'none',
                 fontSize: 13,
                 lineHeight: '20px',
-                color: '#111',
+                color: '#CCC',
                 width: '100%',
-                caretColor: '#3f37c9',
+                caretColor: '#F97316',
               }}
             />
             {query && (
@@ -210,7 +210,7 @@ function Group({ category, activeId, onSelect, startIndex }: {
         initial={{ opacity: 0, x: -6 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ type: 'spring', stiffness: 500, damping: 30, delay: Math.min(startIndex * 0.025, 0.3) }}
-        style={{ ...f, fontSize: 11, fontWeight: 400, lineHeight: '16px', color: '#afafaf', padding: '6px 8px 2px', margin: 0 }}
+        style={{ ...f, fontSize: 11, fontWeight: 400, lineHeight: '16px', color: '#555', padding: '6px 8px 2px', margin: 0 }}
       >
         {category}
       </motion.p>
@@ -231,7 +231,7 @@ function Row({ preset, isActive, onSelect, index = 0 }: {
 }) {
   const [hovered, setHovered] = useState(false)
   const family = PRESET_FAMILY[preset.id] ?? 'rise'
-  const color  = isActive ? '#3f37c9' : '#888'
+  const color  = isActive ? '#F97316' : '#666'
 
   return (
     <motion.button
@@ -259,7 +259,7 @@ function Row({ preset, isActive, onSelect, index = 0 }: {
       {isActive && (
         <span style={{
           position: 'absolute', inset: 0, borderRadius: 8,
-          background: 'rgba(63,55,201,0.08)', zIndex: 0,
+          background: 'rgba(249,115,22,0.10)', zIndex: 0,
         }} />
       )}
 
@@ -276,17 +276,16 @@ function Row({ preset, isActive, onSelect, index = 0 }: {
             transition={{ type: 'spring', stiffness: 500, damping: 36 }}
             style={{
               position: 'absolute', inset: 0, borderRadius: 8,
-              background: 'rgba(0,0,0,0.04)', zIndex: 0,
+              background: 'rgba(255,255,255,0.05)', zIndex: 0,
             }}
           />
         )}
       </AnimatePresence>
-      {/* Animated icon chip — z-index above the highlight */}
       <span style={{
         position: 'relative', zIndex: 1,
         width: 32, height: 28, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: isActive ? 'rgba(63,55,201,0.07)' : 'rgba(0,0,0,0.04)',
+        background: isActive ? 'rgba(249,115,22,0.10)' : 'rgba(255,255,255,0.06)',
         borderRadius: 6, transition: 'background 0.1s', overflow: 'hidden',
       }}>
         <PresetAnimIcon family={family} color={color} hovered={hovered} />
@@ -296,7 +295,7 @@ function Row({ preset, isActive, onSelect, index = 0 }: {
       <span style={{
         ...f, position: 'relative', zIndex: 1,
         fontWeight: isActive ? 500 : 400, fontSize: 13, lineHeight: '20px',
-        color: isActive ? '#111' : '#3d3d3d',
+        color: isActive ? '#FFFFFF' : '#AAAAAA',
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
       }}>
         {preset.name}

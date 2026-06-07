@@ -87,7 +87,7 @@ export class ErrorBoundary extends Component<Props, State> {
             onClick={this.handleReset}
             style={{
               marginTop: 4,
-              background: '#3f37c9',
+              background: '#F97316',
               color: 'white',
               border: 'none',
               borderRadius: 74,
