@@ -100,3 +100,39 @@ export function trackAiPromptFailed(props: {
 }) {
   posthog.capture('ai_prompt_failed', props)
 }
+
+// ── Library ───────────────────────────────────────────────────────
+
+/** Fired when the user selects a template from the SVG library. */
+export function trackLibraryItemSelected(props: {
+  itemId:   string
+  itemName: string
+  category: string
+  source:   'editor' | '3d'
+}) {
+  posthog.capture('library_item_selected', props)
+}
+
+// ── 3D mode ───────────────────────────────────────────────────────
+
+/** Fired when a file is uploaded into 3D mode. */
+export function trackThreedAssetUploaded(props: {
+  assetKind: 'svg' | 'image'
+  fileName:  string
+}) {
+  posthog.capture('threed_asset_uploaded', props)
+}
+
+/** Fired when a 3D export render begins. */
+export function trackThreedExportStarted(props: {
+  format: 'gif' | 'webm'
+}) {
+  posthog.capture('threed_export_started', props)
+}
+
+/** Fired when a 3D export finishes and the file is downloaded. */
+export function trackThreedExportCompleted(props: {
+  format: 'gif' | 'webm'
+}) {
+  posthog.capture('threed_export_completed', props)
+}

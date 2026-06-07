@@ -18,6 +18,21 @@ const nextConfig = {
     NEXT_PUBLIC_APP_NAME: 'The Reframe',
   },
 
+  // Route PostHog ingestion through the app's own domain so the browser CSP
+  // covers it via 'self' without needing external connect-src entries.
+  async rewrites() {
+    const host = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? ''
+    const assetHost = host.replace('us.i.', 'us-assets.i.')
+    return [
+      { source: '/ingest/static/:path*', destination: `${assetHost}/static/:path*` },
+      { source: '/ingest/array/:path*',  destination: `${assetHost}/array/:path*`  },
+      { source: '/ingest/:path*',        destination: `${host}/:path*`             },
+    ]
+  },
+
+  // Required for PostHog trailing-slash API requests to pass through correctly
+  skipTrailingSlashRedirect: true,
+
   // HTTP security headers — applied to every route.
   // NOTE: serverActions.bodySizeLimit (below) only applies to Server Actions,
   // NOT to App Router route handlers. /api/validate-svg uses its own Zod

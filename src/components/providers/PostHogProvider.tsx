@@ -18,8 +18,7 @@ import { useEffect, Suspense }          from 'react'
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    const key  = process.env.NEXT_PUBLIC_POSTHOG_KEY
-    const host = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com'
+    const key = process.env.NEXT_PUBLIC_POSTHOG_KEY
 
     if (!key) {
       if (process.env.NODE_ENV === 'development') {
@@ -29,7 +28,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     }
 
     posthog.init(key, {
-      api_host:            host,
+      api_host:            '/ingest',
       ui_host:             'https://us.posthog.com',
       capture_pageview:    false,  // handled manually below (SPA)
       capture_pageleave:   true,

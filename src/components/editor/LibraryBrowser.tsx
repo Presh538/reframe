@@ -23,6 +23,7 @@ import {
 } from '@/lib/svg-library'
 import { useEditorStore } from '@/lib/store/editor'
 import { normalizeSvgElement, extractLayerInfo } from '@/lib/svg/sanitize'
+import { trackLibraryItemSelected } from '@/lib/analytics'
 
 interface LibraryBrowserProps {
   /** Called after a template is selected and loaded. */
@@ -155,6 +156,12 @@ export function LibraryBrowser({
   const items = getLibraryItems(category)
 
   const handleSelect = (item: LibraryItem) => {
+    trackLibraryItemSelected({
+      itemId:   item.id,
+      itemName: item.name,
+      category: item.category,
+      source:   onSelectSvg ? '3d' : 'editor',
+    })
     if (onSelectSvg) {
       // 3D mode (or any consumer that manages its own asset state)
       onSelectSvg(item.svg, `${item.name}.svg`)

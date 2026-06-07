@@ -15,6 +15,7 @@
 import { NextResponse } from 'next/server'
 import { z }            from 'zod'
 import { createShareToken, SHARE_TTL_DAYS } from '@/lib/share'
+import { getPostHogClient } from '@/lib/posthog-server'
 
 export const runtime    = 'nodejs'
 export const dynamic    = 'force-dynamic'
@@ -85,6 +86,11 @@ export async function POST(request: Request) {
   const APP_URL   = process.env.NEXT_PUBLIC_APP_URL ?? 'https://reframeo.com'
   const url       = `${APP_URL}/s/${token}`
   const expiresAt = new Date(Date.now() + SHARE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString()
+
+  getPostHogClient().capture({
+    distinctId: `server_${ip}`,
+    event:      'share_created',
+  })
 
   return NextResponse.json({ token, url, expiresAt }, { status: 201 })
 }
