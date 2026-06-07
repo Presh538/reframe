@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useEditorStore } from '@/lib/store/editor'
 import { SPRING } from '@/lib/motion'
@@ -20,6 +20,20 @@ const EASING_NAMES: Record<EasingType, string> = {
   'snappy':      'Snappy',
 }
 
+const PRIMARY_PRESET_IDS = ['draw-on', 'fade-up-scale', 'bounce-in', 'blur-rise', 'skew-reveal', 'fill-reveal']
+const DROPDOWN_PRESETS = PRIMARY_PRESET_IDS
+  .map(id => PRESETS.find(p => p.id === id))
+  .filter((preset): preset is NonNullable<typeof preset> => Boolean(preset))
+
+const EASING_OPTIONS: { id: EasingType; name: string }[] = [
+  { id: 'linear',      name: 'Linear' },
+  { id: 'ease',        name: 'Ease' },
+  { id: 'ease-in',     name: 'Ease In' },
+  { id: 'ease-out',    name: 'Ease Out' },
+  { id: 'ease-in-out', name: 'Ease In Out' },
+  { id: 'spring',      name: 'Spring' },
+]
+
 interface ControlsSidebarProps {
   onOpenPresets:  () => void
   onOpenEasing:   () => void
@@ -32,11 +46,13 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
   const isPlaying        = useEditorStore(s => s.isPlaying)
   const params           = useEditorStore(s => s.params)
   const zoom             = useEditorStore(s => s.zoom)
+  const isPanMode        = useEditorStore(s => s.isPanMode)
   const activePresetId   = useEditorStore(s => s.activePresetId)
   const setPlaying       = useEditorStore(s => s.setPlaying)
+  const setActivePreset  = useEditorStore(s => s.setActivePreset)
   const updateParam      = useEditorStore(s => s.updateParam)
   const restartAnimation = useEditorStore(s => s.restartAnimation)
-  const resetView        = useEditorStore(s => s.resetView)
+  const setPanMode       = useEditorStore(s => s.setPanMode)
 
   const hasFile = svgSource !== null
 
@@ -44,92 +60,156 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
 
   const activePreset = PRESETS.find(p => p.id === activePresetId)
 
+  const selectPreset = (id: string) => {
+    setActivePreset(id)
+    if (presetsOpen) onOpenPresets()
+  }
+
+  const selectEasing = (id: EasingType) => {
+    updateParam('easing', id)
+    if (easingOpen) onOpenEasing()
+  }
+
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!presetsOpen && !easingOpen) return
+    const handleMouseDown = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        if (presetsOpen) onOpenPresets()
+        if (easingOpen) onOpenEasing()
+      }
+    }
+    document.addEventListener('mousedown', handleMouseDown)
+    return () => document.removeEventListener('mousedown', handleMouseDown)
+  }, [presetsOpen, easingOpen, onOpenPresets, onOpenEasing])
+
   return (
     <motion.div
-      className="absolute left-5 z-30 pointer-events-none"
-      style={{ top: 76, width: 280 }}
+      className="absolute left-10 z-30 pointer-events-none"
+      style={{ top: 108, width: 365 }}
       initial={{ opacity: 0, x: -14 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ ...SPRING.entrance, delay: 0.04 }}
     >
       <div
+        ref={panelRef}
         className="pointer-events-auto"
         style={{
-          background: '#141414',
-          border: '1px solid rgba(255,255,255,0.07)',
-          borderRadius: 14,
-          overflow: 'hidden',
+          background: '#1B1B1B',
+          position: 'relative',
+          border: '0.5px solid rgba(36,36,49,0.64)',
+          borderRadius: 28,
+          overflow: 'visible',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 16,
+          padding: '16px 0',
         }}
       >
         {/* ── Playback controls ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px' }}>
-          {/* Play */}
-          <CtrlBtn
-            onClick={() => setPlaying(!isPlaying)}
-            disabled={!hasFile}
-            accent
-            title={isPlaying ? 'Pause' : 'Play'}
-          >
-            {isPlaying ? <PauseIcon /> : <PlayIcon />}
-          </CtrlBtn>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: 333 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1 }}>
+            <div style={{ width: 76, flexShrink: 0 }}>
+              <CtrlBtn
+                onClick={() => setPlaying(!isPlaying)}
+                disabled={!hasFile}
+                title={isPlaying ? 'Pause' : 'Play'}
+                label={isPlaying ? 'Pause' : 'Play'}
+                fullWidth
+              >
+                <Icon src={isPlaying ? '/figma-icons/pause.svg' : '/figma-icons/play.svg'} size={18} />
+              </CtrlBtn>
+            </div>
+            <CtrlBtn onClick={restartAnimation} disabled={!hasFile} title="Restart">
+              <Icon src="/figma-icons/refresh.svg" size={18} />
+            </CtrlBtn>
+          </div>
 
-          {/* Restart */}
-          <CtrlBtn
-            onClick={restartAnimation}
-            disabled={!hasFile}
-            title="Restart"
-          >
-            <RestartIcon />
-          </CtrlBtn>
-
-          <div style={{ flex: 1 }} />
-
-          {/* Zoom % */}
-          <button
-            onClick={resetView}
-            title="Reset view"
+          {/* Zoom / pan toggle */}
+          <motion.button
+            onClick={() => setPanMode(!isPanMode)}
+            title={isPanMode ? 'Disable pan tool' : 'Enable pan tool'}
+            whileTap={{ scale: 0.94 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             style={{
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              ...f,
-              fontSize: 12,
-              fontWeight: 500,
-              color: '#555',
-              padding: '4px 6px',
-              borderRadius: 6,
-              transition: 'color 0.12s, background 0.12s',
+              width: 91, height: 38,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              background: 'rgba(255,255,255,0.05)',
+              border: 'none', cursor: 'pointer',
+              ...f, fontSize: 14, fontWeight: 400, letterSpacing: 0.028,
+              color: isPanMode ? '#D06523' : '#979797',
+              padding: '10px', borderRadius: 40,
+              backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+              transition: 'background 0.15s, color 0.15s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#888'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#555'; e.currentTarget.style.background = 'transparent' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
           >
+            <Icon src={isPanMode ? '/figma-icons/drag-left-primary.svg' : '/figma-icons/drag-left.svg'} size={18} />
+            <span style={{ width: 1, height: 18, background: 'rgba(255,255,255,0.08)' }} />
             {Math.round(zoom * 100)}%
-          </button>
+          </motion.button>
         </div>
 
         <Separator />
 
         {/* ── Preset row ── */}
-        <SelectorRow
-          label="Preset"
-          value={activePreset?.name ?? 'Select…'}
-          icon={<KeyframesIcon />}
-          onClick={onOpenPresets}
-          active={presetsOpen}
-          disabled={!hasFile}
-        />
+        <div style={{ position: 'relative', width: 333 }}>
+          <SelectorRow
+            label="Preset"
+            value={activePreset?.name ?? 'Draw On'}
+            icon={<PresetIcon id={activePresetId ?? 'draw-on'} />}
+            onClick={onOpenPresets}
+            active={presetsOpen}
+            disabled={!hasFile}
+          />
+          <AnimatePresence>
+            {presetsOpen && (
+              <DropdownMenu key="preset-dropdown">
+                {DROPDOWN_PRESETS.map(preset => (
+                  <DropdownItem
+                    key={preset.id}
+                    label={preset.name}
+                    active={preset.id === activePresetId}
+                    onClick={() => selectPreset(preset.id)}
+                    icon={<PresetIcon id={preset.id} />}
+                  />
+                ))}
+              </DropdownMenu>
+            )}
+          </AnimatePresence>
+        </div>
 
         <Separator />
 
         {/* ── Easing row ── */}
-        <SelectorRow
-          label="Easing"
-          value={EASING_NAMES[params.easing]}
-          icon={<KeyframesIcon />}
-          onClick={onOpenEasing}
-          active={easingOpen}
-          disabled={!hasFile}
-        />
+        <div style={{ position: 'relative', width: 333 }}>
+          <SelectorRow
+            label="Easing"
+            value={EASING_NAMES[params.easing]}
+            icon={<EasingCurveIcon id={params.easing} />}
+            onClick={onOpenEasing}
+            active={easingOpen}
+            disabled={!hasFile}
+          />
+          <AnimatePresence>
+            {easingOpen && (
+              <DropdownMenu key="easing-dropdown">
+                {EASING_OPTIONS.map(option => (
+                  <DropdownItem
+                    key={option.id}
+                    label={option.name}
+                    active={option.id === params.easing}
+                    onClick={() => selectEasing(option.id)}
+                    icon={<EasingCurveIcon id={option.id} />}
+                  />
+                ))}
+              </DropdownMenu>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* ── Smooth & Edit section — only when file loaded ── */}
         <AnimatePresence>
@@ -140,69 +220,67 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={SPRING.panel}
-              style={{ overflow: 'hidden' }}
+              style={{ overflow: 'hidden', alignSelf: 'stretch' }}
             >
               <Separator />
 
-              <div style={{ padding: '10px 12px 12px' }}>
-                <p style={{ ...f, fontSize: 11, fontWeight: 500, color: '#555', margin: '0 0 10px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              <div style={{ width: 333, margin: '16px auto 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <p style={{ ...f, fontSize: 14, fontWeight: 500, color: '#FFFFFF', margin: 0, letterSpacing: 0.028, width: '100%' }}>
                   Smooth &amp; Edit
                 </p>
 
-                {/* Target */}
-                <ParamRow label="Target">
-                  <ChipGroup
-                    options={[
-                      { value: 'all',    label: 'All Layers' },
-                      { value: 'groups', label: 'Groups' },
-                      { value: 'paths',  label: 'Paths' },
-                    ]}
-                    value={params.scope}
-                    onChange={v => set('scope')(v as AnimParams['scope'])}
-                  />
-                </ParamRow>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%' }}>
+                  <ParamRow label="Target">
+                    <ChipGroup
+                      options={[
+                        { value: 'all',    label: 'All Layers' },
+                        { value: 'groups', label: 'Groups' },
+                        { value: 'paths',  label: 'Paths' },
+                      ]}
+                      value={params.scope}
+                      onChange={v => set('scope')(v as AnimParams['scope'])}
+                    />
+                  </ParamRow>
 
-                {/* Speed */}
-                <ParamRow label="Speed" value={`${params.speed % 1 === 0 ? params.speed : parseFloat(params.speed.toFixed(2))}x`}>
-                  <Slider
-                    value={params.speed} min={0.25} max={4} step={0.25}
-                    onChange={v => set('speed')(v)}
-                  />
-                </ParamRow>
+                  <ParamRow label="Speed">
+                    <Slider
+                      value={params.speed} min={0.25} max={4} step={0.25}
+                      displayValue={`${params.speed % 1 === 0 ? params.speed : parseFloat(params.speed.toFixed(2))}x`}
+                      onChange={v => set('speed')(v)}
+                    />
+                  </ParamRow>
 
-                {/* Delay */}
-                <ParamRow label="Delay" value={`${params.delay.toFixed(1)}s`}>
-                  <Slider
-                    value={params.delay} min={0} max={2} step={0.1}
-                    onChange={v => set('delay')(v)}
-                  />
-                </ParamRow>
+                  <ParamRow label="Delay">
+                    <Slider
+                      value={params.delay} min={0} max={2} step={0.1}
+                      displayValue={`${params.delay.toFixed(1)}s`}
+                      onChange={v => set('delay')(v)}
+                    />
+                  </ParamRow>
 
-                {/* Loop */}
-                <ParamRow label="Loop">
-                  <ChipGroup
-                    options={[
-                      { value: 'once',  label: 'Once' },
-                      { value: 'loop',  label: 'Loop' },
-                      { value: 'bounce',label: 'Bounce' },
-                    ]}
-                    value={params.loop}
-                    onChange={v => set('loop')(v as AnimParams['loop'])}
-                  />
-                </ParamRow>
+                  <ParamRow label="Loop">
+                    <ChipGroup
+                      options={[
+                        { value: 'once', label: 'Loop Once' },
+                        { value: 'loop', label: 'Continuous Loop' },
+                      ]}
+                      value={params.loop}
+                      onChange={v => set('loop')(v as AnimParams['loop'])}
+                    />
+                  </ParamRow>
 
-                {/* Direction */}
-                <ParamRow label="Direction">
-                  <ChipGroup
-                    options={[
-                      { value: 'in',     label: 'In' },
-                      { value: 'out',    label: 'Out' },
-                      { value: 'in-out', label: 'In & Out' },
-                    ]}
-                    value={params.direction}
-                    onChange={v => set('direction')(v as AnimParams['direction'])}
-                  />
-                </ParamRow>
+                  <ParamRow label="Direction">
+                    <ChipGroup
+                      options={[
+                        { value: 'in',     label: 'In' },
+                        { value: 'out',    label: 'Out' },
+                        { value: 'in-out', label: 'In & Out' },
+                      ]}
+                      value={params.direction}
+                      onChange={v => set('direction')(v as AnimParams['direction'])}
+                    />
+                  </ParamRow>
+                </div>
               </div>
             </motion.div>
           )}
@@ -215,47 +293,48 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
 // ── Sub-components ──────────────────────────────────────────────
 
 function Separator() {
-  return <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', marginLeft: 12, marginRight: 12 }} />
+  return <div style={{ height: '0.5px', background: 'rgba(255,255,255,0.06)', width: '100%' }} />
 }
 
 function CtrlBtn({
-  children, onClick, disabled, accent, title,
+  children, onClick, disabled, title, label, fullWidth,
 }: {
   children: React.ReactNode
   onClick?: () => void
   disabled?: boolean
-  accent?: boolean
   title?: string
+  label?: string
+  fullWidth?: boolean
 }) {
   return (
-    <button
+    <motion.button
       onClick={onClick}
       disabled={disabled}
       title={title}
+      whileTap={{ scale: 0.92 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
       style={{
-        width: 32,
-        height: 32,
-        borderRadius: '50%',
-        border: 'none',
-        background: accent ? '#F97316' : 'rgba(255,255,255,0.07)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        width: fullWidth ? '100%' : undefined,
+        height: 38, borderRadius: 40, border: 'none',
+        background: 'rgba(255,255,255,0.05)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        gap: label ? 2 : 0, padding: 10,
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.35 : 1,
         flexShrink: 0,
-        transition: 'background 0.12s, opacity 0.12s',
+        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+        transition: 'background 0.15s, opacity 0.15s',
       }}
-      onMouseEnter={e => {
-        if (disabled) return
-        e.currentTarget.style.background = accent ? '#ea6d0e' : 'rgba(255,255,255,0.12)'
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.background = accent ? '#F97316' : 'rgba(255,255,255,0.07)'
-      }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
     >
       {children}
-    </button>
+      {label && (
+        <span style={{ ...f, color: '#FFFFFF', fontSize: 14, fontWeight: 400, letterSpacing: 0.028, lineHeight: '18px' }}>
+          {label}
+        </span>
+      )}
+    </motion.button>
   )
 }
 
@@ -270,41 +349,133 @@ function SelectorRow({
   disabled?: boolean
 }) {
   return (
-    <button
-      onClick={disabled ? undefined : onClick}
-      style={{
-        width: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '9px 12px',
-        border: 'none',
-        background: active ? 'rgba(249,115,22,0.07)' : 'transparent',
-        cursor: disabled ? 'default' : 'pointer',
-        opacity: disabled ? 0.4 : 1,
-        transition: 'background 0.12s',
-      }}
-      onMouseEnter={e => { if (!disabled && !active) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-      onMouseLeave={e => { e.currentTarget.style.background = active ? 'rgba(249,115,22,0.07)' : 'transparent' }}
-    >
-      <span style={{ color: '#444', display: 'flex', flexShrink: 0 }}>{icon}</span>
-      <span style={{ ...f, fontSize: 12, fontWeight: 500, color: '#666', minWidth: 44, flexShrink: 0 }}>{label}</span>
-      <span style={{ ...f, fontSize: 13, fontWeight: 500, color: active ? '#F97316' : '#CCC', flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {value}
+    <div style={{ width: 333, opacity: disabled ? 0.4 : 1 }}>
+      <span style={{ ...f, display: 'block', fontSize: 14, fontWeight: 500, color: '#FFFFFF', marginBottom: 8, textAlign: 'left', letterSpacing: 0.028 }}>
+        {label}
       </span>
-      <ChevronIcon active={active} />
-    </button>
+      <motion.button
+        onClick={disabled ? undefined : onClick}
+        whileTap={!disabled ? { scale: 0.985 } : undefined}
+        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+        style={{
+          width: '100%', height: 50,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 8, padding: '16px 8px', borderRadius: 8,
+          border: active ? '0.3px solid rgba(211,211,211,0.31)' : '0.3px solid transparent',
+          background: active ? '#000000' : '#0E0E0F',
+          cursor: disabled ? 'default' : 'pointer',
+          outline: 'none', boxSizing: 'border-box',
+          transition: 'background 0.15s, border-color 0.15s',
+        }}
+        onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = active ? '#000000' : '#151516' }}
+        onMouseLeave={e => { e.currentTarget.style.background = active ? '#000000' : '#0E0E0F' }}
+      >
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          <span style={{ color: '#979797', display: 'flex', flexShrink: 0 }}>{icon}</span>
+          <span style={{ ...f, fontSize: 14, fontWeight: 400, color: '#979797', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: 0.028 }}>
+            {value}
+          </span>
+        </span>
+        <motion.img
+          src="/figma-icons/chevron-down.svg"
+          alt=""
+          width={14}
+          height={14}
+          animate={{ rotate: active ? 180 : 0 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+          style={{ flexShrink: 0 }}
+        />
+      </motion.button>
+    </div>
   )
 }
 
-function ParamRow({ label, value, children }: { label: string; value?: string; children: React.ReactNode }) {
+function DropdownMenu({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{ ...f, fontSize: 11, fontWeight: 500, color: '#555' }}>{label}</span>
-        {value && <span style={{ ...f, fontSize: 11, fontWeight: 500, color: '#888' }}>{value}</span>}
+    <motion.div
+      initial={{ opacity: 0, y: -6, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -4, scale: 0.97 }}
+      transition={{ type: 'spring', stiffness: 520, damping: 28, mass: 0.55 }}
+      style={{
+        position: 'absolute', left: 0, top: 'calc(100% + 6px)',
+        width: '100%', zIndex: 10,
+        display: 'flex', flexDirection: 'column',
+        padding: '6px 8px',
+        borderRadius: 12,
+        overflow: 'hidden',
+        background: 'rgba(36,36,36,0.88)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.08)',
+      }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
+        {children}
       </div>
-      {children}
+    </motion.div>
+  )
+}
+
+function DropdownItem({
+  label, active, onClick, icon,
+}: {
+  label: string; active: boolean; onClick: () => void; icon?: React.ReactNode
+}) {
+  return (
+    <motion.button
+      onClick={onClick}
+      whileTap={{ scale: 0.97 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      style={{
+        width: '100%', height: 38,
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '8px 10px', border: 'none', borderRadius: 8,
+        background: active ? 'rgba(255,255,255,0.08)' : 'transparent',
+        cursor: 'pointer', textAlign: 'left',
+        transition: 'background 0.12s',
+      }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = active ? 'rgba(255,255,255,0.08)' : 'transparent' }}
+    >
+      <span style={{ color: active ? '#FFFFFF' : 'rgba(255,255,255,0.32)', display: 'flex', flexShrink: 0 }}>
+        {icon}
+      </span>
+      <span style={{
+        ...f, flex: 1,
+        fontSize: 14, fontWeight: active ? 500 : 400,
+        lineHeight: 'normal', letterSpacing: 0.028,
+        color: active ? '#FFFFFF' : '#AAAAAA',
+        whiteSpace: 'nowrap',
+      }}>
+        {label}
+      </span>
+      <AnimatePresence>
+        {active && (
+          <motion.span
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.5 }}
+            transition={{ type: 'spring', stiffness: 520, damping: 24 }}
+            style={{ display: 'flex', flexShrink: 0 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M2.5 7L5.5 10L11.5 4" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </motion.button>
+  )
+}
+
+function ParamRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, width: '100%' }}>
+      <span style={{ ...f, width: 57, flexShrink: 0, fontSize: 14, fontWeight: 400, color: '#979797', letterSpacing: 0.028 }}>{label}</span>
+      <div style={{ width: 266, minWidth: 0, position: 'relative' }}>
+        {children}
+      </div>
     </div>
   )
 }
@@ -317,46 +488,46 @@ function ChipGroup({
   onChange: (v: string) => void
 }) {
   return (
-    <div style={{ display: 'flex', gap: 4 }}>
-      {options.map(opt => (
-        <button
-          key={opt.value}
-          onClick={() => onChange(opt.value)}
-          style={{
-            flex: 1,
-            padding: '5px 4px',
-            borderRadius: 7,
-            border: 'none',
-            background: value === opt.value ? 'rgba(249,115,22,0.15)' : 'rgba(255,255,255,0.05)',
-            ...f,
-            fontSize: 11,
-            fontWeight: 500,
-            color: value === opt.value ? '#F97316' : '#666',
-            cursor: 'pointer',
-            transition: 'background 0.1s, color 0.1s',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-          onMouseEnter={e => { if (value !== opt.value) { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#888' } }}
-          onMouseLeave={e => {
-            e.currentTarget.style.background = value === opt.value ? 'rgba(249,115,22,0.15)' : 'rgba(255,255,255,0.05)'
-            e.currentTarget.style.color = value === opt.value ? '#F97316' : '#666'
-          }}
-        >
-          {opt.label}
-        </button>
-      ))}
+    <div style={{ display: 'flex', gap: 5, width: '100%' }}>
+      {options.map(opt => {
+        const isActive = value === opt.value
+        return (
+          <motion.button
+            key={opt.value}
+            onClick={() => onChange(opt.value)}
+            whileTap={{ scale: 0.94 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            style={{
+              flex: 1, height: 34, padding: '8px',
+              borderRadius: 8, border: 'none',
+              background: isActive ? '#1E1E1E' : '#0E0E0F',
+              ...f, fontSize: 14, fontWeight: 400,
+              color: isActive ? '#CFCFCF' : '#979797',
+              letterSpacing: 0.028, lineHeight: '18px',
+              cursor: 'pointer',
+              transition: 'background 0.12s, color 0.12s',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#1A1A1A'; e.currentTarget.style.color = '#CFCFCF' }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = isActive ? '#1E1E1E' : '#0E0E0F'
+              e.currentTarget.style.color = isActive ? '#CFCFCF' : '#979797'
+            }}
+          >
+            {opt.label}
+          </motion.button>
+        )
+      })}
     </div>
   )
 }
 
-function Slider({ value, min, max, step, onChange }: {
-  value: number; min: number; max: number; step: number; onChange: (v: number) => void
+function Slider({ value, min, max, step, displayValue, onChange }: {
+  value: number; min: number; max: number; step: number; displayValue: string; onChange: (v: number) => void
 }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const pct = (value - min) / (max - min)
-  const THUMB_R = 7
+  const THUMB_W = 16
 
   const snap = (raw: number) => Math.round(Math.max(min, Math.min(max, raw)) / step) * step
 
@@ -364,8 +535,8 @@ function Slider({ value, min, max, step, onChange }: {
     const track = trackRef.current
     if (!track) return value
     const rect   = track.getBoundingClientRect()
-    const usable = rect.width - THUMB_R * 2
-    const ratio  = Math.max(0, Math.min(1, (clientX - rect.left - THUMB_R) / usable))
+    const usable = rect.width - THUMB_W
+    const ratio  = Math.max(0, Math.min(1, (clientX - rect.left - THUMB_W / 2) / usable))
     return snap(ratio * (max - min) + min)
   }
 
@@ -382,74 +553,126 @@ function Slider({ value, min, max, step, onChange }: {
     <div
       ref={trackRef}
       onPointerDown={startDrag}
-      style={{ position: 'relative', height: 20, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+      style={{ position: 'relative', width: 266, height: 34, cursor: 'pointer', background: '#0E0E0F', borderRadius: 8, overflow: 'hidden' }}
     >
-      {/* Track */}
-      <div style={{ position: 'absolute', left: THUMB_R, right: THUMB_R, height: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 1 }} />
-      {/* Fill */}
+      <img
+        src="/figma-icons/slider-grid.svg"
+        alt=""
+        width={528}
+        height={481}
+        draggable={false}
+        style={{
+          position: 'absolute',
+          left: 'calc(50% - 17px)', top: 'calc(50% + 0.5px)',
+          width: 528, height: 481, maxWidth: 'none',
+          transform: 'translate(-50%, -50%)',
+          pointerEvents: 'none', userSelect: 'none',
+        }}
+      />
       <div style={{
-        position: 'absolute', left: THUMB_R,
-        width: `calc(${pct * 100}% - ${THUMB_R * 2 * pct}px)`,
-        height: 2, borderRadius: 1, background: '#F97316',
+        position: 'absolute', left: 0, top: -4,
+        width: `calc(${pct} * (100% - ${THUMB_W}px) + ${THUMB_W / 2}px)`,
+        height: 42, background: '#232323', pointerEvents: 'none',
       }} />
-      {/* Thumb */}
       <div style={{
         position: 'absolute',
-        left: `calc(${THUMB_R}px + ${pct} * (100% - ${THUMB_R * 2}px))`,
-        transform: 'translateX(-50%)',
-        width: 14, height: 14, borderRadius: '50%',
-        background: '#F97316',
-        boxShadow: '0 0 0 3px rgba(249,115,22,0.18)',
-        zIndex: 1, pointerEvents: 'none',
+        left: `calc(${pct} * (100% - ${THUMB_W}px))`,
+        width: 16, height: 34, borderRadius: 10,
+        background: '#565656', zIndex: 1, pointerEvents: 'none',
       }} />
+      <span style={{
+        ...f, position: 'absolute', left: 258, top: 8,
+        transform: 'translateX(-100%)',
+        fontSize: 14, fontWeight: 400, lineHeight: 'normal',
+        color: '#979797', textAlign: 'right', letterSpacing: 0.028,
+        whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 2,
+      }}>
+        {displayValue}
+      </span>
     </div>
   )
 }
 
 // ── Icons ───────────────────────────────────────────────────────
 
-function PlayIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
-      <path d="M4.6 18.2C4.7 18.3 4.9 18.3 5 18.3C5.2 18.3 5.3 18.3 5.5 18.2L16.3 10.7C16.5 10.5 16.7 10.3 16.7 10C16.7 9.7 16.5 9.5 16.3 9.3L5.5 1.8C5.2 1.6 4.9 1.6 4.6 1.8C4.3 1.9 4.2 2.2 4.2 2.5V17.5C4.2 17.8 4.3 18.1 4.6 18.2Z" fill="white"/>
-    </svg>
-  )
+function Icon({ src, size }: { src: string; size: number }) {
+  return <img src={src} alt="" width={size} height={size} style={{ flexShrink: 0 }} />
 }
 
-function PauseIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 20 20" fill="white">
-      <rect x="4"  y="3" width="4" height="14" rx="1.5"/>
-      <rect x="12" y="3" width="4" height="14" rx="1.5"/>
-    </svg>
-  )
+// Per-preset motion-concept outline icons
+function PresetIcon({ id }: { id: string }) {
+  switch (id) {
+    case 'draw-on':
+      return (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M3.5 13.5C6 8.5 10 6.5 14.5 7.5" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round"/>
+          <circle cx="14.5" cy="7.5" r="1.5" fill="currentColor"/>
+        </svg>
+      )
+    case 'fade-up-scale':
+      return (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M9 13V5.5" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round"/>
+          <path d="M6.2 8L9 5.5L11.8 8" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M4.5 14.5H13.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.3"/>
+        </svg>
+      )
+    case 'bounce-in':
+      return (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <circle cx="9" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.35"/>
+          <path d="M5.5 14.5C6.5 12.5 7.5 11.5 9 13C10.5 14.5 12 13.5 12.5 12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.45"/>
+        </svg>
+      )
+    case 'blur-rise':
+      return (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M4.5 13.5H13.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.2"/>
+          <path d="M4.5 10H13.5"   stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.55"/>
+          <path d="M4.5 6.5H13.5"  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      )
+    case 'skew-reveal':
+      return (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M5 14L8 4H13L10 14H5Z" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )
+    case 'fill-reveal':
+      return (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <rect x="3.5" y="3.5" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.35"/>
+          <rect x="3.5" y="9" width="11" height="5.5" rx="1.5" fill="currentColor" opacity="0.28"/>
+        </svg>
+      )
+    default:
+      return (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M5 9H13M9 5L13 9L9 13" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )
+  }
 }
 
-function RestartIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-      <path d="M16.6 8.4C16.4 8 16.2 7.6 15.9 7.2L14.5 8.1C14.7 8.4 14.9 8.7 15 9.1C15.2 9.4 15.3 9.7 15.4 10.1C15.5 10.5 15.5 10.8 15.5 11.2C15.5 11.6 15.4 11.9 15.4 12.3C15.3 12.6 15.2 13 15 13.3C14.9 13.6 14.7 13.9 14.5 14.3C14.3 14.5 14.1 14.8 13.9 15.1C13.6 15.3 13.3 15.5 13.1 15.7C12.8 15.9 12.5 16.1 12.1 16.2C11.8 16.4 11.5 16.5 11.1 16.6C10.4 16.7 9.6 16.7 8.9 16.6C8.5 16.5 8.2 16.4 7.9 16.2C7.5 16.1 7.2 15.9 6.9 15.7C6.7 15.5 6.4 15.3 6.1 15.1C5.9 14.8 5.7 14.5 5.5 14.3C5.3 14 5.1 13.6 5 13.3C4.8 13 4.7 12.6 4.6 12.3C4.6 11.9 4.5 11.6 4.5 11.2C4.5 10.8 4.6 10.5 4.6 10.1C4.7 9.7 4.8 9.4 5 9.1C5.1 8.7 5.3 8.4 5.5 8.1C5.7 7.9 5.9 7.6 6.1 7.3C6.4 7.1 6.7 6.9 6.9 6.7C7.2 6.5 7.5 6.3 7.9 6.2C8.2 6 8.5 5.9 8.9 5.8C9 5.8 9.1 5.8 9.2 5.8V8.3L13.3 5L9.2 1.7V4.1C9 4.1 8.8 4.2 8.6 4.2C8.1 4.3 7.7 4.4 7.2 4.6C6.8 4.8 6.4 5 6 5.3C5.6 5.5 5.3 5.8 4.9 6.2C4.6 6.5 4.3 6.8 4.1 7.2C3.8 7.6 3.6 8 3.4 8.4C3.2 8.9 3.1 9.3 3 9.8C2.9 10.2 2.9 10.7 2.9 11.2C2.9 11.7 2.9 12.2 3 12.6C3.1 13.1 3.2 13.5 3.4 13.9C3.6 14.4 3.8 14.8 4.1 15.2C4.3 15.6 4.6 15.9 4.9 16.2C5.3 16.6 5.6 16.9 6 17.1C6.4 17.4 6.8 17.6 7.2 17.8C7.7 17.9 8.1 18.1 8.6 18.2C9 18.3 9.5 18.3 10 18.3C10.5 18.3 11 18.3 11.4 18.2C11.9 18.1 12.3 17.9 12.8 17.8C13.2 17.6 13.6 17.4 14 17.1C14.4 16.9 14.7 16.6 15.1 16.2C15.4 15.9 15.7 15.6 15.9 15.2C16.2 14.8 16.4 14.4 16.6 14C16.8 13.5 16.9 13.1 17 12.6C17.1 12.2 17.1 11.7 17.1 11.2C17.1 10.7 17.1 10.2 17 9.8C16.9 9.3 16.8 8.9 16.6 8.4Z" fill="#888888"/>
-    </svg>
-  )
+// Mini bezier-curve preview for each easing type
+const EASING_PATHS_MINI: Record<string, string> = {
+  'linear':      'M 2,14 L 14,2',
+  'ease':        'M 2,14 C 5,13 5,2 14,2',
+  'ease-in':     'M 2,14 C 9,14 14,4 14,2',
+  'ease-out':    'M 2,14 C 2,12 7,2 14,2',
+  'ease-in-out': 'M 2,14 C 8,14 8,2 14,2',
+  'spring':      'M 2,14 C 5,-3 11,2 14,2',
+  'back':        'M 2,14 C 9,14 10,19 14,2',
+  'snappy':      'M 2,14 C 5,14 2,2 14,2',
 }
 
-function KeyframesIcon() {
+function EasingCurveIcon({ id }: { id: string }) {
+  const path = EASING_PATHS_MINI[id] ?? EASING_PATHS_MINI.linear
   return (
-    <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-      <path d="M14.9999 14.1667C15.9191 14.1667 16.6666 13.4192 16.6666 12.5V4.16667C16.6666 3.2475 15.9191 2.5 14.9999 2.5H4.99992C4.08075 2.5 3.33325 3.2475 3.33325 4.16667V12.5C3.33325 13.4192 4.08075 14.1667 4.99992 14.1667H14.9999ZM3.33325 15.8333H16.6666V17.5H3.33325V15.8333Z" fill="#444"/>
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+      <line x1="2" y1="14" x2="14" y2="14" stroke="currentColor" strokeWidth="0.75" opacity="0.18"/>
+      <line x1="2" y1="2"  x2="14" y2="2"  stroke="currentColor" strokeWidth="0.75" opacity="0.18"/>
+      <path d={path} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
     </svg>
-  )
-}
-
-function ChevronIcon({ active }: { active: boolean }) {
-  return (
-    <motion.svg
-      width="14" height="14" viewBox="0 0 14 14" fill="none"
-      animate={{ rotate: active ? 180 : 0 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-      style={{ flexShrink: 0 }}
-    >
-      <path d="M3 5L7 9L11 5" stroke={active ? '#F97316' : '#444'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </motion.svg>
   )
 }

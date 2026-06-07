@@ -48,9 +48,10 @@ body {
 @layer utilities {
   .canvas-bg {
     background-color: var(--bg);
-    background-image: radial-gradient(circle, var(--canvas-tile) 1.5px, transparent 1.5px);
+    background-image: radial-gradient(circle, rgba(255,255,255,0.08) 1.5px, transparent 1.5px);
     background-size: 27px 27px;
   }
+
 }
 
 /* ── Thin scrollbar ── */
@@ -144,4 +145,9 @@ input[type='range']::-moz-range-thumb {
   border-radius: 50%;
   background: var(--accent);
   border: none;
+}
+
+.ai-prompt-input::placeholder {
+  color: #979797;
+  opacity: 1;
 }

@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { AnimatePresence } from 'motion/react'
 import { motion } from 'motion/react'
-import { SPRING } from '@/lib/motion'
 import { useEditorStore, selectSvgReady, undoEditor, redoEditor } from '@/lib/store/editor'
 import { LibraryBrowser } from './LibraryBrowser'
 import { KeyboardShortcutsOverlay } from '@/components/ui/KeyboardShortcutsOverlay'
@@ -15,9 +14,6 @@ export type AppMode = 'animate' | '3d'
 
 const PreviewStage = dynamic(() => import('./PreviewStage').then(m => ({ default: m.PreviewStage })), { ssr: false })
 const TopBar       = dynamic(() => import('./TopBar').then(m => ({ default: m.TopBar })),             { ssr: false })
-const PresetPanel  = dynamic(() => import('./PresetPanel').then(m => ({ default: m.PresetPanel })),   { ssr: false })
-const SmoothingPanel = dynamic(() => import('./SmoothingPanel').then(m => ({ default: m.SmoothingPanel })), { ssr: false })
-
 const ThreeDMode        = dynamic(() => import('../threed/ThreeDMode').then(m => ({ default: m.ThreeDMode })),               { ssr: false })
 const ThreeDPresetPanel = dynamic(() => import('../threed/ThreeDPresetPanel').then(m => ({ default: m.ThreeDPresetPanel })), { ssr: false })
 const ThreeDEasingPanel = dynamic(() => import('../threed/ThreeDEasingPanel').then(m => ({ default: m.ThreeDEasingPanel })), { ssr: false })
@@ -111,10 +107,7 @@ export function EditorLayout() {
             transition={{ duration: 0.2 }}
             className="absolute inset-0"
           >
-            <PreviewStage
-              onBrowseLibrary={() => setIsLibraryOpen(true)}
-              libraryOpen={isLibraryOpen}
-            />
+            <PreviewStage />
           </motion.div>
         )}
       </AnimatePresence>
@@ -158,8 +151,6 @@ export function EditorLayout() {
 
       {/* Overlay panels (Preset/Easing pickers) */}
       <AnimatePresence>
-        {appMode === 'animate' && svgReady    && activePanel === 'presets'   && <PresetPanel   key="a-presets"  onClose={closePanel} />}
-        {appMode === 'animate' && svgReady    && activePanel === 'smoothing' && <SmoothingPanel key="a-easing"  onClose={closePanel} />}
         {appMode === '3d'      && canExport3d && activePanel === 'presets'   && <ThreeDPresetPanel key="3d-presets" onClose={closePanel} />}
         {appMode === '3d'      && canExport3d && activePanel === 'smoothing' && <ThreeDEasingPanel key="3d-easing"  onClose={closePanel} />}
       </AnimatePresence>
@@ -178,126 +169,195 @@ export function EditorLayout() {
         )}
       </AnimatePresence>
 
-      {/* AI Prompt Bar — animate mode with file loaded */}
+      {/* AI Prompt Bar */}
       <AnimatePresence>
-        {appMode === 'animate' && svgReady && (
+        {appMode === 'animate' && (
           <AIPromptBar key="ai-bar" />
         )}
       </AnimatePresence>
 
-      {/* Mode switcher — bottom left */}
-      <div className="absolute bottom-5 left-5 z-30 pointer-events-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 10, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={SPRING.entrance}
-          className="flex items-center px-[6px] py-[5px] gap-[2px]"
-          style={{ borderRadius: 74, background: 'rgba(20,20,20,0.85)', border: '1px solid rgba(255,255,255,0.07)', backdropFilter: 'blur(16px)' }}
-        >
-          <ModeSwitchBtn
-            active={appMode === 'animate'}
-            onClick={() => { setAppMode('animate'); setActivePanel(null) }}
-            icon={<FlowIcon active={appMode === 'animate'} />}
-            activeColor="#F97316"
-          >
-            Flow
-          </ModeSwitchBtn>
-
-          <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', flexShrink: 0, marginLeft: 2, marginRight: 2 }} />
-
-          <ModeSwitchBtn
-            active={appMode === '3d'}
-            onClick={() => { setAppMode('3d'); setActivePanel(null) }}
-            icon={<SculptIcon active={appMode === '3d'} />}
-            activeColor="#00C945"
-          >
-            Sculpt
-          </ModeSwitchBtn>
-        </motion.div>
-      </div>
-
-      {/* ? Shortcuts hint */}
-      <div className="absolute bottom-5 right-5 z-30 pointer-events-auto">
-        <motion.button
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={SPRING.entrance}
-          onClick={() => setShowShortcuts(s => !s)}
-          title="Keyboard shortcuts (?)"
-          style={{
-            width: 32, height: 32, borderRadius: '50%',
-            border: '1px solid rgba(255,255,255,0.07)',
-            background: 'rgba(20,20,20,0.85)',
-            backdropFilter: 'blur(16px)',
-            cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: 'var(--font-geist-sans), sans-serif',
-            fontWeight: 600, fontSize: 14, color: '#555',
-            boxShadow: showShortcuts ? '0 0 0 1.5px #F97316' : 'none',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#888' }}
-          onMouseLeave={e => { e.currentTarget.style.color = '#555' }}
-        >
-          ?
-        </motion.button>
-      </div>
+      {/* Empty-state modal overlay */}
+      <AnimatePresence>
+        {appMode === 'animate' && !svgReady && !isLibraryOpen && (
+          <EmptyStateModal
+            key="empty-modal"
+            onBrowseLibrary={() => setIsLibraryOpen(true)}
+            onUpload={() => {
+              document.querySelector<HTMLInputElement>('input[type="file"][accept*="svg"]')?.click()
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <KeyboardShortcutsOverlay open={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
   )
 }
 
-function ModeSwitchBtn({
-  children, active, onClick, icon, activeColor,
-}: {
-  children: React.ReactNode
-  active: boolean
-  onClick: () => void
-  icon: React.ReactNode
-  activeColor: string
-}) {
+function EmptyStateModal({ onBrowseLibrary, onUpload }: { onBrowseLibrary: () => void; onUpload: () => void }) {
   return (
-    <motion.button
-      onClick={onClick}
-      className="flex items-center gap-[6px] px-[10px] py-[7px] cursor-pointer"
+    <motion.div
+      className="absolute inset-0 flex items-start justify-center select-none"
       style={{
-        borderRadius: 34,
-        background: active ? 'rgba(255,255,255,0.08)' : 'transparent',
-        border: 'none',
-        fontFamily: 'var(--font-geist-sans), sans-serif',
-        fontWeight: 500,
-        fontSize: 14,
-        lineHeight: '20px',
-        color: active ? activeColor : '#555',
-        whiteSpace: 'nowrap',
-        transition: 'background 0.18s, color 0.18s',
+        zIndex: 35,
+        background: 'rgba(17,17,17,0.70)',
+        backdropFilter: 'blur(7px)',
+        WebkitBackdropFilter: 'blur(7px)',
+        paddingTop: 159,
       }}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.97 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
     >
-      {icon}
-      {children}
-    </motion.button>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8, scale: 0.97 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+        style={{
+          position: 'relative',
+          width: 554,
+          height: 602,
+          borderRadius: 28,
+          overflow: 'hidden',
+          background: 'rgba(46,46,46,0.85)',
+          border: '0.5px solid rgba(36,36,49,0.64)',
+          boxShadow: '0 16px 70px rgba(0,0,0,0.5)',
+          backdropFilter: 'blur(25px)',
+          WebkitBackdropFilter: 'blur(25px)',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            left: 7.5,
+            top: 7.5,
+            width: 538,
+            height: 344,
+            borderRadius: 20,
+            overflow: 'hidden',
+          }}
+        >
+          <img
+            src="/figma-icons/modal-preview.svg"
+            alt=""
+            width={538}
+            height={344}
+            style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        </div>
+
+        <div style={{ position: 'absolute', left: 16, top: 368, width: 435 }}>
+          <h1 style={{
+            margin: 0,
+            fontFamily: 'var(--font-geist-sans), sans-serif',
+            fontSize: 22,
+            lineHeight: '29px',
+            fontWeight: 600,
+            letterSpacing: 0.2,
+            color: '#FFFFFF',
+          }}>
+            Turn static SVGs into motion in seconds
+          </h1>
+          <p style={{
+            margin: '4px 0 0',
+            fontFamily: 'var(--font-geist-sans), sans-serif',
+            fontSize: 14,
+            lineHeight: '18px',
+            fontWeight: 400,
+            letterSpacing: 0.028,
+            color: '#979797',
+          }}>
+            Upload any SVG, choose a preset, and export a polished animation, without learning animation software.
+          </p>
+        </div>
+
+        <div style={{ position: 'absolute', left: 16, top: 453, display: 'grid', gap: 8 }}>
+          <FeatureLine strong="Instant motion:" text="Turn static design into something worth looking at" icon="keyframes" />
+          <FeatureLine strong="Thoughtfully crafted:" text="Great motion without tweaking a hundred settings" icon="align" />
+          <FeatureLine strong="Ready to share:" text="From upload to export in minutes" icon="spark" />
+        </div>
+
+        <motion.button
+          onClick={onBrowseLibrary}
+          whileHover={{
+            scale: 1.03,
+            backgroundColor: 'rgba(255,255,255,0.09)',
+            borderColor: 'rgba(255,255,255,0.12)',
+          }}
+          whileTap={{ scale: 0.97 }}
+          style={{
+            position: 'absolute',
+            left: 16,
+            top: 548,
+            height: 38,
+            padding: '0 10px',
+            borderRadius: 40,
+            border: '0.8px solid rgba(255,255,255,0.06)',
+            background: 'rgba(255,255,255,0.05)',
+            color: '#FFFFFF',
+            fontFamily: 'var(--font-geist-sans), sans-serif',
+            fontSize: 14,
+            lineHeight: '18px',
+            fontWeight: 400,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'background 0.15s, border-color 0.15s, transform 0.15s',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+          }}
+        >
+          Try an example
+        </motion.button>
+
+        <motion.button
+          onClick={onUpload}
+          aria-label="Upload SVG"
+          whileHover={{ scale: 1.06, backgroundColor: '#E0762D' }}
+          whileTap={{ scale: 0.92 }}
+          style={{
+            position: 'absolute',
+            right: 8,
+            bottom: 8,
+            width: 55,
+            height: 55,
+            borderRadius: 40,
+            border: 'none',
+            background: '#D06523',
+            cursor: 'pointer',
+            display: 'grid',
+            placeItems: 'center',
+            transition: 'background 0.15s, transform 0.15s',
+          }}
+        >
+          <img src="/figma-icons/plus.svg" alt="" width={34} height={34} />
+        </motion.button>
+      </motion.div>
+    </motion.div>
   )
 }
 
-function FlowIcon({ active }: { active: boolean }) {
-  const c = active ? '#F97316' : '#555'
+function FeatureLine({ strong, text, icon }: { strong: string; text: string; icon: 'keyframes' | 'align' | 'spark' }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-      <path fillRule="evenodd" clipRule="evenodd" d="M18.7752 16.2753C19.0193 16.0312 19.0193 15.6355 18.7752 15.3914L16.6919 13.3081C16.4478 13.064 16.0521 13.064 15.808 13.3081C15.5639 13.5522 15.5639 13.9479 15.808 14.192L16.8244 15.2084H14.5833C14.2381 15.2084 13.9583 15.4882 13.9583 15.8334C13.9583 16.1785 14.2381 16.4584 14.5833 16.4584H16.8244L15.808 17.4747C15.5639 17.7188 15.5639 18.1146 15.808 18.3586C16.0521 18.6027 16.4478 18.6027 16.6919 18.3586L18.7752 16.2753Z" fill={c}/>
-      <path fillRule="evenodd" clipRule="evenodd" d="M7.47481 4.19192C7.23073 3.94784 7.23073 3.55212 7.47481 3.30804L9.55814 1.2247C9.80222 0.980627 10.1979 0.980627 10.442 1.2247C10.6861 1.46878 10.6861 1.86451 10.442 2.10859L8.80063 3.74998L10.442 5.39137C10.6861 5.63545 10.6861 6.03118 10.442 6.27525C10.1979 6.51933 9.80222 6.51933 9.55814 6.27525L7.47481 4.19192Z" fill={c}/>
-      <path fillRule="evenodd" clipRule="evenodd" d="M8.12508 3.75C8.12508 3.40482 8.4049 3.125 8.75008 3.125C12.547 3.125 15.6251 6.20304 15.6251 10C15.6251 13.797 12.547 16.875 8.75008 16.875H1.66675C1.32157 16.875 1.04175 16.5952 1.04175 16.25C1.04175 15.9048 1.32157 15.625 1.66675 15.625H8.75008C11.8567 15.625 14.3751 13.1066 14.3751 10C14.3751 6.8934 11.8567 4.375 8.75008 4.375C8.4049 4.375 8.12508 4.09518 8.12508 3.75Z" fill={c}/>
-      <path fillRule="evenodd" clipRule="evenodd" d="M6.17114 4.27089C6.34371 4.56983 6.24127 4.95207 5.94232 5.12464C4.25697 6.09755 3.125 7.91696 3.125 10C3.125 11.267 3.54317 12.4346 4.24927 13.3747C4.45658 13.6507 4.4009 14.0424 4.1249 14.2498C3.84891 14.4571 3.45712 14.4014 3.24981 14.1254C2.3867 12.9763 1.875 11.547 1.875 10C1.875 7.45231 3.26113 5.22909 5.31739 4.04207C5.61633 3.8695 5.99857 3.97195 6.17114 4.27089Z" fill={c}/>
-    </svg>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 18 }}>
+      <FeatureIcon type={icon} />
+      <p style={{ margin: 0, fontFamily: 'var(--font-geist-sans), sans-serif', fontSize: 14, lineHeight: '18px', letterSpacing: 0.028, color: '#979797', whiteSpace: 'nowrap' }}>
+        <span style={{ color: '#FFFFFF', fontWeight: 500 }}>{strong}</span>{' '}
+        {text}
+      </p>
+    </div>
   )
 }
 
-function SculptIcon({ active }: { active: boolean }) {
-  const c = active ? '#00C945' : '#555'
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-      <path fillRule="evenodd" clipRule="evenodd" d="M10.5463 18.7448C10.2066 18.9335 9.79343 18.9335 9.45365 18.7448L2.45365 14.8559C2.0965 14.6575 1.875 14.281 1.875 13.8725L1.87498 6.12754C1.87498 5.71897 2.09649 5.34252 2.45364 5.14411L9.45365 1.25522C9.79343 1.06645 10.2066 1.06645 10.5463 1.25522L17.5463 5.14411C17.9035 5.34252 18.125 5.71897 18.125 6.12753L18.125 13.8725C18.125 14.281 17.9035 14.6575 17.5463 14.8559L10.5463 18.7448ZM10 17.6184L16.875 13.7989L16.875 6.20108L10 2.38164L3.12498 6.20108L3.125 13.7989L10 17.6184Z" fill={c}/>
-    </svg>
-  )
+function FeatureIcon({ type }: { type: 'keyframes' | 'align' | 'spark' }) {
+  const src = {
+    keyframes: '/figma-icons/keyframes.svg',
+    align: '/figma-icons/keyframe-align-vertical.svg',
+    spark: '/figma-icons/bright-crown.svg',
+  }[type]
+
+  return <img src={src} alt="" width={18} height={18} style={{ flexShrink: 0 }} />
 }

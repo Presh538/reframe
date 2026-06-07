@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useEffect, useCallback, useState, type DragEvent, type ChangeEvent } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion } from 'motion/react'
 import { useEditorStore, selectSvgReady, liveSvgRef } from '@/lib/store/editor'
 import { getPreset } from '@/lib/presets'
 import { clearAnimations, computeSequenceDuration, hasMeaningfulGroups } from '@/lib/svg/animate'
@@ -12,14 +12,7 @@ const ZOOM_MIN = 0.1
 const ZOOM_MAX = 1        // Cap at 100% — preview fits the SVG at native size
 const ZOOM_FACTOR = 1.08  // per scroll tick
 
-interface PreviewStageProps {
-  /** Opens the template library overlay — wired in from EditorLayout. */
-  onBrowseLibrary?: () => void
-  /** When true the library overlay is visible — suppress the empty state so they don't overlap. */
-  libraryOpen?: boolean
-}
-
-export function PreviewStage({ onBrowseLibrary, libraryOpen }: PreviewStageProps) {
+export function PreviewStage() {
   const containerRef  = useRef<HTMLDivElement>(null)
   const canvasRef     = useRef<HTMLDivElement>(null)   // receives the CSS transform
   const sectionRef    = useRef<HTMLElement>(null)
@@ -508,76 +501,6 @@ export function PreviewStage({ onBrowseLibrary, libraryOpen }: PreviewStageProps
           }}
         />
 
-        <AnimatePresence>
-          {!svgReady && !libraryOpen && (
-            /* Empty state — upload-first, browse-templates secondary.
-               Hidden while the library overlay is open to avoid overlap. */
-            <motion.div
-              key="empty"
-              className="flex flex-col items-center gap-[20px] text-center select-none absolute inset-0 justify-center"
-              style={{ background: 'transparent' }}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8, scale: 0.97 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-            >
-              {/* Animated upload icon */}
-              <motion.div
-                animate={{ y: [0, -7, 0] }}
-                transition={{ repeat: Infinity, duration: 2.6, ease: 'easeInOut' }}
-                style={{ cursor: 'default' }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50" fill="none">
-                  <path d="M39.5833 20.8333H10.4167C8.11875 20.8333 6.25 22.7021 6.25 25V41.6667C6.25 43.9646 8.11875 45.8333 10.4167 45.8333H39.5833C41.8812 45.8333 43.75 43.9646 43.75 41.6667V25C43.75 22.7021 41.8812 20.8333 39.5833 20.8333ZM10.4167 12.5H39.5833V16.6667H10.4167V12.5ZM14.5833 4.16666H35.4167V8.33332H14.5833V4.16666Z" fill="#F97316"/>
-                </svg>
-              </motion.div>
-
-              {/* Headline */}
-              <div className="flex flex-col gap-[6px] items-center">
-                <p style={{ fontFamily: 'var(--font-geist-sans), sans-serif', fontWeight: 600, fontSize: 22, lineHeight: '28px', color: '#FFFFFF', margin: 0 }}>
-                  Drop an SVG to get started
-                </p>
-                <p style={{ fontFamily: 'var(--font-geist-sans), sans-serif', fontWeight: 400, fontSize: 15, lineHeight: '22px', color: '#888', margin: 0 }}>
-                  Drag a file here, or use the buttons below
-                </p>
-              </div>
-
-              {/* Primary action */}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                style={{
-                  background: '#F97316', borderRadius: 74, padding: '12px 24px',
-                  fontFamily: 'var(--font-geist-sans), sans-serif', fontWeight: 500,
-                  fontSize: 15, lineHeight: '22px', color: 'white', whiteSpace: 'nowrap',
-                  border: 'none', cursor: 'pointer', transition: 'opacity 0.15s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
-                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-              >
-                Upload SVG File
-              </button>
-
-              {/* Secondary action */}
-              {onBrowseLibrary && (
-                <button
-                  onClick={onBrowseLibrary}
-                  style={{
-                    background: 'transparent', border: 'none', cursor: 'pointer',
-                    fontFamily: 'var(--font-geist-sans), sans-serif', fontWeight: 500,
-                    fontSize: 14, lineHeight: '20px', color: '#F97316',
-                    padding: '4px 8px', borderRadius: 8,
-                    transition: 'opacity 0.15s',
-                    marginTop: -8,
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
-                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                >
-                  or browse templates →
-                </button>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       <input

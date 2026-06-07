@@ -31,6 +31,7 @@ export function AIPromptBar() {
   const setPlaying      = useEditorStore(s => s.setPlaying)
 
   const isLoading = status === 'loading'
+  const isActive  = value.trim().length > 0
 
   // ── Submit ───────────────────────────────────────────────────
 
@@ -236,23 +237,44 @@ export function AIPromptBar() {
           {/* Send / loading button */}
           <motion.button
             onClick={isLoading ? undefined : handleSubmit}
-            whileHover={isLoading ? {} : { scale: 1.06, backgroundColor: '#E0762D' }}
+            animate={{
+              backgroundColor: isLoading
+                ? 'rgba(208, 101, 35, 0.35)'
+                : isActive
+                  ? '#D06523'
+                  : 'rgba(255, 255, 255, 0.10)',
+            }}
+            whileHover={isLoading ? {} : {
+              backgroundColor: isActive ? '#E0762D' : 'rgba(255, 255, 255, 0.18)',
+              scale: 1.06,
+            }}
             whileTap={isLoading ? {} : { scale: 0.88 }}
+            transition={{ backgroundColor: { duration: 0.18, ease: 'easeOut' }, scale: { type: 'spring', stiffness: 500, damping: 28 } }}
             style={{
               width: 36,
               height: 36,
               borderRadius: '50%',
-              background: isLoading ? 'rgba(208,101,35,0.4)' : '#D06523',
               border: 'none',
               cursor: isLoading ? 'default' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
-              transition: 'background 0.15s',
             }}
           >
-            {isLoading ? <SpinnerIcon /> : <img src="/figma-icons/send-arrow.svg" alt="" width={20} height={20} />}
+            {isLoading
+              ? <SpinnerIcon />
+              : (
+                <motion.img
+                  src="/figma-icons/send-arrow.svg"
+                  alt=""
+                  width={20}
+                  height={20}
+                  animate={{ opacity: isActive ? 1 : 0.45 }}
+                  transition={{ duration: 0.18 }}
+                />
+              )
+            }
           </motion.button>
         </div>
       </motion.div>
