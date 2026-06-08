@@ -17,8 +17,8 @@ const DESCRIPTION =
 // One-line summary used for AI answer engines and social cards.
 const TAGLINE = 'Free AI-powered SVG animator: type a prompt or pick a preset, then export to GIF, WebM, CSS, or Lottie.'
 
-// Self-hosted OG image — served from /public, no external CDN dependency
-const OG_IMAGE = '/og-image.png'
+// OG image — hosted on Firebase Storage
+const OG_IMAGE = 'https://firebasestorage.googleapis.com/v0/b/legacy-abdbc.firebasestorage.app/o/Reframeo%2FOG%20Image.png?alt=media&token=de48a637-e72f-4405-9e4d-f9c756854f5f'
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -159,8 +159,8 @@ const jsonLd = {
         price: '0',
         priceCurrency: 'USD',
       },
-      screenshot: `${APP_URL}/og-image.png`,
-      image:      `${APP_URL}/og-image.png`,
+      screenshot: OG_IMAGE,
+      image:      OG_IMAGE,
       logo:       `${APP_URL}/logo.svg`,
       featureList: [
         'AI animation prompts — describe the motion in plain English and AI applies it',
