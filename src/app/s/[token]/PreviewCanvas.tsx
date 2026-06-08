@@ -33,34 +33,47 @@ export function PreviewCanvas({ svg, error }: Props) {
     if (!svg || !container) return
 
     // ── Client-side re-sanitization (DOMPurify) ───────────────────
-    // ADD_TAGS: ['style']  — required for the injected <style data-rf> keyframes
-    // FORBID_SCRIPTS: true — belt-and-suspenders; default but explicit here
+    // We intentionally do NOT use USE_PROFILES: { svg: true } here.
+    // That profile restricts attributes to the SVG spec list, which excludes
+    // the HTML global `style` attribute — stripping `animation:` and
+    // `transform-origin:` from every element and breaking all CSS animations.
+    //
+    // The server already ran heavy sanitization (serverSanitize) before storing
+    // in Blob. This pass is defense-in-depth: block execution vectors only,
+    // preserve all presentation and animation attributes.
     const clean = DOMPurify.sanitize(svg, {
-      USE_PROFILES: { svg: true, svgFilters: true },
-      ADD_TAGS:     ['style'],
-      ADD_ATTR:     ['data-rf', 'data-rf-anim', 'data-rf-delay'],
-      FORBID_TAGS:  ['script'],  // belt-and-suspenders; SVG profile already blocks it
+      ADD_TAGS:    ['svg', 'style'],
+      ADD_ATTR:    ['data-rf', 'data-rf-anim', 'data-rf-delay'],
+      FORBID_TAGS: ['script', 'iframe', 'embed', 'object', 'meta', 'base', 'link'],
+      FORBID_ATTR: [
+        'onerror', 'onload', 'onclick', 'ondblclick', 'onmouseover',
+        'onmouseout', 'onmouseenter', 'onmouseleave', 'onkeydown',
+        'onkeypress', 'onkeyup', 'onfocus', 'onblur', 'onchange',
+        'onsubmit', 'onreset', 'onselect', 'onabort',
+      ],
     })
 
-    const parser = new DOMParser()
-    const doc    = parser.parseFromString(clean, 'image/svg+xml')
-    const svgEl  = doc.documentElement
+    // Debug: log key values so we can diagnose rendering failures in the browser console
+    console.debug('[PreviewCanvas] svg prop length:', svg.length)
+    console.debug('[PreviewCanvas] clean length after DOMPurify:', clean.length)
+    console.debug('[PreviewCanvas] clean preview:', clean.slice(0, 200))
 
-    // parseFromString returns an <html> wrapper on parse error
-    if (svgEl.tagName.toLowerCase() !== 'svg') return
+    container.innerHTML = clean
 
-    // Fit to container, let CSS handle centering
+    const svgEl = container.querySelector('svg')
+    console.debug('[PreviewCanvas] svgEl found:', !!svgEl, '| container children:', container.children.length)
+    if (!svgEl) return
+
+    // Fit SVG to container — let CSS handle centering
     svgEl.removeAttribute('width')
     svgEl.removeAttribute('height')
-    svgEl.style.cssText  = ''
     svgEl.style.width    = '100%'
     svgEl.style.height   = '100%'
     svgEl.style.maxWidth  = '100%'
     svgEl.style.maxHeight = '100%'
     svgEl.style.display  = 'block'
     svgEl.style.overflow = 'visible'
-
-    container.replaceChildren(svgEl)
+    console.debug('[PreviewCanvas] SVG inserted, viewBox:', svgEl.getAttribute('viewBox'), '| style:', svgEl.getAttribute('style'))
   }, [svg])
 
   return (

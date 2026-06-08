@@ -1,76 +1,46 @@
 /**
- * share.ts — Cryptographically signed, time-limited share tokens.
+ * share.ts — Server-side storage for shareable animation previews.
  *
- * Token format (URL-safe, no percent-encoding needed):
- *   {base64url(gzip(svg))}.{expiryUnixSeconds}.{base64url(hmac-sha256)}
+ * Design (replaces the old payload-in-URL token scheme):
+ *   • The sanitized + gzipped SVG is stored in Vercel Blob (private access).
+ *   • The share URL contains only a short, unguessable random ID: /s/{id}
+ *   • An expiry timestamp is embedded in the stored envelope and enforced on read.
  *
- * Security guarantees:
- *  – HMAC-SHA256 signature  prevents any token tampering or forgery
- *  – Expiry field           links auto-expire after TTL_DAYS
- *  – Stateless              no server-side storage; safe under serverless cold starts
- *  – Defense-in-depth       SVG is sanitized on creation (API) AND on render (client)
+ * Why this design:
+ *   • Old scheme embedded the whole gzipped SVG in the URL → URLs blew past
+ *     browser/CDN length limits for real-world SVGs, so links hung and failed.
+ *   • A 22-char random ID keeps URLs short and loads instant regardless of SVG size.
  *
- * Prerequisites:
- *  – SHARE_SECRET env var (≥ 32 chars) in .env.local and Vercel env settings
+ * Security:
+ *   • ID is 16 random bytes (base64url) — unguessable, acts as a bearer capability.
+ *   • Blob is PUBLIC store access. The blob URL is a long, unguessable path
+ *     (never shown to users) — security comes from the unguessable 16-byte random ID.
+ *   • SVG is sanitized here (server) AND again in PreviewCanvas (DOMPurify) — defense in depth.
  *
- * Node.js runtime only (uses Buffer + zlib).
- * Do NOT import this in Edge functions or client components.
+ * Requires the BLOB_READ_WRITE_TOKEN env var (auto-injected when a Vercel Blob
+ * store is connected to the project; run `vercel env pull` for local dev).
+ *
+ * Node.js runtime only (uses Buffer + zlib). Do NOT import in Edge/client code.
  */
 
-import { gzipSync, gunzipSync } from 'zlib'
+import { randomBytes }          from 'crypto'
+import { gzipSync, gunzipSync }  from 'zlib'
+import { put, get }             from '@vercel/blob'
 
-const ALG_NAME = 'HMAC' as const
-const ALG_HASH = 'SHA-256' as const
-
-export const SHARE_TTL_DAYS  = 7
-const        SHARE_TTL_SECS  = SHARE_TTL_DAYS * 24 * 60 * 60
+export const SHARE_TTL_DAYS = 7
+const        SHARE_TTL_SECS = SHARE_TTL_DAYS * 24 * 60 * 60
 
 /** 5 MB raw SVG limit — prevents abuse of server compute */
-const MAX_RAW_BYTES  = 5 * 1024 * 1024
-/** 500 KB compressed limit — prevents extremely long share URLs */
-const MAX_GZIP_BYTES = 500 * 1024
+const MAX_RAW_BYTES = 5 * 1024 * 1024
+/** 2 MB stored (compressed) limit — generous; storage, not URL, is the only constraint now */
+const MAX_STORED_BYTES = 2 * 1024 * 1024
 
-// ── Signing key (cached per process / warm instance) ─────────────
-let _key: CryptoKey | null = null
-
-async function getKey(): Promise<CryptoKey> {
-  if (_key) return _key
-
-  const secret = process.env.SHARE_SECRET
-  if (!secret || secret.length < 32) {
-    throw new Error(
-      'SHARE_SECRET env var is missing or too short. ' +
-      'Add SHARE_SECRET=<random-64-char-hex> to .env.local and to Vercel env settings.',
-    )
-  }
-
-  _key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: ALG_NAME, hash: ALG_HASH },
-    false,
-    ['sign', 'verify'],
-  )
-  return _key
-}
-
-// ── Base64url (Node.js Buffer — handles large payloads safely) ────
-const b64uEncode = (buf: Uint8Array): string =>
-  Buffer.from(buf).toString('base64url')
-
-const b64uDecode = (str: string): Uint8Array =>
-  new Uint8Array(Buffer.from(str, 'base64url'))
-
-// crypto.subtle requires a true ArrayBuffer (not SharedArrayBuffer).
-// Copies a Uint8Array into a guaranteed ArrayBuffer for sign/verify calls.
-const toArrayBuffer = (u8: Uint8Array): ArrayBuffer =>
-  u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer
+/** Blob key prefix for shared SVGs */
+const BLOB_PREFIX = 'shares/'
 
 // ── gzip helpers (Node.js zlib — synchronous, reliable in serverless) ───
-// zlib.gzipSync / gunzipSync are guaranteed to work in any Node.js runtime
-// and do not have the async-stream pitfalls of CompressionStream / DecompressionStream.
-function gzipCompress(text: string): Uint8Array {
-  return new Uint8Array(gzipSync(Buffer.from(text, 'utf8')))
+function gzipCompress(text: string): Buffer {
+  return gzipSync(Buffer.from(text, 'utf8'))
 }
 
 function gzipDecompress(data: Uint8Array): string {
@@ -78,8 +48,8 @@ function gzipDecompress(data: Uint8Array): string {
 }
 
 // ── Security: strip any residual dangerous SVG constructs ─────────
-// These patterns mirror src/app/api/validate-svg/route.ts.
-// Sanitization happens both here (server) and in PreviewCanvas (DOMPurify).
+// Mirrors src/app/api/validate-svg/route.ts. Sanitization happens both
+// here (server) and in PreviewCanvas (DOMPurify) — defense in depth.
 const FORBIDDEN_ELEMENTS = /<(script|foreignObject|iframe|embed|object|link|image|feImage|animate|set|animateTransform|animateMotion)[\s>/]/gi
 const FORBIDDEN_ATTRS    = /\s(on\w+|javascript:)/gi
 const EXTERNAL_REFS      = /\s(href|src|xlink:href)\s*=\s*["'](?!#|data:image\/(png|jpeg|gif|webp))/gi
@@ -94,38 +64,56 @@ function serverSanitize(svg: string): string {
     .replace(EXTERNAL_REFS,      ' data-href-removed ')
 }
 
+/** Stored envelope: expiry + sanitized SVG, gzipped together. */
+interface ShareEnvelope {
+  v:   1
+  exp: number  // unix seconds
+  svg: string
+}
+
+/** ID format: base64url chars only, length bounded. Validated before any Blob call. */
+const VALID_ID_RE = /^[A-Za-z0-9_-]{16,64}$/
+
+/** Generates a short, unguessable share ID (16 random bytes → ~22 base64url chars). */
+function generateId(): string {
+  return randomBytes(16).toString('base64url')
+}
+
 // ── Public API ────────────────────────────────────────────────────
 
 /**
- * Create a signed share token from an animated SVG string.
- * Sanitizes the SVG, compresses it, and signs it with HMAC-SHA256.
+ * Sanitize, compress, and store an animated SVG in Vercel Blob.
+ * Returns the short share ID to embed in the URL (/s/{id}).
  *
- * @throws if SVG is too large, SHARE_SECRET is misconfigured, or compression fails
+ * @throws if the SVG is too large or Blob storage is unavailable/misconfigured.
  */
-export async function createShareToken(svg: string): Promise<string> {
+export async function createShare(svg: string): Promise<string> {
   if (svg.length > MAX_RAW_BYTES) {
     throw new Error('SVG is too large to share (max 5 MB)')
   }
 
-  const sanitized  = serverSanitize(svg)
-  const compressed = gzipCompress(sanitized)
+  const sanitized = serverSanitize(svg)
+  const exp       = Math.floor(Date.now() / 1000) + SHARE_TTL_SECS
+  const envelope: ShareEnvelope = { v: 1, exp, svg: sanitized }
+  const compressed = gzipCompress(JSON.stringify(envelope))
 
-  if (compressed.length > MAX_GZIP_BYTES) {
+  if (compressed.length > MAX_STORED_BYTES) {
     throw new Error(
       `SVG compresses to ${Math.ceil(compressed.length / 1024)} KB — ` +
-      'exceeds the 500 KB share link limit. Try a simpler SVG.',
+      'exceeds the 2 MB share limit. Try a simpler SVG.',
     )
   }
 
-  const payload = b64uEncode(compressed)
-  const expiry  = Math.floor(Date.now() / 1000) + SHARE_TTL_SECS
-  const message = `${payload}.${expiry}`
+  const id = generateId()
 
-  const key    = await getKey()
-  const sigBuf = await crypto.subtle.sign(ALG_NAME, key, new TextEncoder().encode(message))
-  const sig    = b64uEncode(new Uint8Array(sigBuf))
+  await put(`${BLOB_PREFIX}${id}`, compressed, {
+    access:             'public',
+    addRandomSuffix:    false,          // deterministic pathname so we can read by ID
+    contentType:        'application/gzip',
+    cacheControlMaxAge: SHARE_TTL_SECS,
+  })
 
-  return `${message}.${sig}`
+  return id
 }
 
 export type VerifyResult =
@@ -133,47 +121,35 @@ export type VerifyResult =
   | { ok: false; reason: 'expired' | 'invalid' }
 
 /**
- * Verify a share token's HMAC signature and expiry, then decompress the SVG.
- * Timing-safe — crypto.subtle.verify is constant-time.
+ * Look up a share ID in Blob storage, enforce expiry, and return the SVG.
+ * Returns { ok: false } for missing, expired, malformed, or corrupt entries.
  */
-export async function verifyShareToken(token: string): Promise<VerifyResult> {
-  // Token must be exactly 3 dot-separated segments.
-  // Base64url (A-Za-z0-9-_) and unix timestamps never contain dots,
-  // so splitting on '.' gives exactly: [payload, expiry, sig].
-  const parts = token.split('.')
-  if (parts.length !== 3) return { ok: false, reason: 'invalid' }
+export async function verifyShare(id: string): Promise<VerifyResult> {
+  if (!VALID_ID_RE.test(id)) return { ok: false, reason: 'invalid' }
 
-  const [payload, expiryStr, sig] = parts
-
-  // Reject obviously malformed components
-  if (!payload || !expiryStr || !sig) return { ok: false, reason: 'invalid' }
-
-  // Validate expiry before hitting crypto (fast-path for expired tokens)
-  const expiry = parseInt(expiryStr, 10)
-  if (isNaN(expiry)) return { ok: false, reason: 'invalid' }
-  if (Date.now() / 1000 > expiry) return { ok: false, reason: 'expired' }
-
-  // Verify HMAC signature — constant-time
-  let key: CryptoKey
-  try { key = await getKey() }
-  catch { return { ok: false, reason: 'invalid' } }
-
-  let valid = false
+  let result: Awaited<ReturnType<typeof get>>
   try {
-    valid = await crypto.subtle.verify(
-      ALG_NAME,
-      key,
-      toArrayBuffer(b64uDecode(sig)),
-      toArrayBuffer(new TextEncoder().encode(`${payload}.${expiryStr}`)),
-    )
-  } catch { return { ok: false, reason: 'invalid' } }
+    result = await get(`${BLOB_PREFIX}${id}`, { access: 'public' })
+  } catch {
+    // BlobNotFoundError (and any transient failure) → treat as invalid link
+    return { ok: false, reason: 'invalid' }
+  }
 
-  if (!valid) return { ok: false, reason: 'invalid' }
+  if (!result || result.statusCode !== 200 || !result.stream) {
+    return { ok: false, reason: 'invalid' }
+  }
 
-  // Decompress and return the SVG
   try {
-    const svg = gzipDecompress(b64uDecode(payload))
-    return { ok: true, svg }
+    const bytes = new Uint8Array(await new Response(result.stream).arrayBuffer())
+    const env   = JSON.parse(gzipDecompress(bytes)) as ShareEnvelope
+
+    if (env.v !== 1 || typeof env.exp !== 'number' || typeof env.svg !== 'string') {
+      return { ok: false, reason: 'invalid' }
+    }
+    if (Date.now() / 1000 > env.exp) {
+      return { ok: false, reason: 'expired' }
+    }
+    return { ok: true, svg: env.svg }
   } catch {
     return { ok: false, reason: 'invalid' }
   }
