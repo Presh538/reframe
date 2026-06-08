@@ -18,8 +18,8 @@ import Link from 'next/link'
 const APP_URL  = process.env.NEXT_PUBLIC_APP_URL ?? 'https://reframeo.com'
 const APP_NAME = 'Reframe'
 
-const OG_IMAGE =
-  'https://firebasestorage.googleapis.com/v0/b/legacy-abdbc.firebasestorage.app/o/Reframeo%2FOG%20Image.png?alt=media&token=de48a637-e72f-4405-9e4d-f9c756854f5f'
+// Self-hosted, optimized OG image (1200x630, ~360 KB) — see public/og-image.jpg.
+const OG_IMAGE = `${APP_URL}/og-image.jpg`
 
 export interface LandingConfig {
   /** Route path, e.g. '/svg-to-gif' (leading slash, no trailing slash). */
@@ -251,11 +251,30 @@ export function LandingPage({ config: c }: { config: LandingConfig }) {
 
       {/* ── Footer ──────────────────────────────────────────────── */}
       <footer style={{ borderTop: '1px solid var(--border)' }}>
-        <div style={{ ...s.wrap, padding: '28px 24px 56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ ...s.wrap, padding: '28px 24px 56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>
             © {new Date().getFullYear()} Reframe — free online SVG animator.
           </span>
-          <Link href="/" style={{ fontSize: 13, color: 'var(--text-soft)', textDecoration: 'none' }}>reframeo.com →</Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+            {/* Product Hunt — reciprocal link / trust signal */}
+            <a
+              href="https://www.producthunt.com/products/reframe-3"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Find Reframe on Product Hunt"
+              style={{ display: 'inline-flex', lineHeight: 0 }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://api.producthunt.com/widgets/embed-image/v1/follow.svg?product_id=1188299&theme=dark"
+                alt="Follow Reframe on Product Hunt"
+                width={86}
+                height={32}
+                style={{ display: 'block', height: 32, width: 'auto' }}
+              />
+            </a>
+            <Link href="/" style={{ fontSize: 13, color: 'var(--text-soft)', textDecoration: 'none' }}>reframeo.com →</Link>
+          </div>
         </div>
       </footer>
     </main>

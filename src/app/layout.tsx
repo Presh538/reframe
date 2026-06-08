@@ -17,8 +17,9 @@ const DESCRIPTION =
 // One-line summary used for AI answer engines and social cards.
 const TAGLINE = 'Free AI-powered SVG animator: type a prompt or pick a preset, then export to GIF, WebM, CSS, or Lottie.'
 
-// OG image — hosted on Firebase Storage
-const OG_IMAGE = 'https://firebasestorage.googleapis.com/v0/b/legacy-abdbc.firebasestorage.app/o/Reframeo%2FOG%20Image.png?alt=media&token=de48a637-e72f-4405-9e4d-f9c756854f5f'
+// OG image — self-hosted from /public (1200x630, optimized to ~360 KB so
+// chat scrapers like WhatsApp, which drop images >~600 KB, render it).
+const OG_IMAGE = `${APP_URL}/og-image.jpg`
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -83,7 +84,7 @@ export const metadata: Metadata = {
         width:  1200,
         height: 630,
         alt:    'Reframe — Free SVG Animator Online',
-        type:   'image/png',
+        type:   'image/jpeg',
       },
     ],
   },

@@ -75,6 +75,7 @@ const nextConfig = {
           //            + unsafe-eval in dev only (Next.js HMR / source maps)
           // — styles: self + unsafe-inline (Tailwind + Framer Motion inline styles)
           // — images: self + data: + blob: (canvas capture for GIF export)
+          //            + api.producthunt.com (live "Follow on Product Hunt" badge on landing pages)
           // — connect: self + ws: in dev (Next.js HMR websocket)
           // — worker-src: blob: (gif.js web worker)
           // — frame-ancestors: none (belt-and-suspenders with X-Frame-Options)
@@ -84,7 +85,7 @@ const nextConfig = {
               "default-src 'self'",
               scriptSrc,
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob:",
+              "img-src 'self' data: blob: https://api.producthunt.com",
               connectSrc,
               "font-src 'self'",
               "worker-src 'self' blob:",
