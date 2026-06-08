@@ -312,7 +312,7 @@ function InfoModal({ onClose }: { onClose: () => void }) {
           right: 92,
           bottom: 88,
           width: 554,
-          height: 454,
+          maxHeight: 'calc(100vh - 140px)',
           maxWidth: 'calc(100vw - 124px)',
           borderRadius: 28,
           overflow: 'hidden',
@@ -322,25 +322,27 @@ function InfoModal({ onClose }: { onClose: () => void }) {
           backdropFilter: 'blur(25px)',
           WebkitBackdropFilter: 'blur(25px)',
           boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
+        {/* Scrollable body */}
         <div
+          className="scrollbar-thin"
           style={{
-            position: 'absolute',
-            left: 15.5,
-            top: 15.5,
-            width: 512,
-            maxWidth: 'calc(100% - 31px)',
-            color: '#979797',
+            overflowY: 'auto',
+            padding: '20px 20px 24px',
             fontFamily: 'var(--font-geist-sans), sans-serif',
-            fontSize: 14,
-            lineHeight: '20px',
+            color: '#979797',
+            fontSize: 13,
+            lineHeight: '19px',
             fontWeight: 400,
-            letterSpacing: 0.028,
+            letterSpacing: 0.02,
           }}
         >
-          <p style={{ margin: 0 }}>
-            Reframeo is a free, browser-native animation tool created by designer and builder{' '}
+          {/* About */}
+          <p style={{ margin: 0, fontSize: 13, lineHeight: '19px' }}>
+            Reframe is a free browser tool for animating SVGs — built by{' '}
             <a
               href="https://www.prefolio.work/"
               target="_blank"
@@ -349,23 +351,57 @@ function InfoModal({ onClose }: { onClose: () => void }) {
             >
               Precious Ogar
             </a>
-            . Built for designers, developers, and creative teams, Reframeo removes the complexity traditionally associated with motion design. There&apos;s nothing to install, no account to create, and no steep learning curve. Simply upload an SVG, choose a motion style, and export a polished animation in seconds.
+            . Upload any SVG, describe the motion in plain English or pick from 30+ presets,
+            then export to GIF, WebM, CSS, or Lottie JSON — no code, no installs, no learning curve.
           </p>
 
-          <p style={{ margin: '20px 0 0' }}>
-            The idea behind Reframeo came from a simple observation: most graphics spend their entire lives standing still. While animation can dramatically improve how a logo, icon, illustration, or product graphic feels, existing tools often require timelines, keyframes, plugins, or expensive software. Reframeo was built to make motion more accessible by reducing the process to a few simple decisions.
-          </p>
+          {/* Divider */}
+          <div style={{ margin: '18px 0', borderTop: '0.5px solid rgba(255,255,255,0.07)' }} />
 
-          <p style={{ margin: '20px 0 0' }}>
-            Today, Reframeo helps designers and developers transform static SVGs into polished animations directly in the browser. Whether you&apos;re building a product, launching a brand, creating content, or experimenting with ideas, our goal is to make high-quality motion feel effortless—so you can spend less time learning animation software and more time bringing your work to life.
+          {/* How it works */}
+          <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: 0.08, textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)' }}>
+            How it works
           </p>
+          <ol style={{ margin: 0, padding: '0 0 0 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {[
+              ['Upload your SVG', 'Drag and drop any SVG — or start with an example.'],
+              ['Animate with AI or a preset', 'Type how you want it to move, or pick from 30+ motion presets.'],
+              ['Fine-tune speed and easing', 'Adjust timing until it feels right.'],
+              ['Export or share', 'Download as GIF, WebM, CSS, or Lottie — or copy a share link.'],
+            ].map(([title, desc]) => (
+              <li key={title} style={{ paddingLeft: 4 }}>
+                <span style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 500 }}>{title}</span>
+                <span style={{ color: '#979797' }}> — {desc}</span>
+              </li>
+            ))}
+          </ol>
+
+          {/* Divider */}
+          <div style={{ margin: '18px 0', borderTop: '0.5px solid rgba(255,255,255,0.07)' }} />
+
+          {/* FAQ */}
+          <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, letterSpacing: 0.08, textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)' }}>
+            Common questions
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[
+              ['Can I animate SVGs with AI?', 'Yes. Type how you want it to move and Reframe\'s AI picks and applies the right animation — no timeline needed.'],
+              ['Is it free?', 'Fully free, right in your browser. No account required.'],
+              ['What formats can I export?', 'GIF (with transparent background option), WebM, CSS animation, and Lottie JSON — with adjustable quality and frame rate.'],
+              ['Do I need After Effects or code?', 'No. Everything runs in the browser. Upload, animate, export — done.'],
+            ].map(([q, a]) => (
+              <div key={q}>
+                <p style={{ margin: '0 0 2px', color: 'rgba(255,255,255,0.65)', fontWeight: 500, fontSize: 13 }}>{q}</p>
+                <p style={{ margin: 0, fontSize: 13, lineHeight: '18px' }}>{a}</p>
+              </div>
+            ))}
+          </div>
         </div>
-
       </motion.article>
 
       <motion.button
         onClick={onClose}
-        aria-label="Close about Reframeo"
+        aria-label="Close about Reframe"
         whileHover={{
           scale: 1.05,
           backgroundColor: 'rgba(255,255,255,0.09)',

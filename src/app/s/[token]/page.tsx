@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     title:       `Animation Preview — ${APP_NAME}`,
     description: `Created with ${APP_NAME} — the free SVG animator.`,
     url:         APP_URL,
-    images:      [{ url: `${APP_URL}/og-image.png`, width: 1200, height: 630 }],
+    images:      [{ url: 'https://firebasestorage.googleapis.com/v0/b/legacy-abdbc.firebasestorage.app/o/Reframeo%2FOG%20Image.png?alt=media&token=de48a637-e72f-4405-9e4d-f9c756854f5f', width: 1200, height: 630 }],
   },
 }
 
