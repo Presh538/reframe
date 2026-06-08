@@ -51,6 +51,9 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
   const setPanMode       = useEditorStore(s => s.setPanMode)
 
   const hasFile = svgSource !== null
+  // Play / restart need both a file AND an applied preset — otherwise clicking
+  // Play produces no motion (nothing to animate), which reads as a broken button.
+  const canPlay = hasFile && activePresetId !== null
 
   const set = <K extends keyof AnimParams>(key: K) => (value: AnimParams[K]) => updateParam(key, value)
 
@@ -110,15 +113,15 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
             <div style={{ width: 76, flexShrink: 0 }}>
               <CtrlBtn
                 onClick={() => setPlaying(!isPlaying)}
-                disabled={!hasFile}
-                title={isPlaying ? 'Pause' : 'Play'}
+                disabled={!canPlay}
+                title={!canPlay ? 'Select a preset to animate' : isPlaying ? 'Pause' : 'Play'}
                 label={isPlaying ? 'Pause' : 'Play'}
                 fullWidth
               >
                 <Icon src={isPlaying ? '/figma-icons/pause.svg' : '/figma-icons/play.svg'} size={18} />
               </CtrlBtn>
             </div>
-            <CtrlBtn onClick={restartAnimation} disabled={!hasFile} title="Restart">
+            <CtrlBtn onClick={restartAnimation} disabled={!canPlay} title="Restart">
               <Icon src="/figma-icons/refresh.svg" size={18} />
             </CtrlBtn>
           </div>

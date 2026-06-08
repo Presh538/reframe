@@ -17,26 +17,32 @@ export const logoPresets: Preset[] = [
       //                    matches the original SVG (fill visible, no extra stroke).
       //   rf-draw-native — used when the element already has its own stroke.
       //                    Stroke stays at full opacity; only fill is animated.
+      // Animate fill-opacity toward each element's ORIGINAL value (--rf-fo),
+      // never a hardcoded 1. Without this, elements whose resting fill-opacity
+      // is < 1 (e.g. a faint background grid) get forced opaque by the final
+      // keyframe under fill-mode `both`, flattening the artwork. The synthetic
+      // stroke's peak opacity is scaled by --rf-fo too, so faint shapes draw
+      // faintly and the end state matches the source SVG exactly.
       B.css(el, `
         @keyframes rf-draw {
-          0%   { stroke-dashoffset: var(--rf-L); fill-opacity: 0; stroke-opacity: 1 }
-          55%  { stroke-dashoffset: 0;           fill-opacity: 0; stroke-opacity: 1 }
-          85%  { stroke-dashoffset: 0;           fill-opacity: 0.7; stroke-opacity: 0.2 }
-          100% { stroke-dashoffset: 0;           fill-opacity: 1; stroke-opacity: 0 }
+          0%   { stroke-dashoffset: var(--rf-L); fill-opacity: 0; stroke-opacity: var(--rf-fo) }
+          55%  { stroke-dashoffset: 0;           fill-opacity: 0; stroke-opacity: var(--rf-fo) }
+          85%  { stroke-dashoffset: 0;           fill-opacity: calc(var(--rf-fo) * 0.7); stroke-opacity: calc(var(--rf-fo) * 0.2) }
+          100% { stroke-dashoffset: 0;           fill-opacity: var(--rf-fo); stroke-opacity: 0 }
         }
         @keyframes rf-draw-r {
-          0%   { stroke-dashoffset: 0;           fill-opacity: 1; stroke-opacity: 0 }
-          15%  { stroke-dashoffset: 0;           fill-opacity: 0.7; stroke-opacity: 0.2 }
-          45%  { stroke-dashoffset: 0;           fill-opacity: 0; stroke-opacity: 1 }
-          100% { stroke-dashoffset: var(--rf-L); fill-opacity: 0; stroke-opacity: 1 }
+          0%   { stroke-dashoffset: 0;           fill-opacity: var(--rf-fo); stroke-opacity: 0 }
+          15%  { stroke-dashoffset: 0;           fill-opacity: calc(var(--rf-fo) * 0.7); stroke-opacity: calc(var(--rf-fo) * 0.2) }
+          45%  { stroke-dashoffset: 0;           fill-opacity: 0; stroke-opacity: var(--rf-fo) }
+          100% { stroke-dashoffset: var(--rf-L); fill-opacity: 0; stroke-opacity: var(--rf-fo) }
         }
         @keyframes rf-draw-native {
           0%   { stroke-dashoffset: var(--rf-L); fill-opacity: 0 }
           55%  { stroke-dashoffset: 0;           fill-opacity: 0 }
-          100% { stroke-dashoffset: 0;           fill-opacity: 1 }
+          100% { stroke-dashoffset: 0;           fill-opacity: var(--rf-fo) }
         }
         @keyframes rf-draw-native-r {
-          0%   { stroke-dashoffset: 0;           fill-opacity: 1 }
+          0%   { stroke-dashoffset: 0;           fill-opacity: var(--rf-fo) }
           45%  { stroke-dashoffset: 0;           fill-opacity: 0 }
           100% { stroke-dashoffset: var(--rf-L); fill-opacity: 0 }
         }
@@ -44,6 +50,10 @@ export const logoPresets: Preset[] = [
       B.strokeTargets(el, p.scope).forEach((e, i) => {
         const L = B.plen(e)
         e.style.setProperty('--rf-L', String(L))
+        // Resting fill-opacity to animate back to. Computed style resolves the
+        // attribute/inline value for the rendered element; fall back to attr/1.
+        const origFO = getComputedStyle(e).fillOpacity || e.getAttribute('fill-opacity') || '1'
+        e.style.setProperty('--rf-fo', origFO)
         e.style.strokeDasharray = String(L)
         e.style.strokeDashoffset = String(L)
         e.style.willChange = 'stroke-dashoffset, fill-opacity, stroke-opacity'
