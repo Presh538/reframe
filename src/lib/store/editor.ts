@@ -187,6 +187,12 @@ export const selectSvgReady = (s: EditorState) => s.svgSource !== null
 export const selectCanExport = (s: EditorState) =>
   s.svgSource !== null && s.activePresetId !== null && !s.export.isRunning
 
+/** Playback (play / restart / Space) requires both an SVG and an applied preset.
+ *  Pressing play with no preset produced no motion, which read as a broken
+ *  button — so we disable the control until there's something to animate. */
+export const selectCanPlay = (s: EditorState) =>
+  s.svgSource !== null && s.activePresetId !== null
+
 // ── Live SVG element ref ───────────────────────────────────────
 // A module-level mutable ref to the live, animated SVG element rendered inside
 // PreviewStage. DOM nodes are not serialisable so they must not live in Zustand;

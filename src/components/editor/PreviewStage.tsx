@@ -67,6 +67,12 @@ export function PreviewStage() {
   // JS-managed loop restart — fires after the full staggered sequence ends
   const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // True once a 'once' sequence has played to its end and auto-stopped.
+  // This is the single source of truth the Play handler uses to decide between
+  // "replay from frame 0" (finished) and "resume" (manually paused mid-play) —
+  // deterministic, instead of inferring intent from animation playState.
+  const finishedRef = useRef(false)
+
   const clearLoopTimer = useCallback(() => {
     if (loopTimerRef.current !== null) {
       clearTimeout(loopTimerRef.current)
@@ -309,6 +315,7 @@ export function PreviewStage() {
     if (!preset || !svgRef.current) return
     clearAnimations(svgRef.current)
     preset.apply(svgRef.current, params)
+    finishedRef.current = false   // fresh animation — not in the finished state
     setPlaying(true)
     // Arm JS-managed loop restart for 'loop' and 'bounce' modes
     scheduleLoop()
@@ -331,7 +338,10 @@ export function PreviewStage() {
       const els = Array.from(svgRef.current.querySelectorAll<SVGElement>('[data-rf-anim]'))
       if (!els.length) return
       const allDone = els.every(el => el.getAnimations().every(a => a.playState === 'finished' || a.playState === 'idle'))
-      if (allDone) setPlaying(false)
+      if (allDone) {
+        finishedRef.current = true   // next Play should replay from frame 0
+        setPlaying(false)
+      }
     }
     container.addEventListener('animationend', check)
     return () => container.removeEventListener('animationend', check)
@@ -342,19 +352,24 @@ export function PreviewStage() {
     if (!svgRef.current) return
     const els = Array.from(svgRef.current.querySelectorAll<SVGElement>('[data-rf-anim]'))
     if (isPlaying) {
-      // Check if all animations have already finished (once mode — user hit play again)
-      const allDone = els.length > 0 && els.every(
-        el => el.getAnimations().every(a => a.playState === 'finished' || a.playState === 'idle')
-      )
-      if (allDone) {
-        // Hard restart from frame 0
+      if (finishedRef.current) {
+        // The sequence had played to its end — Play means "replay from frame 0".
+        finishedRef.current = false
         const preset = activePresetIdRef.current ? getPreset(activePresetIdRef.current) : null
         if (preset && svgRef.current) {
           clearAnimations(svgRef.current)
+          // Force a style flush so the cleared (animation removed) state is
+          // committed before re-applying. Without this, clearing and re-setting
+          // the SAME animation string in one synchronous tick coalesces to "no
+          // change", so the browser never restarts the animation and it stays
+          // frozen at its finished frame. (scheduleLoop's restart uses the same
+          // reflow trick.)
+          void svgRef.current.getBoundingClientRect()
           preset.apply(svgRef.current, paramsRef.current)
           scheduleLoop()
         }
       } else {
+        // Resume from a manual pause (animation still mid-flight).
         els.forEach(el => { el.style.animationPlayState = 'running' })
         // Re-arm loop timer if it was cleared by a pause
         if (paramsRef.current.loop !== 'once' && loopTimerRef.current === null) {
@@ -362,15 +377,15 @@ export function PreviewStage() {
         }
       }
     } else {
-      // Pause: freeze animations and disarm the loop timer so it doesn't
-      // fire and restart while the user has explicitly paused.
+      // Pause: freeze animations and disarm the loop timer so it doesn't fire
+      // and restart while the user has explicitly paused.
       clearLoopTimer()
       els.forEach(el => { el.style.animationPlayState = 'paused' })
     }
   }, [isPlaying, scheduleLoop, clearLoopTimer])
 
   // ── Restart button (restartTick increments) ───────────────────
-  // Fires when the user presses the Restart button in BottomBar.
+  // Fires when the user presses the Restart button in ControlsSidebar.
   // Does a full clear + re-apply so the animation always starts from frame 0,
   // even when params haven't changed (unlike the loop restart trick above).
   useEffect(() => {
@@ -379,7 +394,12 @@ export function PreviewStage() {
     if (!preset) return
     clearLoopTimer()
     clearAnimations(svgRef.current)
+    // Force a style flush before re-applying — otherwise clearing and re-setting
+    // the same animation string in one tick coalesces to "no change" and the
+    // browser doesn't restart it (same reason as the Play replay path above).
+    void svgRef.current.getBoundingClientRect()
     preset.apply(svgRef.current, paramsRef.current)
+    finishedRef.current = false   // fresh animation — not in the finished state
     setPlaying(true)
     scheduleLoop()
   // restartTick intentionally omitted from dep array — effect is only needed on increment

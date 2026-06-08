@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { useEditorStore } from '@/lib/store/editor'
+import { useEditorStore, selectCanPlay } from '@/lib/store/editor'
 import { SPRING } from '@/lib/motion'
 import { IconBounce } from '@/components/ui/IconBounce'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -59,7 +59,7 @@ export function BottomBar({ onBrowseLibrary }: BottomBarProps) {
 
   const params      = useEditorStore(s => s.params)
   const isPlaying   = useEditorStore(s => s.isPlaying)
-  const svgSource   = useEditorStore(s => s.svgSource)
+  const canPlay     = useEditorStore(selectCanPlay)
   const zoom        = useEditorStore(s => s.zoom)
   const isPanMode   = useEditorStore(s => s.isPanMode)
   const updateParam = useEditorStore(s => s.updateParam)
@@ -92,15 +92,17 @@ export function BottomBar({ onBrowseLibrary }: BottomBarProps) {
         setPanMode(!isPanMode)
       }
 
-      // Space — play / pause (media-player convention)
-      if (e.code === 'Space' && !e.repeat && !inInput && svgSource) {
+      // Space — play / pause (media-player convention).
+      // Gated on canPlay so it's inert until a preset is applied (matches the
+      // disabled Play button), preventing a "nothing happens" Space press.
+      if (e.code === 'Space' && !e.repeat && !inInput && canPlay) {
         e.preventDefault() // prevent page scroll
         setPlaying(!isPlaying)
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [isPanMode, setPanMode, isPlaying, setPlaying, svgSource])
+  }, [isPanMode, setPanMode, isPlaying, setPlaying, canPlay])
 
   const toggle = (c: ActiveControl) => setActive(prev => prev === c ? null : c)
 
@@ -287,9 +289,9 @@ export function BottomBar({ onBrowseLibrary }: BottomBarProps) {
         {/* Group 5: Restart + Play */}
         <Tooltip label="Restart animation">
           <motion.button
-            style={iconPillStyle}
+            style={{ ...iconPillStyle, opacity: canPlay ? 1 : 0.4, cursor: canPlay ? undefined : 'not-allowed' }}
             onClick={restartAnimation}
-            disabled={!svgSource}
+            disabled={!canPlay}
             initial="rest" whileHover="hover"
           >
             <IconBounce type="rewind" className="w-[16px] h-[16px]">
@@ -298,13 +300,13 @@ export function BottomBar({ onBrowseLibrary }: BottomBarProps) {
           </motion.button>
         </Tooltip>
 
-        <Tooltip label={isPlaying ? 'Pause' : 'Play'} kbd="⎵">
+        <Tooltip label={!canPlay ? 'Select a preset to animate' : isPlaying ? 'Pause' : 'Play'} kbd="⎵">
           <motion.button
-            style={{ ...iconPillStyle, background: '#3f37c9', border: '1px solid white' }}
+            style={{ ...iconPillStyle, background: '#3f37c9', border: '1px solid white', opacity: canPlay ? 1 : 0.4, cursor: canPlay ? undefined : 'not-allowed' }}
             onClick={() => setPlaying(!isPlaying)}
-            disabled={!svgSource}
+            disabled={!canPlay}
             initial="rest" whileHover="hover"
-            whileTap={svgSource ? { scale: 0.84 } : {}}
+            whileTap={canPlay ? { scale: 0.84 } : {}}
             transition={SPRING.snappy}
           >
             <IconBounce type="beat" className="w-[16px] h-[16px]">
