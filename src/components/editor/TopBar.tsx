@@ -297,7 +297,7 @@ function ExportModal({
   onShare:      () => Promise<string>
   onClose:      () => void
 }) {
-  const [quality, setQuality] = useState(10)
+  const [quality, setQuality] = useState(100)
   const [fps, setFps] = useState(25)
 
   // ── Share button state ─────────────────────────────────────────

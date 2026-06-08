@@ -26,25 +26,38 @@ export interface WebmExportOptions {
   onProgress?: (pct: number) => void
   /** Background colour, or 'transparent' (default). */
   background?: string | 'transparent'
+  /** Frames per second (default 30). Clamped 1–60. */
+  fps?: number
+  /** Export quality 10–100 (default 100): scales resolution and bitrate. */
+  quality?: number
 }
 
 export async function exportWebm(opts: WebmExportOptions): Promise<Blob> {
-  const { svgEl, onProgress, background = 'transparent' } = opts
+  const { svgEl, onProgress, background = 'transparent', fps: fpsProp, quality: qualityProp } = opts
 
   if (typeof MediaRecorder === 'undefined') {
     throw new Error('MediaRecorder is not available in this browser')
   }
 
+  const fpsToUse  = Math.max(1, Math.min(60, fpsProp ?? FPS))
+  // Quality 10–100 → resolution scale fraction (1.0 = full MAX_EXPORT_PX).
+  const qFraction = Math.max(0.1, Math.min(1, (qualityProp ?? 100) / 100))
+
   const vb   = svgEl.viewBox?.baseVal
   const srcW = vb?.width  ?? svgEl.clientWidth  ?? 400
   const srcH = vb?.height ?? svgEl.clientHeight ?? 400
-  const scale = Math.min(MAX_EXPORT_PX / Math.max(srcW, srcH), 1)
-  const W = Math.round(srcW * scale)
-  const H = Math.round(srcH * scale)
+  // Target longest edge scales with quality; never upscale past native (cap at 1).
+  const targetEdge = Math.max(16, MAX_EXPORT_PX * qFraction)
+  const scale = Math.min(targetEdge / Math.max(srcW, srcH), 1)
+  const W = Math.max(2, Math.round(srcW * scale))
+  const H = Math.max(2, Math.round(srcH * scale))
+
+  // Bitrate scales with quality: 8 Mbps at 100 % down to ~0.8 Mbps at 10 %.
+  const bitrate = Math.max(500_000, Math.round(8_000_000 * qFraction))
 
   const animDuration = computeSequenceDuration(svgEl) / 1000
   const duration     = Math.min(animDuration, MAX_DURATION)
-  const frameCount   = Math.round(duration * FPS)
+  const frameCount   = Math.round(duration * fpsToUse)
 
   // ── Phase 1: Serialise all frames (synchronous) ─────────────
 
@@ -79,7 +92,7 @@ export async function exportWebm(opts: WebmExportOptions): Promise<Blob> {
 
   // ── Phase 3: Encode as WebM via MediaRecorder ────────────────
 
-  return encodeWebm(frames, FPS, W, H, (p) => {
+  return encodeWebm(frames, fpsToUse, W, H, bitrate, (p) => {
     onProgress?.(32 + Math.round(p * 68))
   })
 }
@@ -149,6 +162,7 @@ function encodeWebm(
   fps: number,
   W: number,
   H: number,
+  bitrate: number,
   onProgress?: (pct: number) => void,
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -164,7 +178,7 @@ function encodeWebm(
       requestFrame?: () => void
     }
     const mimeType = pickMimeType()
-    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 })
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: bitrate })
 
     const chunks: Blob[] = []
     recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }

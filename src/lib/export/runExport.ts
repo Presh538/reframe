@@ -21,9 +21,9 @@ export interface RunExportOptions {
   onSuccess: (msg: string) => void
   /** Called with the generated HTML when format === 'embed' */
   onEmbedCode?: (html: string) => void
-  /** Export quality 1–100. Only used by GIF (default 95). */
+  /** Export quality 10–100 (resolution scale + palette/bitrate). Used by GIF and WebM. */
   quality?: number
-  /** Frames per second. Only used by GIF and WebM (default: 24 for GIF, 30 for WebM). */
+  /** Frames per second. Used by GIF and WebM. */
   fps?: number
 }
 
@@ -62,7 +62,7 @@ export async function runExport({
 
     } else if (format === 'webm') {
       const { exportWebm } = await import('./webm')
-      const blob = await exportWebm({ svgEl, onProgress })
+      const blob = await exportWebm({ svgEl, onProgress, quality, fps })
       triggerDownload(blob, `reframe-${preset.id}.webm`)
       onSuccess('WebM downloaded ✓')
 
