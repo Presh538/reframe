@@ -23,9 +23,9 @@
  * Node.js runtime only (uses Buffer + zlib). Do NOT import in Edge/client code.
  */
 
-import { randomBytes }          from 'crypto'
-import { gzipSync, gunzipSync }  from 'zlib'
-import { put, get }             from '@vercel/blob'
+import { randomBytes }              from 'crypto'
+import { gzipSync, gunzipSync }      from 'zlib'
+import { put, get, list, del }      from '@vercel/blob'
 
 export const SHARE_TTL_DAYS = 7
 const        SHARE_TTL_SECS = SHARE_TTL_DAYS * 24 * 60 * 60
@@ -153,4 +153,43 @@ export async function verifyShare(id: string): Promise<VerifyResult> {
   } catch {
     return { ok: false, reason: 'invalid' }
   }
+}
+
+// ── Maintenance: purge expired share blobs ────────────────────────
+
+/**
+ * Deletes every share blob older than the TTL. Vercel Blob has no native
+ * expiry, so this is run on a schedule (see /api/cron/cleanup-shares).
+ *
+ * Cheap by design: it uses each blob's `uploadedAt` metadata from list()
+ * — no blob is downloaded. Since a blob expires TTL days after creation,
+ * `uploadedAt` age is an exact proxy for the embedded `exp` field.
+ *
+ * @returns counts for observability.
+ */
+export async function deleteExpiredShares(): Promise<{ scanned: number; deleted: number }> {
+  const cutoffMs = Date.now() - SHARE_TTL_DAYS * 24 * 60 * 60 * 1000
+
+  let scanned = 0
+  let deleted = 0
+  let cursor: string | undefined
+
+  do {
+    const res = await list({ prefix: BLOB_PREFIX, cursor, limit: 1000 })
+    scanned += res.blobs.length
+
+    const expiredUrls = res.blobs
+      .filter(b => b.uploadedAt.getTime() < cutoffMs)
+      .map(b => b.url)
+
+    if (expiredUrls.length > 0) {
+      // del() accepts an array — batch-delete in one call.
+      await del(expiredUrls)
+      deleted += expiredUrls.length
+    }
+
+    cursor = res.hasMore ? res.cursor : undefined
+  } while (cursor)
+
+  return { scanned, deleted }
 }

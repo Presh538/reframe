@@ -33,47 +33,50 @@ export function PreviewCanvas({ svg, error }: Props) {
     if (!svg || !container) return
 
     // ── Client-side re-sanitization (DOMPurify) ───────────────────
-    // We intentionally do NOT use USE_PROFILES: { svg: true } here.
-    // That profile restricts attributes to the SVG spec list, which excludes
-    // the HTML global `style` attribute — stripping `animation:` and
-    // `transform-origin:` from every element and breaking all CSS animations.
-    //
-    // The server already ran heavy sanitization (serverSanitize) before storing
-    // in Blob. This pass is defense-in-depth: block execution vectors only,
-    // preserve all presentation and animation attributes.
+    // Allowlist-based: USE_PROFILES restricts output to the SVG element/attribute
+    // spec (strictly safer than a denylist). We additionally allow:
+    //   ADD_TAGS: ['style'] — to keep injected <style data-rf> keyframes
+    //   ADD_ATTR: ['style']  — to keep inline `animation:`/`transform-origin:`
+    //                          (the SVG profile strips the global style attr)
+    // Verified: this preserves all animation markup AND blocks script tags,
+    // event-handler attributes, javascript: URIs, foreignObject, and external refs.
+    // Defense in depth: serverSanitize already ran at creation, and the global
+    // CSP (default-src 'self') blocks any external resource loads as a backstop.
     const clean = DOMPurify.sanitize(svg, {
-      ADD_TAGS:    ['svg', 'style'],
-      ADD_ATTR:    ['data-rf', 'data-rf-anim', 'data-rf-delay'],
-      FORBID_TAGS: ['script', 'iframe', 'embed', 'object', 'meta', 'base', 'link'],
-      FORBID_ATTR: [
-        'onerror', 'onload', 'onclick', 'ondblclick', 'onmouseover',
-        'onmouseout', 'onmouseenter', 'onmouseleave', 'onkeydown',
-        'onkeypress', 'onkeyup', 'onfocus', 'onblur', 'onchange',
-        'onsubmit', 'onreset', 'onselect', 'onabort',
-      ],
+      USE_PROFILES: { svg: true, svgFilters: true },
+      ADD_TAGS:     ['style'],
+      ADD_ATTR:     ['style', 'data-rf', 'data-rf-anim', 'data-rf-delay'],
     })
-
-    // Debug: log key values so we can diagnose rendering failures in the browser console
-    console.debug('[PreviewCanvas] svg prop length:', svg.length)
-    console.debug('[PreviewCanvas] clean length after DOMPurify:', clean.length)
-    console.debug('[PreviewCanvas] clean preview:', clean.slice(0, 200))
 
     container.innerHTML = clean
 
     const svgEl = container.querySelector('svg')
-    console.debug('[PreviewCanvas] svgEl found:', !!svgEl, '| container children:', container.children.length)
     if (!svgEl) return
 
-    // Fit SVG to container — let CSS handle centering
+    // ── Resume paused animations ──────────────────────────────────
+    // The editor controls playback via a timeline scrubber, so it captures
+    // every element with `animation-play-state: paused`. With fill-mode `both`,
+    // a paused animation freezes at its `from` keyframe — which for entrance
+    // presets is `opacity: 0`, leaving the whole SVG invisible.
+    // For a shareable preview we want it to play on load, so force `running`.
+    svgEl.querySelectorAll<SVGElement>('[style*="paused"]').forEach((el) => {
+      el.style.animationPlayState = 'running'
+    })
+    // Also resume any paused state on the root <svg> itself.
+    if (svgEl.style.animationPlayState === 'paused') {
+      svgEl.style.animationPlayState = 'running'
+    }
+
+    // Fit SVG to container — let CSS handle centering.
+    // Preserve the captured inline animation/transform styles; only override sizing.
     svgEl.removeAttribute('width')
     svgEl.removeAttribute('height')
-    svgEl.style.width    = '100%'
-    svgEl.style.height   = '100%'
+    svgEl.style.width     = '100%'
+    svgEl.style.height    = '100%'
     svgEl.style.maxWidth  = '100%'
     svgEl.style.maxHeight = '100%'
-    svgEl.style.display  = 'block'
-    svgEl.style.overflow = 'visible'
-    console.debug('[PreviewCanvas] SVG inserted, viewBox:', svgEl.getAttribute('viewBox'), '| style:', svgEl.getAttribute('style'))
+    svgEl.style.display   = 'block'
+    svgEl.style.overflow  = 'visible'
   }, [svg])
 
   return (

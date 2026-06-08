@@ -88,20 +88,22 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
 
   // Dynamic fps with hard clamp
   const fpsToUse   = Math.max(1, Math.min(60, fpsProp ?? FPS))
-  // Map user quality (1-100) → GIF encoder quality (1-10), inverted (1 = best)
-  const gifQuality = qualityProp != null
-    ? Math.max(1, Math.round(11 - (qualityProp / 100) * 9))
-    : 1
+  // Quality 10–100 → resolution scale fraction (1.0 = full MAX_EXPORT_PX).
+  const qFraction  = Math.max(0.1, Math.min(1, (qualityProp ?? 100) / 100))
+  // Map user quality (10-100) → GIF NeuQuant quality (1-10), inverted (1 = best).
+  // 100 % → 1 (every pixel sampled), 10 % → 10 (coarsest palette).
+  const gifQuality = Math.max(1, Math.min(10, Math.round(11 - qFraction * 10)))
 
   const vb   = svgEl.viewBox?.baseVal
   const srcW = vb?.width  ?? svgEl.clientWidth  ?? 400
   const srcH = vb?.height ?? svgEl.clientHeight ?? 400
-  // Always scale so the longest edge equals MAX_EXPORT_PX — no cap at 1.
-  // Without this, small-viewBox icons (e.g. 24×24 or 100×100) export as
-  // tiny GIFs that look pixelated when displayed at normal viewing size.
-  const scale = MAX_EXPORT_PX / Math.max(srcW, srcH)
-  const W = Math.round(srcW * scale)
-  const H = Math.round(srcH * scale)
+  // Target longest edge scales with quality: 100 % → MAX_EXPORT_PX, 10 % → 10 %.
+  // Small-viewBox icons still scale UP to the target so they aren't pixelated
+  // at full quality, while low quality yields a genuinely smaller file.
+  const targetEdge = Math.max(16, Math.round(MAX_EXPORT_PX * qFraction))
+  const scale = targetEdge / Math.max(srcW, srcH)
+  const W = Math.max(1, Math.round(srcW * scale))
+  const H = Math.max(1, Math.round(srcH * scale))
 
   const duration   = computeSequenceDuration(svgEl) / 1000
   // Cap at 8 s regardless of fps to prevent runaway file sizes
@@ -355,7 +357,8 @@ async function encodeGif(
 
     const probe = new GIFEncoder(tiled.width, tiled.height)
     probe.writeHeader()
-    probe.setQuality(1)  // quality 1 = maximum — NeuQuant samples every pixel
+    // Palette accuracy scales with the user's quality setting (1 = best).
+    probe.setQuality(quality)
     probe.addFrame(tCtx.getImageData(0, 0, tiled.width, tiled.height).data)
 
     if (probe.colorTab) {
