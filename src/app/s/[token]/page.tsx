@@ -10,7 +10,7 @@
  */
 
 import type { Metadata } from 'next'
-import { verifyShareToken, SHARE_TTL_DAYS } from '@/lib/share'
+import { verifyShare, SHARE_TTL_DAYS } from '@/lib/share'
 import { PreviewCanvas }                    from './PreviewCanvas'
 
 const APP_URL  = process.env.NEXT_PUBLIC_APP_URL ?? 'https://reframeo.com'
@@ -35,21 +35,20 @@ interface Props {
 }
 
 export default async function SharePreviewPage({ params }: Props) {
-  const { token } = await params
+  const { token: id } = await params
 
-  // Basic sanity check before hitting crypto — token must only contain
-  // base64url chars (A-Za-z0-9-_) and exactly two dots (our separators).
-  const VALID_TOKEN_RE = /^[A-Za-z0-9\-_]+\.[0-9]+\.[A-Za-z0-9\-_]+$/
-  if (!VALID_TOKEN_RE.test(token)) {
+  // Sanity check before hitting storage — share IDs are base64url only.
+  // (verifyShare re-validates, but this avoids a needless Blob round-trip.)
+  if (!/^[A-Za-z0-9_-]{16,64}$/.test(id)) {
     return <PreviewCanvas svg={null} error="This share link is invalid." />
   }
 
-  const result = await verifyShareToken(token)
+  const result = await verifyShare(id)
 
   if (!result.ok) {
     const msg = result.reason === 'expired'
       ? `This share link has expired. Links are valid for ${SHARE_TTL_DAYS} days.`
-      : 'This share link is invalid or has been tampered with.'
+      : 'This share link is invalid or no longer exists.'
     return <PreviewCanvas svg={null} error={msg} />
   }
 
