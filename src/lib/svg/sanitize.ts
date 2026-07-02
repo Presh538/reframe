@@ -37,7 +37,7 @@ export async function sanitizeSvgClient(raw: string): Promise<string> {
 
 // Pro tier limits — hidden until billing is live. Re-enable FREE_MAX_BYTES check when ready.
 // const FREE_MAX_BYTES = 10 * 1024 * 1024   // 10 MB — free tier
-const PRO_MAX_BYTES  = 50 * 1024 * 1024   // 50 MB — hard cap (pro tier, TODO: enforce server-side)
+const PRO_MAX_BYTES = 50 * 1024 * 1024   // 50 MB — hard cap (pro tier, TODO: enforce server-side)
 
 export interface FileValidationResult {
   ok: boolean
