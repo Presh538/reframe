@@ -277,7 +277,7 @@ const FPS_STEPS = [5, 10, 16, 20, 25, 33, 50]
 const ANIMATE_FORMATS: { value: ExportFormat; label: string; locked?: boolean }[] = [
   { value: 'gif',    label: 'GIF'    },
   { value: 'webm',   label: 'WebM'   },
-  { value: 'lottie', label: 'Lottie', locked: true },
+  { value: 'lottie', label: 'Lottie' },
   { value: 'css',    label: 'CSS',    locked: true },
 ]
 
@@ -448,12 +448,12 @@ function ExportModal({
 
           <div style={{ position: 'absolute', left: 15.5, top: 403.5, width: 222 }}>
             <ControlLabel>Quality</ControlLabel>
-            <ExportSlider value={quality} steps={QUALITY_STEPS} displayValue={`${quality}%`} onChange={setQuality} />
+            <ExportSlider value={quality} steps={QUALITY_STEPS} displayValue={`${quality}%`} onChange={setQuality} disabled={appMode === 'animate' && format === 'lottie'} />
           </div>
 
           <div style={{ position: 'absolute', left: 251.5, top: 403.5, width: 222 }}>
             <ControlLabel>Frame Rate</ControlLabel>
-            <ExportSlider value={fps} steps={FPS_STEPS} displayValue={`${fps} FPS`} onChange={setFps} />
+            <ExportSlider value={fps} steps={FPS_STEPS} displayValue={`${fps} FPS`} onChange={setFps} disabled={appMode === 'animate' && format === 'lottie'} />
           </div>
 
           {isRunning && (
@@ -715,12 +715,14 @@ function FormatChip({ label, active, locked, onClick }: { label: string; active:
 }
 
 function ExportSlider({
-  value, steps, displayValue, onChange,
+  value, steps, displayValue, onChange, disabled = false,
 }: {
   value: number
   steps: number[]
   displayValue: string
   onChange: (value: number) => void
+  /** Non-interactive + dimmed — e.g. Lottie ignores quality/frame rate. */
+  disabled?: boolean
 }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const selectedIndex = Math.max(0, steps.indexOf(value))
@@ -737,6 +739,7 @@ function ExportSlider({
   }
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (disabled) return
     e.preventDefault()
     updateFromPointer(e.clientX)
     const move = (ev: PointerEvent) => updateFromPointer(ev.clientX)
@@ -752,7 +755,7 @@ function ExportSlider({
     <div
       ref={trackRef}
       onPointerDown={handlePointerDown}
-      style={{ position: 'relative', width: '100%', height: 34, borderRadius: 8, overflow: 'hidden', background: '#0E0E0F', cursor: 'pointer' }}
+      style={{ position: 'relative', width: '100%', height: 34, borderRadius: 8, overflow: 'hidden', background: '#0E0E0F', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1 }}
     >
       <img
         src="/figma-icons/slider-grid.svg"
