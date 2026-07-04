@@ -19,7 +19,7 @@
  * in LottieFiles, Lottie Lab, and web Lottie players.
  */
 
-import { stepToTime, restorePlayback } from '@/lib/svg/animate'
+import { stepToTime, restorePlayback, computeSequenceDuration } from '@/lib/svg/animate'
 import type { Preset, AnimParams } from '@/types'
 import { triggerDownload } from './css'
 
@@ -443,8 +443,14 @@ export function buildLottieJson(
   const vb          = svgEl.viewBox?.baseVal
   const W           = vb?.width  ?? 400
   const H           = vb?.height ?? 400
-  const duration    = preset.baseDuration / params.speed
-  const totalFrames = Math.round(duration * FRAME_RATE)
+  // Use the TRUE staggered sequence length (max of delay + duration across all
+  // elements), not just baseDuration. With staggered presets the later elements
+  // don't finish — or even start — until well after baseDuration, so sampling
+  // only baseDuration truncates the animation and leaves most elements invisible.
+  // computeSequenceDuration reads the live CSS timings (speed already baked in).
+  const seqMs       = computeSequenceDuration(svgEl)
+  const duration    = seqMs > 0 ? seqMs / 1000 : preset.baseDuration / params.speed
+  const totalFrames = Math.max(1, Math.round(duration * FRAME_RATE))
 
   const animatedEls = [...svgEl.querySelectorAll<SVGElement>('[data-rf-anim]')]
 
@@ -513,6 +519,10 @@ export function buildLottieJson(
 
 export function exportLottie(svgEl: SVGSVGElement, preset: Preset, params: AnimParams): void {
   const doc  = buildLottieJson(svgEl, preset, params)
-  const json = JSON.stringify(doc, null, 2)
+  // Compact output + round floats to 3 decimals (sub-pixel, imperceptible).
+  // Full-precision floats and pretty-print bloat these files 2–3× — a real
+  // concern for importer memory on complex, many-layer animations.
+  const round = (_k: string, v: unknown) => (typeof v === 'number' && isFinite(v) ? Math.round(v * 1000) / 1000 : v)
+  const json = JSON.stringify(doc, round)
   triggerDownload(new Blob([json], { type:'application/json' }), `reframe-${preset.id}.json`)
 }
