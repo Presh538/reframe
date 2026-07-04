@@ -311,13 +311,32 @@ function parseCssColor(color: string): RGBA {
 
 // ── Shape items builder ───────────────────────────────────────
 
+/** Identity group transform — REQUIRED as the last item of every shape group.
+ *  Strict importers (Lottie Lab / After Effects) assume the canonical bodymovin
+ *  structure where shapes live inside a `gr` group terminated by a `tr`; a group
+ *  without it (or shapes placed flat in the layer) can crash their importer. */
+function identityGroupTransform(): unknown {
+  return {
+    ty: 'tr',
+    p:  { a: 0, k: [0, 0], ix: 2 },
+    a:  { a: 0, k: [0, 0], ix: 1 },
+    s:  { a: 0, k: [100, 100], ix: 3 },
+    r:  { a: 0, k: 0, ix: 6 },
+    o:  { a: 0, k: 100, ix: 7 },
+    sk: { a: 0, k: 0, ix: 4 },
+    sa: { a: 0, k: 0, ix: 5 },
+    nm: 'Transform',
+  }
+}
+
 /**
- * Walks all descendant shape elements of `el`, converts each to Lottie
- * path + fill + stroke items, and returns the combined array.
+ * Walks all descendant shape elements of `el`, converts each to a canonical
+ * Lottie shape GROUP (`ty:'gr'`) containing its path + fill + stroke items and
+ * a terminating group transform — the structure bodymovin/After Effects emit.
  */
 function buildShapeItems(el: SVGElement): unknown[] {
   const SHAPE_TAGS = new Set(['path','rect','circle','ellipse','line','polyline','polygon'])
-  const items: unknown[] = []
+  const groups: unknown[] = []
 
   const shapes = SHAPE_TAGS.has(el.tagName.toLowerCase())
     ? [el]
@@ -329,11 +348,14 @@ function buildShapeItems(el: SVGElement): unknown[] {
     const d = shapeToD(shape)
     if (!d || d.trim().length < 4) continue
 
+    const it: unknown[] = []
+
     const beziers = svgDToLottieBeziers(d)
     for (const bz of beziers) {
       if (bz.v.length < 2) continue
-      items.push({ ty: 'sh', ks: { a: 0, k: bz }, nm: 'Path', hd: false })
+      it.push({ ty: 'sh', ks: { a: 0, k: bz }, nm: 'Path', hd: false })
     }
+    if (!it.length) continue
 
     const cs   = window.getComputedStyle(shape)
     const fill = cs.fill || shape.getAttribute('fill') || 'black'
@@ -341,7 +363,7 @@ function buildShapeItems(el: SVGElement): unknown[] {
     if (fill !== 'none' && fill !== '') {
       const [r, g, b] = parseCssColor(fill)
       const fo = parseFloat(cs.fillOpacity ?? shape.getAttribute('fill-opacity') ?? '1')
-      items.push({ ty: 'fl', c: { a:0, k:[r,g,b,1] }, o: { a:0, k: fo*100 }, r:1, nm:'Fill', hd:false })
+      it.push({ ty: 'fl', c: { a:0, k:[r,g,b,1] }, o: { a:0, k: fo*100 }, r:1, nm:'Fill', hd:false })
     }
 
     const stroke = cs.stroke || shape.getAttribute('stroke') || 'none'
@@ -349,11 +371,14 @@ function buildShapeItems(el: SVGElement): unknown[] {
       const [r, g, b] = parseCssColor(stroke)
       const sw = parseFloat(cs.strokeWidth || shape.getAttribute('stroke-width') || '1')
       const so = parseFloat(cs.strokeOpacity ?? shape.getAttribute('stroke-opacity') ?? '1')
-      items.push({ ty:'st', c:{ a:0, k:[r,g,b,1] }, o:{ a:0, k:so*100 }, w:{ a:0, k:sw }, lc:2, lj:2, nm:'Stroke', hd:false })
+      it.push({ ty:'st', c:{ a:0, k:[r,g,b,1] }, o:{ a:0, k:so*100 }, w:{ a:0, k:sw }, lc:2, lj:2, nm:'Stroke', hd:false })
     }
+
+    it.push(identityGroupTransform())
+    groups.push({ ty: 'gr', nm: 'Shape', np: it.length, cix: 2, bm: 0, hd: false, it })
   }
 
-  return items
+  return groups
 }
 
 // ── CSS matrix decomposition ──────────────────────────────────
@@ -370,24 +395,42 @@ function decomposeCssMatrix(transform: string): { tx:number; ty:number; sx:numbe
 
 // ── Lottie property helpers ───────────────────────────────────
 
+// Bezier easing for a keyframe. x/y MUST be arrays — strict Lottie importers
+// (e.g. Lottie Lab) index into them per dimension; bare scalars produce NaN and
+// can crash the importer. Single-element arrays apply to all dimensions.
+const EASE = () => ({ o: { x: [0.5], y: [0.5] }, i: { x: [0.5], y: [0.5] } })
+
+/**
+ * Drops interior keyframes of flat runs (value identical to both neighbours).
+ * Preserves the animation exactly while shrinking baked per-frame samples.
+ */
+function dedupeFlat<T>(frames: T[], same: (a: T, b: T) => boolean): T[] {
+  return frames.filter((f, i) =>
+    i === 0 || i === frames.length - 1 || !same(f, frames[i - 1]) || !same(frames[i + 1], f),
+  )
+}
+
 function lottieScalar(frames: Array<{ t:number; v:number }>): Record<string, unknown> {
   if (!frames.length) return { a:0, k:0 }
   const v0 = frames[0].v
   if (frames.every(f => Math.abs(f.v - v0) < 0.01)) return { a:0, k:v0 }
-  return { a:1, k: frames.map((f,i) => {
-    const nx = frames[i+1]
-    return { t:f.t, s:[f.v], ...(nx ? { e:[nx.v], o:{x:[.5],y:[.5]}, i:{x:[.5],y:[.5]} } : {}) }
-  })}
+  const kept = dedupeFlat(frames, (a, b) => Math.abs(a.v - b.v) < 1e-4)
+  // Modern format: no deprecated `e` — each keyframe interpolates to the next
+  // keyframe's `s`; the final keyframe holds.
+  return { a:1, k: kept.map((f,i) =>
+    i === kept.length - 1 ? { t:f.t, s:[f.v] } : { t:f.t, s:[f.v], ...EASE() },
+  )}
 }
 
 function lottieVec(frames: Array<{ t:number; v:[number,number,number] }>): Record<string, unknown> {
   if (!frames.length) return { a:0, k:[0,0,0] }
-  const [x0,y0,z0] = frames[0].v
-  if (frames.every(f => Math.abs(f.v[0]-x0)<0.01 && Math.abs(f.v[1]-y0)<0.01 && Math.abs(f.v[2]-z0)<0.01)) return { a:0, k:[x0,y0,z0] }
-  return { a:1, k: frames.map((f,i) => {
-    const nx = frames[i+1]
-    return { t:f.t, s:f.v, ...(nx ? { e:nx.v, o:{x:.5,y:.5}, i:{x:.5,y:.5} } : {}) }
-  })}
+  const same = (a: {v:[number,number,number]}, b: {v:[number,number,number]}) =>
+    Math.abs(a.v[0]-b.v[0])<1e-4 && Math.abs(a.v[1]-b.v[1])<1e-4 && Math.abs(a.v[2]-b.v[2])<1e-4
+  if (frames.every(f => same(f, frames[0]))) return { a:0, k: frames[0].v }
+  const kept = dedupeFlat(frames, same)
+  return { a:1, k: kept.map((f,i) =>
+    i === kept.length - 1 ? { t:f.t, s:f.v } : { t:f.t, s:f.v, ...EASE() },
+  )}
 }
 
 // ── Main export builder ───────────────────────────────────────
