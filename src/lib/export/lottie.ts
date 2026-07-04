@@ -311,13 +311,32 @@ function parseCssColor(color: string): RGBA {
 
 // ── Shape items builder ───────────────────────────────────────
 
+/** Identity group transform — REQUIRED as the last item of every shape group.
+ *  Strict importers (Lottie Lab / After Effects) assume the canonical bodymovin
+ *  structure where shapes live inside a `gr` group terminated by a `tr`; a group
+ *  without it (or shapes placed flat in the layer) can crash their importer. */
+function identityGroupTransform(): unknown {
+  return {
+    ty: 'tr',
+    p:  { a: 0, k: [0, 0], ix: 2 },
+    a:  { a: 0, k: [0, 0], ix: 1 },
+    s:  { a: 0, k: [100, 100], ix: 3 },
+    r:  { a: 0, k: 0, ix: 6 },
+    o:  { a: 0, k: 100, ix: 7 },
+    sk: { a: 0, k: 0, ix: 4 },
+    sa: { a: 0, k: 0, ix: 5 },
+    nm: 'Transform',
+  }
+}
+
 /**
- * Walks all descendant shape elements of `el`, converts each to Lottie
- * path + fill + stroke items, and returns the combined array.
+ * Walks all descendant shape elements of `el`, converts each to a canonical
+ * Lottie shape GROUP (`ty:'gr'`) containing its path + fill + stroke items and
+ * a terminating group transform — the structure bodymovin/After Effects emit.
  */
 function buildShapeItems(el: SVGElement): unknown[] {
   const SHAPE_TAGS = new Set(['path','rect','circle','ellipse','line','polyline','polygon'])
-  const items: unknown[] = []
+  const groups: unknown[] = []
 
   const shapes = SHAPE_TAGS.has(el.tagName.toLowerCase())
     ? [el]
@@ -329,11 +348,14 @@ function buildShapeItems(el: SVGElement): unknown[] {
     const d = shapeToD(shape)
     if (!d || d.trim().length < 4) continue
 
+    const it: unknown[] = []
+
     const beziers = svgDToLottieBeziers(d)
     for (const bz of beziers) {
       if (bz.v.length < 2) continue
-      items.push({ ty: 'sh', ks: { a: 0, k: bz }, nm: 'Path', hd: false })
+      it.push({ ty: 'sh', ks: { a: 0, k: bz }, nm: 'Path', hd: false })
     }
+    if (!it.length) continue
 
     const cs   = window.getComputedStyle(shape)
     const fill = cs.fill || shape.getAttribute('fill') || 'black'
@@ -341,7 +363,7 @@ function buildShapeItems(el: SVGElement): unknown[] {
     if (fill !== 'none' && fill !== '') {
       const [r, g, b] = parseCssColor(fill)
       const fo = parseFloat(cs.fillOpacity ?? shape.getAttribute('fill-opacity') ?? '1')
-      items.push({ ty: 'fl', c: { a:0, k:[r,g,b,1] }, o: { a:0, k: fo*100 }, r:1, nm:'Fill', hd:false })
+      it.push({ ty: 'fl', c: { a:0, k:[r,g,b,1] }, o: { a:0, k: fo*100 }, r:1, nm:'Fill', hd:false })
     }
 
     const stroke = cs.stroke || shape.getAttribute('stroke') || 'none'
@@ -349,11 +371,14 @@ function buildShapeItems(el: SVGElement): unknown[] {
       const [r, g, b] = parseCssColor(stroke)
       const sw = parseFloat(cs.strokeWidth || shape.getAttribute('stroke-width') || '1')
       const so = parseFloat(cs.strokeOpacity ?? shape.getAttribute('stroke-opacity') ?? '1')
-      items.push({ ty:'st', c:{ a:0, k:[r,g,b,1] }, o:{ a:0, k:so*100 }, w:{ a:0, k:sw }, lc:2, lj:2, nm:'Stroke', hd:false })
+      it.push({ ty:'st', c:{ a:0, k:[r,g,b,1] }, o:{ a:0, k:so*100 }, w:{ a:0, k:sw }, lc:2, lj:2, nm:'Stroke', hd:false })
     }
+
+    it.push(identityGroupTransform())
+    groups.push({ ty: 'gr', nm: 'Shape', np: it.length, cix: 2, bm: 0, hd: false, it })
   }
 
-  return items
+  return groups
 }
 
 // ── CSS matrix decomposition ──────────────────────────────────
