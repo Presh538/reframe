@@ -370,24 +370,42 @@ function decomposeCssMatrix(transform: string): { tx:number; ty:number; sx:numbe
 
 // ── Lottie property helpers ───────────────────────────────────
 
+// Bezier easing for a keyframe. x/y MUST be arrays — strict Lottie importers
+// (e.g. Lottie Lab) index into them per dimension; bare scalars produce NaN and
+// can crash the importer. Single-element arrays apply to all dimensions.
+const EASE = () => ({ o: { x: [0.5], y: [0.5] }, i: { x: [0.5], y: [0.5] } })
+
+/**
+ * Drops interior keyframes of flat runs (value identical to both neighbours).
+ * Preserves the animation exactly while shrinking baked per-frame samples.
+ */
+function dedupeFlat<T>(frames: T[], same: (a: T, b: T) => boolean): T[] {
+  return frames.filter((f, i) =>
+    i === 0 || i === frames.length - 1 || !same(f, frames[i - 1]) || !same(frames[i + 1], f),
+  )
+}
+
 function lottieScalar(frames: Array<{ t:number; v:number }>): Record<string, unknown> {
   if (!frames.length) return { a:0, k:0 }
   const v0 = frames[0].v
   if (frames.every(f => Math.abs(f.v - v0) < 0.01)) return { a:0, k:v0 }
-  return { a:1, k: frames.map((f,i) => {
-    const nx = frames[i+1]
-    return { t:f.t, s:[f.v], ...(nx ? { e:[nx.v], o:{x:[.5],y:[.5]}, i:{x:[.5],y:[.5]} } : {}) }
-  })}
+  const kept = dedupeFlat(frames, (a, b) => Math.abs(a.v - b.v) < 1e-4)
+  // Modern format: no deprecated `e` — each keyframe interpolates to the next
+  // keyframe's `s`; the final keyframe holds.
+  return { a:1, k: kept.map((f,i) =>
+    i === kept.length - 1 ? { t:f.t, s:[f.v] } : { t:f.t, s:[f.v], ...EASE() },
+  )}
 }
 
 function lottieVec(frames: Array<{ t:number; v:[number,number,number] }>): Record<string, unknown> {
   if (!frames.length) return { a:0, k:[0,0,0] }
-  const [x0,y0,z0] = frames[0].v
-  if (frames.every(f => Math.abs(f.v[0]-x0)<0.01 && Math.abs(f.v[1]-y0)<0.01 && Math.abs(f.v[2]-z0)<0.01)) return { a:0, k:[x0,y0,z0] }
-  return { a:1, k: frames.map((f,i) => {
-    const nx = frames[i+1]
-    return { t:f.t, s:f.v, ...(nx ? { e:nx.v, o:{x:.5,y:.5}, i:{x:.5,y:.5} } : {}) }
-  })}
+  const same = (a: {v:[number,number,number]}, b: {v:[number,number,number]}) =>
+    Math.abs(a.v[0]-b.v[0])<1e-4 && Math.abs(a.v[1]-b.v[1])<1e-4 && Math.abs(a.v[2]-b.v[2])<1e-4
+  if (frames.every(f => same(f, frames[0]))) return { a:0, k: frames[0].v }
+  const kept = dedupeFlat(frames, same)
+  return { a:1, k: kept.map((f,i) =>
+    i === kept.length - 1 ? { t:f.t, s:f.v } : { t:f.t, s:f.v, ...EASE() },
+  )}
 }
 
 // ── Main export builder ───────────────────────────────────────
