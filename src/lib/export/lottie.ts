@@ -395,41 +395,76 @@ function decomposeCssMatrix(transform: string): { tx:number; ty:number; sx:numbe
 
 // ── Lottie property helpers ───────────────────────────────────
 
-// Bezier easing for a keyframe. x/y MUST be arrays — strict Lottie importers
-// (e.g. Lottie Lab) index into them per dimension; bare scalars produce NaN and
-// can crash the importer. Single-element arrays apply to all dimensions.
-const EASE = () => ({ o: { x: [0.5], y: [0.5] }, i: { x: [0.5], y: [0.5] } })
+// LINEAR bezier easing (control points on the diagonal). We simplify sampled
+// curves with RDP assuming linear interpolation between kept keyframes, so the
+// emitted easing must be linear too — the curve shape lives in keyframe
+// placement, not the easing handles. x/y MUST be single-element arrays: strict
+// importers (Lottie Lab, AE) index them per dimension; bare scalars → NaN.
+const LINEAR = () => ({ o: { x: [1/3], y: [1/3] }, i: { x: [2/3], y: [2/3] } })
+
+const round3 = (n: number) => Math.round(n * 1000) / 1000
 
 /**
- * Drops interior keyframes of flat runs (value identical to both neighbours).
- * Preserves the animation exactly while shrinking baked per-frame samples.
+ * Ramer–Douglas–Peucker simplification over a sampled channel.
+ * Keeps only the keyframes needed to reproduce the sampled curve within `tol`
+ * under linear interpolation. This is what makes exports editor-friendly:
+ * per-frame baking (one keyframe per frame × 80 layers × 4 channels) forces
+ * tools that build editable curve objects per keyframe (Lottie Lab, AE) to
+ * allocate tens of thousands of them — enough to OOM the importer tab.
+ * Typical reduction here: 190+ samples → 4–10 keyframes per channel.
  */
-function dedupeFlat<T>(frames: T[], same: (a: T, b: T) => boolean): T[] {
-  return frames.filter((f, i) =>
-    i === 0 || i === frames.length - 1 || !same(f, frames[i - 1]) || !same(frames[i + 1], f),
-  )
+function rdpSimplify(frames: Array<{ t:number; vec:number[] }>, tol: number): Array<{ t:number; vec:number[] }> {
+  if (frames.length <= 2) return frames
+  const keep = new Uint8Array(frames.length)
+  keep[0] = keep[frames.length - 1] = 1
+  const stack: Array<[number, number]> = [[0, frames.length - 1]]
+  while (stack.length) {
+    const [a, b] = stack.pop()!
+    if (b - a < 2) continue
+    const fa = frames[a], fb = frames[b]
+    const dt = (fb.t - fa.t) || 1
+    let maxD = -1, maxI = -1
+    for (let i = a + 1; i < b; i++) {
+      const u = (frames[i].t - fa.t) / dt
+      let d = 0
+      for (let k = 0; k < fa.vec.length; k++) {
+        const lin = fa.vec[k] + (fb.vec[k] - fa.vec[k]) * u
+        const dev = Math.abs(frames[i].vec[k] - lin)
+        if (dev > d) d = dev
+      }
+      if (d > maxD) { maxD = d; maxI = i }
+    }
+    if (maxD > tol && maxI > 0) {
+      keep[maxI] = 1
+      stack.push([a, maxI], [maxI, b])
+    }
+  }
+  return frames.filter((_, i) => keep[i] === 1)
 }
 
-function lottieScalar(frames: Array<{ t:number; v:number }>): Record<string, unknown> {
+/** Animated scalar property (opacity, rotation) with RDP reduction. */
+function lottieScalar(frames: Array<{ t:number; v:number }>, tol: number): Record<string, unknown> {
   if (!frames.length) return { a:0, k:0 }
   const v0 = frames[0].v
-  if (frames.every(f => Math.abs(f.v - v0) < 0.01)) return { a:0, k:v0 }
-  const kept = dedupeFlat(frames, (a, b) => Math.abs(a.v - b.v) < 1e-4)
-  // Modern format: no deprecated `e` — each keyframe interpolates to the next
-  // keyframe's `s`; the final keyframe holds.
-  return { a:1, k: kept.map((f,i) =>
-    i === kept.length - 1 ? { t:f.t, s:[f.v] } : { t:f.t, s:[f.v], ...EASE() },
+  if (frames.every(f => Math.abs(f.v - v0) <= tol)) return { a:0, k: round3(v0) }
+  const kept = rdpSimplify(frames.map(f => ({ t:f.t, vec:[f.v] })), tol)
+  // Modern keyframe format: no deprecated `e` — each keyframe interpolates to
+  // the next keyframe's `s`; the final keyframe holds.
+  return { a:1, k: kept.map((f, i) =>
+    i === kept.length - 1 ? { t:f.t, s:[round3(f.vec[0])] } : { t:f.t, s:[round3(f.vec[0])], ...LINEAR() },
   )}
 }
 
-function lottieVec(frames: Array<{ t:number; v:[number,number,number] }>): Record<string, unknown> {
+/** Animated vector property (position, scale) with RDP reduction. */
+function lottieVec(frames: Array<{ t:number; v:[number,number,number] }>, tol: number): Record<string, unknown> {
   if (!frames.length) return { a:0, k:[0,0,0] }
-  const same = (a: {v:[number,number,number]}, b: {v:[number,number,number]}) =>
-    Math.abs(a.v[0]-b.v[0])<1e-4 && Math.abs(a.v[1]-b.v[1])<1e-4 && Math.abs(a.v[2]-b.v[2])<1e-4
-  if (frames.every(f => same(f, frames[0]))) return { a:0, k: frames[0].v }
-  const kept = dedupeFlat(frames, same)
-  return { a:1, k: kept.map((f,i) =>
-    i === kept.length - 1 ? { t:f.t, s:f.v } : { t:f.t, s:f.v, ...EASE() },
+  const v0 = frames[0].v
+  if (frames.every(f => Math.abs(f.v[0]-v0[0])<=tol && Math.abs(f.v[1]-v0[1])<=tol && Math.abs(f.v[2]-v0[2])<=tol)) {
+    return { a:0, k: v0.map(round3) }
+  }
+  const kept = rdpSimplify(frames.map(f => ({ t:f.t, vec:f.v as number[] })), tol)
+  return { a:1, k: kept.map((f, i) =>
+    i === kept.length - 1 ? { t:f.t, s:f.vec.map(round3) } : { t:f.t, s:f.vec.map(round3), ...LINEAR() },
   )}
 }
 
@@ -490,20 +525,27 @@ export function buildLottieJson(
   restorePlayback(svgEl)
 
   // ── Build layers ─────────────────────────────────────────────
+  // RDP tolerances per property — tight enough to be imperceptible, loose
+  // enough to collapse per-frame samples into a handful of keyframes.
+  const TOL_OPACITY  = 1.0                          // 0–100 scale
+  const TOL_POSITION = Math.max(W, H) * 0.002       // ~0.3px on a 144 viewBox
+  const TOL_SCALE    = 0.5                          // percent
+  const TOL_ROTATION = 0.5                          // degrees
+
   const layers: LottieLayer[] = animatedEls.map((el, i) => {
     const data = samples.get(el)!
     const [ncx, ncy] = naturalCenters.get(el) ?? [W/2, H/2]
 
-    const o = lottieScalar(data.map((d, f) => ({ t:f, v: d.opacity * 100 })))
-    const p = lottieVec(data.map((d, f) => ({ t:f, v: [ncx + d.tx, ncy + d.ty, 0] as [number,number,number] })))
-    const s = lottieVec(data.map((d, f) => ({ t:f, v: [d.sx*100, d.sy*100, 100] as [number,number,number] })))
-    const r = lottieScalar(data.map((d, f) => ({ t:f, v: d.r })))
+    const o = lottieScalar(data.map((d, f) => ({ t:f, v: d.opacity * 100 })), TOL_OPACITY)
+    const p = lottieVec(data.map((d, f) => ({ t:f, v: [ncx + d.tx, ncy + d.ty, 0] as [number,number,number] })), TOL_POSITION)
+    const s = lottieVec(data.map((d, f) => ({ t:f, v: [d.sx*100, d.sy*100, 100] as [number,number,number] })), TOL_SCALE)
+    const r = lottieScalar(data.map((d, f) => ({ t:f, v: d.r })), TOL_ROTATION)
 
     return {
       ddd: 0, ind: i+1, ty: 4,
       nm:  el.id || `${el.tagName} ${i+1}`,
       sr:  1,
-      ks:  { o, r, p, a: { a:0, k:[ncx, ncy, 0] }, s },
+      ks:  { o, r, p, a: { a:0, k:[round3(ncx), round3(ncy), 0] }, s },
       shapes: shapeItems.get(el) ?? [],
       ao: 0, ip: 0, op: totalFrames, st: 0, bm: 0,
     }
