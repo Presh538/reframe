@@ -130,10 +130,10 @@ export function TopBar({
               width: displayFileName ? 365 : 62,
               height: 62,
               borderRadius: 58,
-              background: '#1B1B1B',
-              border: '0.5px solid rgba(36,36,49,0.64)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
+              background: 'var(--filepanel-bg)',
+              border: 'var(--filepanel-border)',
+              backdropFilter: 'var(--filepanel-blur)',
+              WebkitBackdropFilter: 'var(--filepanel-blur)',
               overflow: 'hidden',
             }}
           >
@@ -157,11 +157,11 @@ export function TopBar({
                     border: 'none',
                     cursor: 'pointer',
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--filepanel-inner-hover)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                    <img src="/figma-icons/folder.svg" alt="" width={18} height={18} style={{ flexShrink: 0, opacity: 0.61 }} />
+                    <img src="/figma-icons/folder.svg" alt="" width={18} height={18} style={{ flexShrink: 0, opacity: 0.61, filter: 'var(--pill-icon-filter)' }} />
                     <span style={{
                       fontFamily: 'var(--font-geist-sans), sans-serif',
                       fontWeight: 400,
@@ -204,7 +204,7 @@ export function TopBar({
               padding: '16px 32px',
               borderRadius: 40,
               border: 'none',
-              background: 'rgba(255,255,255,0.06)',
+              background: displayCanExport ? '#D06523' : 'rgba(255,255,255,0.06)',
               backdropFilter: 'blur(17px)',
               WebkitBackdropFilter: 'blur(17px)',
               cursor: displayCanExport && !isRunning ? 'pointer' : 'not-allowed',
@@ -213,15 +213,15 @@ export function TopBar({
               transition: 'background 0.15s',
               overflow: 'hidden',
             }}
-            onMouseEnter={e => { if (displayCanExport && !isRunning) e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+            onMouseEnter={e => { if (displayCanExport && !isRunning) e.currentTarget.style.background = '#E07028' }}
+            onMouseLeave={e => { e.currentTarget.style.background = displayCanExport ? '#D06523' : 'rgba(255,255,255,0.06)' }}
           >
             <span style={{
               fontFamily: 'var(--font-geist-sans), sans-serif',
               fontWeight: 400,
               fontSize: 14,
               letterSpacing: 0.028,
-              color: '#D06523',
+              color: displayCanExport ? '#FFFFFF' : '#D06523',
               whiteSpace: 'nowrap',
             }}>
               {isRunning ? `${exportState.progress}%` : 'Export'}
@@ -264,7 +264,7 @@ export function TopBar({
 }
 
 function ReframeLogo() {
-  return <img src="/figma-icons/platform-logo.svg" alt="" width={26} height={26} style={{ flexShrink: 0 }} />
+  return <img src="/figma-icons/platform-logo.svg" alt="" width={26} height={26} style={{ flexShrink: 0, filter: 'var(--pill-icon-filter)' }} />
 }
 
 // ── Export Modal ─────────────────────────────────────────────────

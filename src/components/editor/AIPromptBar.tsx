@@ -18,7 +18,7 @@ type Status = 'idle' | 'loading' | 'success' | 'error'
 
 // ── Component ─────────────────────────────────────────────────
 
-export function AIPromptBar() {
+export function AIPromptBar({ isLight = false }: { isLight?: boolean }) {
   const [value, setValue]               = useState('')
   const [status, setStatus]             = useState<Status>('idle')
   const [explanation, setExplanation]   = useState('')
@@ -172,7 +172,7 @@ export function AIPromptBar() {
           className="flex items-center gap-[6px] pl-[14px] pr-[8px] py-[8px]"
           style={{
             borderRadius: 999,
-            background: '#1B1B1B',
+            background: 'var(--aibar-bg)',
             backdropFilter: 'blur(12px)',
             WebkitBackdropFilter: 'blur(12px)',
             width: 436,
@@ -212,7 +212,7 @@ export function AIPromptBar() {
                 fontWeight: 400,
                 color: status === 'error' ? '#F87171'
                      : status === 'success' ? '#F97316'
-                     : '#CCCCCC',
+                     : 'var(--aibar-text)',
                 caretColor: '#D06523',
               }}
             />
@@ -226,10 +226,10 @@ export function AIPromptBar() {
                 ? 'rgba(208, 101, 35, 0.35)'
                 : isActive
                   ? '#D06523'
-                  : 'rgba(255, 255, 255, 0.10)',
+                  : isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.10)',
             }}
             whileHover={isLoading ? {} : {
-              backgroundColor: isActive ? '#E0762D' : 'rgba(255, 255, 255, 0.18)',
+              backgroundColor: isActive ? '#E0762D' : isLight ? 'rgba(0, 0, 0, 0.14)' : 'rgba(255, 255, 255, 0.18)',
               scale: 1.06,
             }}
             whileTap={isLoading ? {} : { scale: 0.88 }}
@@ -256,6 +256,7 @@ export function AIPromptBar() {
                   height={20}
                   animate={{ opacity: isActive ? 1 : 0.45 }}
                   transition={{ duration: 0.18 }}
+                  style={{ filter: !isActive && isLight ? 'invert(1)' : 'none' }}
                 />
               )
             }

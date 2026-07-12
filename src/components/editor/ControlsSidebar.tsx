@@ -95,9 +95,9 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
         ref={panelRef}
         className="pointer-events-auto"
         style={{
-          background: '#1B1B1B',
+          background: 'var(--panel-bg)',
           position: 'relative',
-          border: '0.5px solid rgba(36,36,49,0.64)',
+          border: '0.5px solid var(--panel-border)',
           borderRadius: 28,
           overflow: 'visible',
           display: 'flex',
@@ -118,7 +118,7 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
                 label={isPlaying ? 'Pause' : 'Play'}
                 fullWidth
               >
-                <Icon src={isPlaying ? '/figma-icons/pause.svg' : '/figma-icons/play.svg'} size={18} />
+                <Icon src={isPlaying ? '/figma-icons/pause.svg' : '/figma-icons/play.svg'} size={18} invertible />
               </CtrlBtn>
             </div>
             <CtrlBtn onClick={restartAnimation} disabled={!canPlay} title="Restart">
@@ -135,19 +135,19 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
             style={{
               width: 91, height: 38,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              background: 'rgba(255,255,255,0.05)',
+              background: 'var(--pill-bg)',
               border: 'none', cursor: 'pointer',
               ...f, fontSize: 14, fontWeight: 400, letterSpacing: 0.028,
-              color: isPanMode ? '#D06523' : '#979797',
+              color: isPanMode ? '#D06523' : 'var(--zoom-text)',
               padding: '10px', borderRadius: 40,
               backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
               transition: 'background 0.15s, color 0.15s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--zoom-bg-hover)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--pill-bg)' }}
           >
             <Icon src={isPanMode ? '/figma-icons/drag-left-primary.svg' : '/figma-icons/drag-left.svg'} size={18} />
-            <span style={{ width: 1, height: 18, background: 'rgba(255,255,255,0.08)' }} />
+            <span style={{ width: 1, height: 18, background: 'var(--zoom-divider)' }} />
             {Math.round(zoom * 100)}%
           </motion.button>
         </div>
@@ -224,7 +224,7 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
               <Separator />
 
               <div style={{ width: 333, margin: '16px auto 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <p style={{ ...f, fontSize: 14, fontWeight: 500, color: '#FFFFFF', margin: 0, letterSpacing: 0.028, width: '100%' }}>
+                <p style={{ ...f, fontSize: 14, fontWeight: 500, color: 'var(--panel-label)', margin: 0, letterSpacing: 0.028, width: '100%' }}>
                   Smooth &amp; Edit
                 </p>
 
@@ -293,7 +293,7 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
 // ── Sub-components ──────────────────────────────────────────────
 
 function Separator() {
-  return <div style={{ height: '0.5px', background: 'rgba(255,255,255,0.06)', width: '100%' }} />
+  return <div style={{ height: '0.5px', background: 'var(--panel-divider)', width: '100%' }} />
 }
 
 function CtrlBtn({
@@ -316,7 +316,7 @@ function CtrlBtn({
       style={{
         width: fullWidth ? '100%' : undefined,
         height: 38, borderRadius: 40, border: 'none',
-        background: 'rgba(255,255,255,0.05)',
+        background: 'var(--pill-bg)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         gap: label ? 2 : 0, padding: 10,
         cursor: disabled ? 'not-allowed' : 'pointer',
@@ -325,12 +325,12 @@ function CtrlBtn({
         backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
         transition: 'background 0.15s, opacity 0.15s',
       }}
-      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = 'var(--pill-bg-hover)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'var(--pill-bg)' }}
     >
       {children}
       {label && (
-        <span style={{ ...f, color: '#FFFFFF', fontSize: 14, fontWeight: 400, letterSpacing: 0.028, lineHeight: '18px' }}>
+        <span style={{ ...f, color: 'var(--pill-text)', fontSize: 14, fontWeight: 400, letterSpacing: 0.028, lineHeight: '18px' }}>
           {label}
         </span>
       )}
@@ -350,7 +350,7 @@ function SelectorRow({
 }) {
   return (
     <div style={{ width: 333, opacity: disabled ? 0.4 : 1 }}>
-      <span style={{ ...f, display: 'block', fontSize: 14, fontWeight: 500, color: '#FFFFFF', marginBottom: 8, textAlign: 'left', letterSpacing: 0.028 }}>
+      <span style={{ ...f, display: 'block', fontSize: 14, fontWeight: 500, color: 'var(--panel-label)', marginBottom: 8, textAlign: 'left', letterSpacing: 0.028 }}>
         {label}
       </span>
       <motion.button
@@ -361,18 +361,18 @@ function SelectorRow({
           width: '100%', height: 50,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           gap: 8, padding: '16px 8px', borderRadius: 8,
-          border: active ? '0.3px solid rgba(211,211,211,0.31)' : '0.3px solid transparent',
-          background: active ? '#000000' : '#0E0E0F',
+          border: active ? '0.3px solid var(--selector-border-active)' : '0.3px solid transparent',
+          background: active ? 'var(--selector-bg-active)' : 'var(--selector-bg)',
           cursor: disabled ? 'default' : 'pointer',
           outline: 'none', boxSizing: 'border-box',
           transition: 'background 0.15s, border-color 0.15s',
         }}
-        onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = active ? '#000000' : '#151516' }}
-        onMouseLeave={e => { e.currentTarget.style.background = active ? '#000000' : '#0E0E0F' }}
+        onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = active ? 'var(--selector-bg-active)' : 'var(--selector-bg-hover)' }}
+        onMouseLeave={e => { e.currentTarget.style.background = active ? 'var(--selector-bg-active)' : 'var(--selector-bg)' }}
       >
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          <span style={{ color: '#979797', display: 'flex', flexShrink: 0 }}>{icon}</span>
-          <span style={{ ...f, fontSize: 14, fontWeight: 400, color: '#979797', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: 0.028 }}>
+          <span style={{ color: 'var(--selector-content)', display: 'flex', flexShrink: 0 }}>{icon}</span>
+          <span style={{ ...f, fontSize: 14, fontWeight: 400, color: 'var(--selector-content)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: 0.028 }}>
             {value}
           </span>
         </span>
@@ -404,10 +404,10 @@ function DropdownMenu({ children }: { children: React.ReactNode }) {
         padding: '6px 8px',
         borderRadius: 12,
         overflow: 'hidden',
-        background: 'rgba(36,36,36,0.88)',
+        background: 'var(--dropdown-bg)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
-        boxShadow: '0 4px 24px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.08)',
+        boxShadow: 'var(--dropdown-shadow)',
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
@@ -431,21 +431,21 @@ function DropdownItem({
         width: '100%', height: 38,
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '8px 10px', border: 'none', borderRadius: 8,
-        background: active ? 'rgba(255,255,255,0.08)' : 'transparent',
+        background: active ? 'var(--dropdown-item-bg-active)' : 'transparent',
         cursor: 'pointer', textAlign: 'left',
         transition: 'background 0.12s',
       }}
-      onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
-      onMouseLeave={e => { e.currentTarget.style.background = active ? 'rgba(255,255,255,0.08)' : 'transparent' }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--dropdown-item-bg-hover)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = active ? 'var(--dropdown-item-bg-active)' : 'transparent' }}
     >
-      <span style={{ color: active ? '#FFFFFF' : 'rgba(255,255,255,0.32)', display: 'flex', flexShrink: 0 }}>
+      <span style={{ color: active ? 'var(--dropdown-item-icon-active)' : 'var(--dropdown-item-icon)', display: 'flex', flexShrink: 0 }}>
         {icon}
       </span>
       <span style={{
         ...f, flex: 1,
         fontSize: 14, fontWeight: active ? 500 : 400,
         lineHeight: 'normal', letterSpacing: 0.028,
-        color: active ? '#FFFFFF' : '#AAAAAA',
+        color: active ? 'var(--dropdown-item-text-active)' : 'var(--dropdown-item-text)',
         whiteSpace: 'nowrap',
       }}>
         {label}
@@ -460,7 +460,7 @@ function DropdownItem({
             style={{ display: 'flex', flexShrink: 0 }}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M2.5 7L5.5 10L11.5 4" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2.5 7L5.5 10L11.5 4" stroke="var(--dropdown-item-text-active)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </motion.span>
         )}
@@ -513,23 +513,23 @@ function ChipButton({ label, isActive, onClick }: { label: string; isActive: boo
       style={{
         flex: 1, height: 34, padding: '8px',
         borderRadius: 8, border: 'none',
-        background: isActive ? '#232323' : '#0E0E0F',
+        background: isActive ? 'var(--chip-bg-active)' : 'var(--chip-bg)',
         ...f, fontSize: 13, fontWeight: isActive ? 500 : 400,
-        color: isActive ? '#E8E8E8' : '#979797',
+        color: isActive ? 'var(--chip-text-active)' : 'var(--chip-text)',
         letterSpacing: 0.028, lineHeight: '18px',
         cursor: 'pointer',
         transition: 'background 0.12s, color 0.12s',
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         outline: 'none',
-        boxShadow: isActive ? 'inset 0 0 0 0.5px rgba(255,255,255,0.12)' : 'none',
+        boxShadow: isActive ? 'var(--chip-shadow-active)' : 'none',
       }}
       onMouseEnter={e => {
-        e.currentTarget.style.background = isActive ? '#2A2A2A' : '#181818'
-        e.currentTarget.style.color = '#E0E0E0'
+        e.currentTarget.style.background = isActive ? 'var(--chip-bg-active-hover)' : 'var(--chip-bg-hover)'
+        e.currentTarget.style.color = 'var(--chip-text-hover)'
       }}
       onMouseLeave={e => {
-        e.currentTarget.style.background = isActive ? '#232323' : '#0E0E0F'
-        e.currentTarget.style.color = isActive ? '#E8E8E8' : '#979797'
+        e.currentTarget.style.background = isActive ? 'var(--chip-bg-active)' : 'var(--chip-bg)'
+        e.currentTarget.style.color = isActive ? 'var(--chip-text-active)' : 'var(--chip-text)'
       }}
     >
       {label}
@@ -616,7 +616,7 @@ function Slider({ value, min, max, step, displayValue, onChange }: {
       aria-valuemin={min}
       aria-valuemax={max}
       aria-valuenow={localValue}
-      style={{ position: 'relative', width: 266, height: 34, cursor: 'pointer', background: '#0E0E0F', borderRadius: 8, overflow: 'hidden', outline: 'none' }}
+      style={{ position: 'relative', width: 266, height: 34, cursor: 'pointer', background: 'var(--slider-track-bg)', borderRadius: 8, overflow: 'hidden', outline: 'none' }}
     >
       <img
         src="/figma-icons/slider-grid.svg"
@@ -647,7 +647,7 @@ function Slider({ value, min, max, step, displayValue, onChange }: {
         ...f, position: 'absolute', left: 258, top: 8,
         transform: 'translateX(-100%)',
         fontSize: 14, fontWeight: 400, lineHeight: 'normal',
-        color: '#979797', textAlign: 'right', letterSpacing: 0.028,
+        color: 'var(--slider-value-text)', textAlign: 'right', letterSpacing: 0.028,
         whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 2,
       }}>
         {computedDisplay}
@@ -658,8 +658,16 @@ function Slider({ value, min, max, step, displayValue, onChange }: {
 
 // ── Icons ───────────────────────────────────────────────────────
 
-function Icon({ src, size }: { src: string; size: number }) {
-  return <img src={src} alt="" width={size} height={size} style={{ flexShrink: 0 }} />
+function Icon({ src, size, invertible }: { src: string; size: number; invertible?: boolean }) {
+  return (
+    <img
+      src={src}
+      alt=""
+      width={size}
+      height={size}
+      style={{ flexShrink: 0, filter: invertible ? 'var(--pill-icon-filter)' : undefined }}
+    />
+  )
 }
 
 // Per-preset motion-concept outline icons

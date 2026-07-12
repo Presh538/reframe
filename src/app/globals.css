@@ -32,6 +32,67 @@
   --radius:         12px;
   --radius-sm:      8px;
   --radius-pill:    999px;
+
+  /* ── Controls sidebar panel (Preset / Easing / Smooth & Edit) ──
+     Dark values below are the existing app defaults, unchanged.
+     Light overrides live under .canvas-bg[data-canvas-theme='light']. */
+  --panel-bg:                #1B1B1B;
+  --panel-border:             rgba(36,36,49,0.64);
+  --panel-divider:            rgba(255,255,255,0.06);
+  --panel-label:              #FFFFFF;
+
+  --pill-bg:                  rgba(255,255,255,0.05);
+  --pill-bg-hover:             rgba(255,255,255,0.1);
+  --pill-text:                #FFFFFF;
+  --pill-icon-filter:         none;
+
+  --zoom-bg-hover:            rgba(255,255,255,0.09);
+  --zoom-text:                #979797;
+  --zoom-divider:             rgba(255,255,255,0.08);
+
+  --selector-bg:               #0E0E0F;
+  --selector-bg-hover:         #151516;
+  --selector-bg-active:       #000000;
+  --selector-border-active:   rgba(211,211,211,0.31);
+  --selector-content:         #979797;
+
+  --dropdown-bg:               rgba(36,36,36,0.88);
+  --dropdown-shadow:          0 4px 24px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.08);
+  --dropdown-item-bg-active:  rgba(255,255,255,0.08);
+  --dropdown-item-bg-hover:    rgba(255,255,255,0.05);
+  --dropdown-item-icon:        rgba(255,255,255,0.32);
+  --dropdown-item-icon-active: #FFFFFF;
+  --dropdown-item-text:        #AAAAAA;
+  --dropdown-item-text-active: #FFFFFF;
+
+  --slider-track-bg:          #0E0E0F;
+  --slider-value-text:        #979797;
+
+  --chip-bg:                  #0E0E0F;
+  --chip-bg-hover:              #181818;
+  --chip-bg-active:            #232323;
+  --chip-bg-active-hover:      #2A2A2A;
+  --chip-text:                #979797;
+  --chip-text-hover:            #E0E0E0;
+  --chip-text-active:          #E8E8E8;
+  --chip-shadow-active:        inset 0 0 0 0.5px rgba(255,255,255,0.12);
+
+  /* ── Info button (bottom-right "?") ── */
+  --infobtn-bg:                rgba(255,255,255,0.06);
+  --infobtn-border:            0.8px solid rgba(255,255,255,0.06);
+  --infobtn-shadow:            0 2px 4px 1px rgba(0,0,0,0.65), inset 0 2px 4px rgba(57,57,57,0.45);
+  --infobtn-blur:              blur(17px);
+  --infobtn-hover-bg:          rgba(255,255,255,0.09);
+
+  /* ── AI prompt bar ── */
+  --aibar-bg:                  #1B1B1B;
+  --aibar-text:                #CCCCCC;
+
+  /* ── TopBar logo + filename pill ── */
+  --filepanel-bg:               #1B1B1B;
+  --filepanel-border:          0.5px solid rgba(36,36,49,0.64);
+  --filepanel-blur:             blur(20px);
+  --filepanel-inner-hover:      rgba(255,255,255,0.08);
 }
 
 html,
@@ -52,6 +113,71 @@ body {
     background-size: 27px 27px;
   }
 
+  /* Light canvas backdrop — lets users check contrast for SVGs of any
+     color (e.g. white/light artwork that disappears on the dark default) */
+  .canvas-bg[data-canvas-theme='light'] {
+    background-color: #FFFFFF;
+    background-image: radial-gradient(circle, rgba(0,0,0,0.08) 1.5px, transparent 1.5px);
+
+    /* Controls sidebar — matches Figma's light "Modal" spec (node 85:288) */
+    --panel-bg:                #F6F6F6;
+    --panel-border:             rgba(0,0,0,0.06);
+    --panel-divider:            rgba(0,0,0,0.08);
+    --panel-label:              #000000;
+
+    --pill-bg:                  #FFFFFF;
+    --pill-bg-hover:             #F0F0F0;
+    --pill-text:                #000000;
+    --pill-icon-filter:         invert(1);
+
+    --zoom-bg-hover:            #F0F0F0;
+    --zoom-text:                #000000;
+    --zoom-divider:             rgba(0,0,0,0.12);
+
+    --selector-bg:               #EAEAEA;
+    --selector-bg-hover:         #E0E0E0;
+    --selector-bg-active:       #E0E0E0;
+    --selector-border-active:   rgba(0,0,0,0.15);
+    --selector-content:         #000000;
+
+    --dropdown-bg:               rgba(255,255,255,0.92);
+    --dropdown-shadow:          0 4px 24px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.08);
+    --dropdown-item-bg-active:  rgba(0,0,0,0.06);
+    --dropdown-item-bg-hover:    rgba(0,0,0,0.04);
+    --dropdown-item-icon:        rgba(0,0,0,0.35);
+    --dropdown-item-icon-active: #000000;
+    --dropdown-item-text:        #666666;
+    --dropdown-item-text-active: #000000;
+
+    --slider-track-bg:          #EAEAEA;
+    --slider-value-text:        #000000;
+
+    --chip-bg:                  #EAEAEA;
+    --chip-bg-hover:              #E2E2E2;
+    --chip-bg-active:            #DADADA;
+    --chip-bg-active-hover:      #D2D2D2;
+    --chip-text:                #6B6B6B;
+    --chip-text-hover:            #222222;
+    --chip-text-active:          #1A1A1A;
+    --chip-shadow-active:        inset 0 0 0 0.5px rgba(0,0,0,0.08);
+
+    /* Info button — matches Figma node 85:361 (flat, no border/blur) */
+    --infobtn-bg:                #EDEDED;
+    --infobtn-border:            none;
+    --infobtn-shadow:            none;
+    --infobtn-blur:              none;
+    --infobtn-hover-bg:          #E2E2E2;
+
+    /* AI prompt bar — matches Figma node 85:371 */
+    --aibar-bg:                  #F6F6F6;
+    --aibar-text:                #333333;
+
+    /* TopBar logo + filename pill — matches Figma node 85:363 */
+    --filepanel-bg:               #F6F6F6;
+    --filepanel-border:          none;
+    --filepanel-blur:             none;
+    --filepanel-inner-hover:      rgba(0,0,0,0.04);
+  }
 }
 
 /* ── Thin scrollbar ── */

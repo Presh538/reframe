@@ -14,6 +14,9 @@ import { sanitizeSvgClient, normalizeSvgElement, extractLayerInfo } from '@/lib/
 import { EditorAnalytics } from '@/components/EditorAnalytics'
 
 export type AppMode = 'animate' | '3d'
+type CanvasTheme = 'dark' | 'light'
+
+const CANVAS_THEME_KEY = 'reframe:canvas-theme'
 
 const PreviewStage = dynamic(() => import('./PreviewStage').then(m => ({ default: m.PreviewStage })), { ssr: false })
 const TopBar       = dynamic(() => import('./TopBar').then(m => ({ default: m.TopBar })),             { ssr: false })
@@ -29,6 +32,7 @@ export function EditorLayout() {
   const [isLibraryOpen,  setIsLibraryOpen]  = useState(false)
   const [showShortcuts,  setShowShortcuts]  = useState(false)
   const [showInfo,       setShowInfo]       = useState(false)
+  const [canvasTheme,    setCanvasTheme]    = useState<CanvasTheme>('dark')
 
   // 3D Bridge states
   const [export3dFn,       setExport3dFn]       = useState<(() => void) | null>(null)
@@ -51,6 +55,17 @@ export function EditorLayout() {
   useEffect(() => {
     if (svgReady) setIsLibraryOpen(false)
   }, [svgReady])
+
+  // ── Canvas background theme — persisted so it's remembered next visit ──
+  useEffect(() => {
+    const stored = localStorage.getItem(CANVAS_THEME_KEY)
+    if (stored === 'light' || stored === 'dark') setCanvasTheme(stored)
+  }, [])
+
+  const handleCanvasThemeChange = useCallback((theme: CanvasTheme) => {
+    setCanvasTheme(theme)
+    localStorage.setItem(CANVAS_THEME_KEY, theme)
+  }, [])
 
   // ── Try an example — loads Logo White.svg from /public ─────────
   const handleTryExample = useCallback(async () => {
@@ -138,7 +153,7 @@ export function EditorLayout() {
   const handleRequestFileInput = useCallback((fn: () => void) => setChangeFile3dFn(() => fn),  [])
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden canvas-bg">
+    <div className="relative h-screen w-screen overflow-hidden canvas-bg" data-canvas-theme={canvasTheme}>
 
       {/* Full-canvas preview (Animate mode) */}
       <AnimatePresence mode="popLayout">
@@ -214,7 +229,7 @@ export function EditorLayout() {
       {/* AI Prompt Bar */}
       <AnimatePresence>
         {appMode === 'animate' && (
-          <AIPromptBar key="ai-bar" />
+          <AIPromptBar key="ai-bar" isLight={canvasTheme === 'light'} />
         )}
       </AnimatePresence>
 
@@ -232,6 +247,8 @@ export function EditorLayout() {
         )}
       </AnimatePresence>
 
+      <CanvasThemeToggle theme={canvasTheme} onChange={handleCanvasThemeChange} />
+
       <InfoButton onClick={() => setShowInfo(true)} />
 
       <AnimatePresence>
@@ -246,16 +263,74 @@ export function EditorLayout() {
   )
 }
 
+function CanvasThemeToggle({ theme, onChange }: { theme: CanvasTheme; onChange: (theme: CanvasTheme) => void }) {
+  const isLight = theme === 'light'
+  const options: { value: CanvasTheme; label: string; src: string }[] = [
+    { value: 'dark',  label: 'Dark canvas background',  src: '/figma-icons/icon-moon.svg' },
+    { value: 'light', label: 'Light canvas background', src: '/figma-icons/icon-sun.svg' },
+  ]
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Canvas background"
+      style={{
+        position: 'absolute',
+        left: 40,
+        bottom: 40,
+        zIndex: 45,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        padding: 14,
+        borderRadius: 50,
+        border: isLight ? 'none' : '0.8px solid rgba(255,255,255,0.06)',
+        background: isLight ? '#EDEDED' : 'rgba(255,255,255,0.06)',
+        boxShadow: isLight ? 'none' : '0 2px 4px 1px rgba(0,0,0,0.65), inset 0 2px 4px rgba(57,57,57,0.45)',
+        backdropFilter: isLight ? 'none' : 'blur(17px)',
+        WebkitBackdropFilter: isLight ? 'none' : 'blur(17px)',
+      }}
+    >
+      {options.map(({ value, label, src }) => {
+        const active = theme === value
+        return (
+          <motion.button
+            key={value}
+            role="radio"
+            aria-checked={active}
+            aria-label={label}
+            onClick={() => onChange(value)}
+            whileHover={!active ? { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.09)' } : undefined}
+            whileTap={{ scale: 0.9 }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              padding: 4,
+              borderRadius: 20,
+              border: 'none',
+              background: active ? '#FFFFFF' : 'transparent',
+              cursor: 'pointer',
+              transition: 'background 0.15s',
+            }}
+          >
+            <img src={src} alt="" width={22} height={22} style={{ display: 'block', flexShrink: 0 }} />
+          </motion.button>
+        )
+      })}
+    </div>
+  )
+}
+
 function InfoButton({ onClick }: { onClick: () => void }) {
   return (
     <motion.button
       onClick={onClick}
       aria-label="About Reframeo"
-      whileHover={{
-        scale: 1.05,
-        backgroundColor: 'rgba(255,255,255,0.09)',
-        borderColor: 'rgba(255,255,255,0.12)',
-      }}
+      whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.94 }}
       style={{
         position: 'absolute',
@@ -265,23 +340,25 @@ function InfoButton({ onClick }: { onClick: () => void }) {
         width: 52,
         height: 52,
         borderRadius: 40,
-        border: '0.8px solid rgba(255,255,255,0.06)',
-        background: 'rgba(255,255,255,0.06)',
-        boxShadow: '0 2px 4px 1px rgba(0,0,0,0.65), inset 0 2px 4px rgba(57,57,57,0.45)',
-        backdropFilter: 'blur(17px)',
-        WebkitBackdropFilter: 'blur(17px)',
+        border: 'var(--infobtn-border)',
+        background: 'var(--infobtn-bg)',
+        boxShadow: 'var(--infobtn-shadow)',
+        backdropFilter: 'var(--infobtn-blur)',
+        WebkitBackdropFilter: 'var(--infobtn-blur)',
         cursor: 'pointer',
         display: 'grid',
         placeItems: 'center',
         transition: 'background 0.15s, border-color 0.15s, transform 0.15s',
       }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'var(--infobtn-hover-bg)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'var(--infobtn-bg)' }}
     >
       <img
         src="/figma-icons/question.svg"
         alt=""
         width={24}
         height={24}
-        style={{ display: 'block', width: 24, height: 24, maxWidth: 'none', flexShrink: 0 }}
+        style={{ display: 'block', width: 24, height: 24, maxWidth: 'none', flexShrink: 0, filter: 'var(--pill-icon-filter)' }}
       />
     </motion.button>
   )
