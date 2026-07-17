@@ -16,8 +16,6 @@ import { EditorAnalytics } from '@/components/EditorAnalytics'
 export type AppMode = 'animate' | '3d'
 type CanvasTheme = 'dark' | 'light'
 
-const CANVAS_THEME_KEY = 'reframe:canvas-theme'
-
 const PreviewStage = dynamic(() => import('./PreviewStage').then(m => ({ default: m.PreviewStage })), { ssr: false })
 const TopBar       = dynamic(() => import('./TopBar').then(m => ({ default: m.TopBar })),             { ssr: false })
 const ThreeDMode        = dynamic(() => import('../threed/ThreeDMode').then(m => ({ default: m.ThreeDMode })),               { ssr: false })
@@ -56,15 +54,9 @@ export function EditorLayout() {
     if (svgReady) setIsLibraryOpen(false)
   }, [svgReady])
 
-  // ── Canvas background theme — persisted so it's remembered next visit ──
-  useEffect(() => {
-    const stored = localStorage.getItem(CANVAS_THEME_KEY)
-    if (stored === 'light' || stored === 'dark') setCanvasTheme(stored)
-  }, [])
-
+  // ── Canvas background theme — session-only. Always starts dark on reload. ──
   const handleCanvasThemeChange = useCallback((theme: CanvasTheme) => {
     setCanvasTheme(theme)
-    localStorage.setItem(CANVAS_THEME_KEY, theme)
   }, [])
 
   // ── Try an example — loads Logo White.svg from /public ─────────
