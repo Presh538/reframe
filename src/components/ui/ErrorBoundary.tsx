@@ -9,6 +9,7 @@
  */
 
 import { Component, type ReactNode, type ErrorInfo } from 'react'
+import posthog from 'posthog-js'
 
 interface Props {
   children: ReactNode
@@ -34,9 +35,20 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: unknown, info: ErrorInfo) {
-    // Log to console in development; wire to your error-reporting service in production.
     if (process.env.NODE_ENV !== 'production') {
       console.error('[ErrorBoundary]', error, info.componentStack)
+    }
+    // Report to PostHog Error Tracking so crashes surface with a stack trace
+    // and component stack — not just visible in a session recording. This is
+    // what lets us tell an internal bug (e.g. framer-motion) from an external
+    // one (e.g. a browser extension mutating the DOM).
+    try {
+      posthog.captureException(
+        error instanceof Error ? error : new Error(String(error)),
+        { componentStack: info.componentStack },
+      )
+    } catch {
+      /* PostHog not initialised — non-fatal */
     }
   }
 

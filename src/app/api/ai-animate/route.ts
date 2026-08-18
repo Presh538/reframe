@@ -147,6 +147,28 @@ RULES:
   - "fast/snappy/quick" → speed 1.5–2.5, snappy easing
   - explanation starts with a verb: "Applied…" or "Set…"`
 
+// ── Rate limiting ─────────────────────────────────────────────
+// This route calls a paid model (Anthropic) on every request, so it's the
+// prime denial-of-wallet target. Basic per-IP throttle mirrors the share/
+// validate-svg routes. In-memory: per-instance, resets on cold start — good
+// enough as a guardrail. NOTE: For production hardening replace with Vercel KV
+// (and fold into the planned account-less usage limits).
+const rateMap    = new Map<string, { count: number; reset: number }>()
+const RATE_LIMIT  = 20                // requests…
+const RATE_WINDOW = 10 * 60_000       // …per 10 minutes, per IP
+
+function isRateLimited(ip: string): boolean {
+  const now   = Date.now()
+  const entry = rateMap.get(ip)
+  if (!entry || now > entry.reset) {
+    rateMap.set(ip, { count: 1, reset: now + RATE_WINDOW })
+    return false
+  }
+  if (entry.count >= RATE_LIMIT) return true
+  entry.count++
+  return false
+}
+
 // ── Handler ───────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -155,6 +177,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: 'AI features are temporarily unavailable. Please try again later.' },
       { status: 503 }
+    )
+  }
+
+  const ip = (request.headers.get('x-forwarded-for') ?? '').split(',')[0]?.trim() || 'unknown'
+  if (isRateLimited(ip)) {
+    return NextResponse.json(
+      { error: 'Too many AI requests — please wait a few minutes.' },
+      { status: 429 }
     )
   }
 

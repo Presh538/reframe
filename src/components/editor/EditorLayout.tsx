@@ -145,10 +145,18 @@ export function EditorLayout() {
   const handleRequestFileInput = useCallback((fn: () => void) => setChangeFile3dFn(() => fn),  [])
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden canvas-bg" data-canvas-theme={canvasTheme}>
+    // translate="no" guards against browser extensions (esp. Google Translate)
+    // mutating React-managed text nodes, which triggers "insertBefore … not a
+    // child of this node" reconciliation crashes. Scoped to the editor only so
+    // the SEO landing pages stay translatable.
+    <div className="relative h-screen w-screen overflow-hidden canvas-bg" data-canvas-theme={canvasTheme} translate="no">
 
       {/* Full-canvas preview (Animate mode) */}
-      <AnimatePresence mode="popLayout">
+      {/* Default (sync) AnimatePresence, NOT mode="popLayout": this is a single
+          absolute-positioned element that just cross-fades. popLayout relocates
+          the exiting node in the DOM, which races with PreviewStage's manual DOM
+          mutations and can throw insertBefore reconciliation errors. */}
+      <AnimatePresence>
         {appMode === 'animate' && (
           <motion.div
             key="animate-stage"
