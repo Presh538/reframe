@@ -36,7 +36,7 @@ export function middleware(request: NextRequest) {
     const contentLength = request.headers.get('content-length')
     if (contentLength && parseInt(contentLength, 10) > MAX_SVG_BODY_BYTES) {
       return new NextResponse(
-        JSON.stringify({ error: 'Payload too large (max 2 MB)' }),
+        JSON.stringify({ error: 'Payload too large (max 50 MB)' }),
         { status: 413, headers: { 'Content-Type': 'application/json' } }
       )
     }
