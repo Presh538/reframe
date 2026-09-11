@@ -169,6 +169,42 @@ function isRateLimited(ip: string): boolean {
   return false
 }
 
+// ── Error classification ──────────────────────────────────────
+
+type AiFailure = { reason: string; userMessage: string; status: number }
+
+/**
+ * Maps an upstream AI error to (a) a precise `reason` for logs + analytics and
+ * (b) a safe user-facing message.
+ *
+ * End users never see billing or configuration details — but the `reason` makes
+ * the true cause obvious in server logs and in the PostHog `ai_animate_failed`
+ * event, so "out of credits" is never again indistinguishable from "bad config".
+ */
+function classifyAiError(err: unknown): AiFailure {
+  const e = err as { statusCode?: number; message?: string; responseBody?: string } | undefined
+  const status = typeof e?.statusCode === 'number' ? e.statusCode : 0
+  const text = `${e?.message ?? ''} ${e?.responseBody ?? ''}`.toLowerCase()
+
+  const BUSY = 'The AI is busy right now — please try again in a moment.'
+  const DOWN = 'AI features are temporarily unavailable. Please try again later.'
+
+  // Billing first: Anthropic reports an exhausted balance as a 400, so the
+  // message is the only reliable signal.
+  if (text.includes('credit') || text.includes('billing') || text.includes('quota')) {
+    return { reason: 'credits_exhausted', userMessage: DOWN, status: 503 }
+  }
+  if (status === 429) return { reason: 'rate_limited', userMessage: BUSY, status: 429 }
+  if (status === 529 || status === 503) return { reason: 'overloaded', userMessage: BUSY, status: 503 }
+  if (status === 401 || status === 403) return { reason: 'auth_invalid', userMessage: DOWN, status: 503 }
+  // 404 = unknown model, or a base URL missing its /v1 segment.
+  if (status === 404) return { reason: 'model_or_base_url_misconfigured', userMessage: DOWN, status: 503 }
+  if (text.includes('timeout') || text.includes('aborted')) {
+    return { reason: 'timeout', userMessage: BUSY, status: 503 }
+  }
+  return { reason: 'unknown', userMessage: DOWN, status: 500 }
+}
+
 // ── Handler ───────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -236,10 +272,20 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(output)
   } catch (err) {
-    console.error('[ai-animate]', err)
-    return NextResponse.json(
-      { error: 'Failed to generate animation. Please try again.' },
-      { status: 500 }
-    )
+    const { reason, userMessage, status } = classifyAiError(err)
+    // Precise reason up front so the cause is obvious at a glance in logs.
+    console.error(`[ai-animate] FAILED reason=${reason}`, err)
+
+    after(() => {
+      try {
+        getPostHogClient()?.capture({
+          distinctId: 'server_ai',
+          event:      'ai_animate_failed',
+          properties: { reason, statusCode: status, promptLength: prompt.length },
+        })
+      } catch { /* non-critical */ }
+    })
+
+    return NextResponse.json({ error: userMessage }, { status })
   }
 }
