@@ -6,6 +6,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 import { ToastProvider }     from '@/components/ui/Toast'
 import { MobileGate }         from '@/components/ui/MobileGate'
 import { PostHogProvider }    from '@/components/providers/PostHogProvider'
+import { AuthProvider }       from '@/components/providers/AuthProvider'
 import './globals.css'
 
 const APP_URL  = process.env.NEXT_PUBLIC_APP_URL ?? 'https://reframeo.com'
@@ -293,9 +294,11 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <MobileGate />
-        <PostHogProvider>
-          <ToastProvider>{children}</ToastProvider>
-        </PostHogProvider>
+        <AuthProvider>
+          <PostHogProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </PostHogProvider>
+        </AuthProvider>
         <Analytics />
         <SpeedInsights />
       </body>

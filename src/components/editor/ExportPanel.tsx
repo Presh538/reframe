@@ -24,6 +24,7 @@ export function ExportPanel() {
   const format         = useEditorStore(s => s.format)
   const exportState    = useEditorStore(s => s.export)
   const activePresetId = useEditorStore(s => s.activePresetId)
+  const customAnimationPlan = useEditorStore(s => s.customAnimationPlan)
   const params         = useEditorStore(s => s.params)
   const canExport      = useEditorStore(selectCanExport)
 
@@ -33,11 +34,12 @@ export function ExportPanel() {
   const { toast } = useToast()
 
   const handleExport = async () => {
-    if (!canExport || !activePresetId) return
+    if (!canExport) return
     setExportState({ isRunning: true, progress: 0, error: null })
     await runExport({
       format,
       activePresetId,
+      customAnimationPlan,
       params,
       onProgress: (pct) => setExportState({ progress: pct }),
       onError:    (msg) => { setExportState({ error: msg }); toast(msg, 'error') },

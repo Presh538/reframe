@@ -10,11 +10,13 @@ import { triggerDownload } from './css'
 import { getPreset } from '@/lib/presets'
 import { liveSvgRef } from '@/lib/store/editor'
 import { trackExportCompleted, trackExportFailed } from '@/lib/analytics'
-import type { ExportFormat, AnimParams } from '@/types'
+import type { ExportFormat, AnimParams, Preset } from '@/types'
+import type { AnimationPlan } from '@/lib/custom-animation/schema'
 
 export interface RunExportOptions {
   format: ExportFormat
   activePresetId: string | null
+  customAnimationPlan?: AnimationPlan | null
   params: AnimParams
   onProgress: (pct: number) => void
   onError: (msg: string) => void
@@ -30,6 +32,7 @@ export interface RunExportOptions {
 export async function runExport({
   format,
   activePresetId,
+  customAnimationPlan,
   params,
   onProgress,
   onError,
@@ -38,16 +41,27 @@ export async function runExport({
   quality,
   fps,
 }: RunExportOptions): Promise<void> {
-  if (!activePresetId) return
+  const preset = activePresetId ? getPreset(activePresetId) : undefined
+  if (!preset && !customAnimationPlan) { onError('No animation found — apply an animation first'); return }
 
-  const preset = getPreset(activePresetId)
-  if (!preset) { onError('Preset not found — try reapplying a preset'); return }
+  // Existing exporters consume preset metadata, not preset behavior. A small
+  // synthetic descriptor keeps those battle-tested paths shared for custom plans.
+  const animation: Preset = preset ?? {
+    id: 'custom',
+    name: customAnimationPlan!.name,
+    category: 'Illustration',
+    icon: '✦',
+    pro: false,
+    baseDuration: customAnimationPlan!.duration,
+    description: 'AI-generated custom animation',
+    apply: () => undefined,
+  }
 
   // Use the live SVG ref set by PreviewStage — avoids the fragile
   // document.querySelector('.rf-preview-container svg') DOM query.
   const svgEl = liveSvgRef.current
   if (!svgEl) {
-    onError('No SVG in preview — apply a preset first')
+    onError('No SVG in preview — apply an animation first')
     return
   }
 
@@ -57,29 +71,29 @@ export async function runExport({
     if (format === 'gif') {
       const { exportGif } = await import('./gif')
       const blob = await exportGif({ svgEl, onProgress, quality, fps })
-      triggerDownload(blob, `reframe-${preset.id}.gif`)
+      triggerDownload(blob, `reframe-${animation.id}.gif`)
       onSuccess('GIF downloaded ✓')
 
     } else if (format === 'webm') {
       const { exportWebm } = await import('./webm')
       const blob = await exportWebm({ svgEl, onProgress, quality, fps })
-      triggerDownload(blob, `reframe-${preset.id}.webm`)
+      triggerDownload(blob, `reframe-${animation.id}.webm`)
       onSuccess('WebM downloaded ✓')
 
     } else if (format === 'css') {
       const { exportCss, downloadText } = await import('./css')
-      const css = exportCss(svgEl, preset)
-      downloadText(css, `reframe-${preset.id}.css`, 'text/css')
+      const css = exportCss(svgEl, animation)
+      downloadText(css, `reframe-${animation.id}.css`, 'text/css')
       onSuccess('CSS exported ✓')
 
     } else if (format === 'lottie') {
       const { exportLottie } = await import('./lottie')
-      exportLottie(svgEl, preset, params)
+      exportLottie(svgEl, animation, params)
       onSuccess('Lottie exported ✓')
 
     } else if (format === 'embed') {
       const { generateEmbedHtml } = await import('./embed')
-      const html = generateEmbedHtml(svgEl, preset.name)
+      const html = generateEmbedHtml(svgEl, animation.name)
       if (onEmbedCode) {
         onEmbedCode(html)
       } else {

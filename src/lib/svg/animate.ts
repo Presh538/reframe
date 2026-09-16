@@ -200,6 +200,7 @@ export function clearAnimations(svgEl: SVGSVGElement): void {
     el.style.strokeOpacity    = ''
     el.style.clipPath         = ''
     el.style.transformOrigin  = ''
+    el.style.transformBox     = ''
     el.style.transform        = ''
     el.style.filter           = ''
     el.style.willChange       = ''

@@ -41,17 +41,48 @@ const nextConfig = {
   async headers() {
     const isDev = process.env.NODE_ENV !== 'production'
 
+    // Clerk serves clerk.browser.js and ui.browser.js from an instance-specific
+    // Frontend API host. That host is encoded in the publishable key, so it is
+    // derived here rather than hardcoded or wildcarded: a pk_test_ key resolves
+    // to <instance>.clerk.accounts.dev and a pk_live_ key to the production
+    // domain, with no config change between environments.
+    //
+    // Clerk's own clerkMiddleware({ contentSecurityPolicy }) helper is
+    // deliberately NOT used: its default script-src includes bare `https:` and
+    // `http:`, which would permit scripts from any origin.
+    const clerkOrigin = (() => {
+      const key = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim()
+      if (!key) return null
+      try {
+        const host = Buffer.from(key.replace(/^pk_(test|live)_/, ''), 'base64')
+          .toString('utf8')
+          .replace(/\$+$/, '')
+        return /^[a-z0-9.-]+$/i.test(host) ? `https://${host}` : null
+      } catch {
+        return null
+      }
+    })()
+
+    // Each entry stays empty until Clerk is configured, so the policy is
+    // byte-identical to today's until authentication is actually provisioned.
+    const clerkScript  = clerkOrigin ? ` ${clerkOrigin}` : ''
+    const clerkConnect = clerkOrigin ? ` ${clerkOrigin}` : ''
+    // Avatars rendered by <UserButton>.
+    const clerkImg     = clerkOrigin ? ' https://img.clerk.com' : ''
+    // Cloudflare Turnstile, used by Clerk's bot protection on sign-up.
+    const clerkFrame   = clerkOrigin ? ' https://challenges.cloudflare.com' : ''
+
     // In development Next.js uses eval() for HMR / source maps, so we must
     // allow 'unsafe-eval'. In production we omit it for a tighter policy.
     // Similarly, HMR opens a WebSocket to the dev server, so connect-src must
     // include ws://localhost:* in development.
-    const scriptSrc = isDev
+    const scriptSrc = (isDev
       ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:"
-      : "script-src 'self' 'unsafe-inline' blob:"
+      : "script-src 'self' 'unsafe-inline' blob:") + clerkScript
 
-    const connectSrc = isDev
+    const connectSrc = (isDev
       ? "connect-src 'self' ws://localhost:* wss://localhost:*"
-      : "connect-src 'self' https://vitals.vercel-insights.com"
+      : "connect-src 'self' https://vitals.vercel-insights.com") + clerkConnect
 
     return [
       {
@@ -85,10 +116,11 @@ const nextConfig = {
               "default-src 'self'",
               scriptSrc,
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://api.producthunt.com",
+              `img-src 'self' data: blob: https://api.producthunt.com${clerkImg}`,
               connectSrc,
               "font-src 'self'",
               "worker-src 'self' blob:",
+              `frame-src 'self'${clerkFrame}`,
               "frame-ancestors 'none'",
               "object-src 'none'",
               "base-uri 'self'",

@@ -23,6 +23,7 @@ const BAR_H = 32
 export function TimelineScrubber() {
   const isPlaying      = useEditorStore(s => s.isPlaying)
   const activePresetId = useEditorStore(s => s.activePresetId)
+  const customAnimationPlan = useEditorStore(s => s.customAnimationPlan)
   const svgSource      = useEditorStore(s => s.svgSource)
 
   const [progress, setProgress]   = useState(0)   // 0–1
@@ -35,7 +36,7 @@ export function TimelineScrubber() {
   // Extract layer info from the live SVG once preset is applied
   useEffect(() => {
     const svg = liveSvgRef.current
-    if (!svg || !activePresetId) { setLayers([]); setProgress(0); return }
+    if (!svg || (!activePresetId && !customAnimationPlan)) { setLayers([]); setProgress(0); return }
 
     const total = computeSequenceDuration(svg)
     setTotalMs(total)
@@ -53,7 +54,7 @@ export function TimelineScrubber() {
     })
     setLayers(parsed)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePresetId, svgSource])
+  }, [activePresetId, customAnimationPlan, svgSource])
 
   // rAF loop — tracks the current animation playback position
   useEffect(() => {
@@ -100,7 +101,7 @@ export function TimelineScrubber() {
     // we just update the visual indicator — full scrubbing is a v2 feature.
   }, [])
 
-  if (!activePresetId) return null
+  if (!activePresetId && !customAnimationPlan) return null
 
   return (
     <AnimatePresence>

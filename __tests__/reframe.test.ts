@@ -224,8 +224,9 @@ describe('Export constants — GIF', () => {
     expect(Number(m![1])).toBeGreaterThanOrEqual(20)
   })
 
-  test('setQuality is called with 1 (maximum NeuQuant quality)', () => {
-    expect(gifSrc).toContain('setQuality(1)')
+  test('NeuQuant receives the validated dynamic quality value', () => {
+    expect(gifSrc).toContain('probe.setQuality(quality)')
+    expect(gifSrc).toContain('encoder.setQuality(quality)')
   })
 
   test('imageSmoothingQuality is set to "high"', () => {
@@ -234,8 +235,8 @@ describe('Export constants — GIF', () => {
 })
 
 describe('Export constants — WebM', () => {
-  test('bitrate is at least 8_000_000 for flow WebM', () => {
-    const m = webmSrc.match(/videoBitsPerSecond\s*[=:]\s*([\d_]+)/)
+  test('full-quality bitrate is at least 8_000_000 for flow WebM', () => {
+    const m = webmSrc.match(/Math\.round\(([\d_]+) \* qFraction\)/)
     expect(m).not.toBeNull()
     const bps = Number(m![1].replace(/_/g, ''))
     expect(bps).toBeGreaterThanOrEqual(8_000_000)
@@ -289,20 +290,20 @@ describe('Motion constants', () => {
   })
 })
 
-// ── 6. MIDDLEWARE ROUTING ─────────────────────────────────────────
+// ── 6. PROXY ROUTING ──────────────────────────────────────────────
 
-const middlewareSrc = fs.readFileSync(
-  path.resolve(__dirname, '../middleware.ts'), 'utf8'
+const proxySrc = fs.readFileSync(
+  path.resolve(__dirname, '../proxy.ts'), 'utf8'
 )
 
-describe('Middleware', () => {
-  test('public paths (api, _next, favicon) are excluded from auth', () => {
-    expect(middlewareSrc).toContain('/api/')
-    expect(middlewareSrc).toContain('_next')
-    expect(middlewareSrc).toContain('favicon')
+describe('Proxy', () => {
+  test('static assets are excluded while API routes remain covered', () => {
+    expect(proxySrc).toContain("'/(api|trpc)(.*)'")
+    expect(proxySrc).toContain('_next/static')
+    expect(proxySrc).toContain('favicon.ico')
   })
 
-  test('middleware file is non-empty', () => {
-    expect(middlewareSrc.length).toBeGreaterThan(50)
+  test('proxy file is non-empty', () => {
+    expect(proxySrc.length).toBeGreaterThan(50)
   })
 })
