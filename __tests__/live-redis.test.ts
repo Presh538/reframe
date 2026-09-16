@@ -8,15 +8,21 @@
 
 import fs from 'node:fs'
 
+let hasLocalEnv = false
+
 try {
   for (const line of fs.readFileSync('.env.local', 'utf8').split('\n')) {
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/)
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^(['"])(.*)\1$/, '$2')
   }
+  hasLocalEnv = true
 } catch { /* no local env file: the guard below skips the suite */ }
 
-const configured = Boolean(
-  process.env.UPSTASH_REDIS_REST_URL &&
+// Requires .env.local specifically: these tests write to a real database and
+// a real Redis, so a CI runner that merely has production credentials in its
+// environment must never run them.
+const configured = hasLocalEnv && Boolean(
+process.env.UPSTASH_REDIS_REST_URL &&
   process.env.UPSTASH_REDIS_REST_TOKEN &&
   process.env.RATE_LIMIT_HMAC_SECRET,
 )

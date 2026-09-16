@@ -292,11 +292,20 @@ describe('Motion constants', () => {
 
 // ── 6. PROXY ROUTING ──────────────────────────────────────────────
 
-const proxySrc = fs.readFileSync(
-  path.resolve(__dirname, '../proxy.ts'), 'utf8'
-)
+// Next resolves the proxy next to the app directory, so in a src/ project it
+// must live at src/proxy.ts. At the repo root it is silently never executed.
+const PROXY_PATH = path.resolve(__dirname, '../src/proxy.ts')
+
+const proxySrc = fs.readFileSync(PROXY_PATH, 'utf8')
 
 describe('Proxy', () => {
+  test('proxy lives beside the app directory so Next actually runs it', () => {
+    // A proxy at the repo root is ignored in a src/ project: no error, it just
+    // never executes, silently disabling CORS and the payload cap.
+    expect(fs.existsSync(PROXY_PATH)).toBe(true)
+    expect(fs.existsSync(path.resolve(__dirname, '../proxy.ts'))).toBe(false)
+  })
+
   test('static assets are excluded while API routes remain covered', () => {
     expect(proxySrc).toContain("'/(api|trpc)(.*)'")
     expect(proxySrc).toContain('_next/static')
@@ -305,5 +314,33 @@ describe('Proxy', () => {
 
   test('proxy file is non-empty', () => {
     expect(proxySrc.length).toBeGreaterThan(50)
+  })
+})
+
+// ── 7. PROXY ORIGIN ALLOWLIST ─────────────────────────────────────
+
+describe('Proxy origin allowlist', () => {
+  test('accepts the deployment\'s own Vercel origins, not just the canonical domain', () => {
+    // Preview deployments run with NODE_ENV=production but are served from
+    // *.vercel.app. Without these, every same-origin mutation on a preview
+    // would be rejected as cross-origin.
+    expect(proxySrc).toContain('VERCEL_URL')
+    expect(proxySrc).toContain('VERCEL_BRANCH_URL')
+    expect(proxySrc).toContain('VERCEL_PROJECT_PRODUCTION_URL')
+  })
+
+  test('compares parsed origins rather than raw strings', () => {
+    // Substring or prefix matching would let evil-reframeo.com through.
+    expect(proxySrc).toContain('new URL(origin).origin')
+    expect(proxySrc).toContain('allowedOrigins.includes')
+  })
+
+  test('still rejects cross-origin mutations in production', () => {
+    expect(proxySrc).toContain("process.env.NODE_ENV === 'production'")
+    expect(proxySrc).toMatch(/status:\s*403/)
+  })
+
+  test('never reflects credentials back to a caller', () => {
+    expect(proxySrc).toContain("'Access-Control-Allow-Credentials', 'false'")
   })
 })

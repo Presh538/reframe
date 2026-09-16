@@ -30,12 +30,34 @@ function securityProxy(request: NextRequest): NextResponse {
   }
 
   const origin = request.headers.get('origin')
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  // A request may legitimately arrive from the configured canonical domain or
+  // from the deployment's own Vercel URL. Preview deployments run with
+  // NODE_ENV=production but are served from *.vercel.app, so without the
+  // Vercel-provided origins every same-origin mutation on a preview would be
+  // rejected as cross-origin. These are the deployment's own hostnames, so
+  // accepting them does not widen the policy.
+  const allowedOrigins = [
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`,
+    process.env.VERCEL_BRANCH_URL && `https://${process.env.VERCEL_BRANCH_URL}`,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => {
+      try {
+        return new URL(value).origin
+      } catch {
+        return null
+      }
+    })
+    .filter((value): value is string => value !== null)
+
+  // No Origin header at all is a same-origin navigation or a non-browser call.
   let originAllowed = !origin
 
-  if (origin && appUrl) {
+  if (origin) {
     try {
-      originAllowed = new URL(origin).origin === new URL(appUrl).origin
+      originAllowed = allowedOrigins.includes(new URL(origin).origin)
     } catch {
       originAllowed = false
     }
@@ -45,7 +67,7 @@ function securityProxy(request: NextRequest): NextResponse {
     return applySecurityHeaders(NextResponse.json({ error: 'Forbidden' }, { status: 403 }))
   }
 
-  const allowedOrigin = origin && originAllowed ? origin : appUrl || null
+  const allowedOrigin = origin && originAllowed ? origin : (allowedOrigins[0] ?? null)
   if (allowedOrigin) {
     response.headers.set('Access-Control-Allow-Origin', allowedOrigin)
     response.headers.set('Vary', 'Origin')
