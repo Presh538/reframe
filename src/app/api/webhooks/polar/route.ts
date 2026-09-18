@@ -34,7 +34,30 @@ export async function POST(request: NextRequest) {
 
   try {
     event = validateEvent(rawBody, headers, requireServerEnv('POLAR_WEBHOOK_SECRET'))
-  } catch {
+  } catch (error) {
+    // The response stays deliberately generic -- a caller must not learn which
+    // check failed. The log is where the distinction lives, because a bare 400
+    // is indistinguishable between a wrong signing secret, a replayed delivery
+    // outside the timestamp window, and a malformed request.
+    const name = error instanceof Error ? error.name : 'unknown'
+    const detail = error instanceof Error ? error.message : ''
+    const reason = /timestamp/i.test(detail)
+      ? 'stale_or_future_timestamp'
+      : /signature/i.test(detail)
+        ? 'signature_mismatch_check_POLAR_WEBHOOK_SECRET'
+        : /secret/i.test(detail)
+          ? 'secret_malformed'
+          : 'unparseable_payload'
+
+    console.error('[polar-webhook] rejected', {
+      providerEventId,
+      reason,
+      errorName: name,
+      // Presence only -- never the values, which carry the signature material.
+      hasSignature: Boolean(request.headers.get('webhook-signature')),
+      hasTimestamp: Boolean(request.headers.get('webhook-timestamp')),
+      secretConfigured: Boolean(process.env.POLAR_WEBHOOK_SECRET),
+    })
     return webhookResponse(400)
   }
 
