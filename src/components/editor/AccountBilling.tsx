@@ -14,6 +14,7 @@ export function AccountBilling() {
   const [data, setData] = useState<BillingStatus | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const refresh = useCallback(async (signal?: AbortSignal) => {
     try {
       const response = await fetch('/api/billing/status', { cache: 'no-store', signal })
@@ -50,6 +51,16 @@ export function AccountBilling() {
     }
   }
 
+  async function syncStatus() {
+    setSyncing(true)
+    try {
+      const response = await fetch('/api/billing/reconcile', { method: 'POST' })
+      if (!response.ok) throw new Error('Unable to complete subscription sync. Please refresh your status and try again shortly.')
+      await refresh()
+    } catch (e) { setError(e instanceof Error ? e.message : 'Unable to sync subscriptions.') }
+    finally { setSyncing(false) }
+  }
+
   return <section style={{ display: 'grid', gap: 16 }}>
     <h2>Billing & credits</h2>
     {error && <p role="alert">{error}</p>}
@@ -74,6 +85,7 @@ export function AccountBilling() {
     <div style={{ display: 'flex', gap: 12 }}>
       <button type="button" disabled={busy} onClick={openPortal}>{busy ? 'Opening…' : 'Manage billing'}</button>
       <button type="button" onClick={() => { void refresh() }}>Refresh status</button>
+      <button type="button" disabled={syncing} onClick={syncStatus}>{syncing ? 'Syncing…' : 'Sync subscription'}</button>
     </div>
   </section>
 }

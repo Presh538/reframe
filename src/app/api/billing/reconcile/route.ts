@@ -1,13 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { AuthenticationRequiredError, requireCurrentAppUser } from '@/lib/auth/current-user'
 import { getAccountAccess, rebuildAccessSnapshot } from '@/lib/billing/entitlements'
-import {
-  grantSubscriptionPeriodCredits,
-  syncSubscription,
-  UntrustedBillingEventError,
-  type SubscriptionState,
-} from '@/lib/billing/fulfillment'
-import { getPolarClient } from '@/lib/billing/polar'
+import { reconcileUserSubscriptions } from '@/lib/billing/provider-reconciliation'
 import { checkRateLimit, RateLimitUnavailableError } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
@@ -48,41 +42,12 @@ export async function POST(request: NextRequest) {
     throw error
   }
 
-  let state
-  try {
-    state = await getPolarClient().customers.getStateExternal(
-      { externalId: user.id },
-      { timeoutMs: 10_000 },
-    )
-  } catch {
-    // No Polar customer yet simply means nothing has been purchased.
-    await rebuildAccessSnapshot(user.id)
-    const access = await getAccountAccess(user.id)
-    return response({ reconciled: false, plan: access.planKey, features: access.features }, 200)
-  }
-
   let synced = 0
-  for (const subscription of state.activeSubscriptions) {
-    const normalized: SubscriptionState = {
-      providerSubscriptionId: subscription.id,
-      userId: user.id,
-      providerProductId: subscription.productId,
-      status: String(subscription.status),
-      currentPeriodStart: subscription.currentPeriodStart,
-      currentPeriodEnd: subscription.currentPeriodEnd,
-      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
-      canceledAt: subscription.canceledAt,
-      endedAt: subscription.endsAt,
-    }
-
-    try {
-      await syncSubscription(normalized)
-      await grantSubscriptionPeriodCredits(normalized)
-      synced += 1
-    } catch (error) {
-      if (error instanceof UntrustedBillingEventError) continue
-      throw error
-    }
+  try {
+    synced = await reconcileUserSubscriptions(user.id)
+  } catch {
+    // A permission failure/outage is not evidence of a free account.
+    return response({ error: 'Subscription reconciliation temporarily unavailable' }, 503)
   }
 
   // One-time orders are deliberately NOT fulfilled here. Granting a pass or a

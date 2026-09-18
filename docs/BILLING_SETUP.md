@@ -99,11 +99,15 @@ closed without it rather than running unmetered.
 | Pro Monthly | recurring | `POLAR_PRODUCT_PRO_MONTHLY` |
 | Pro Yearly | recurring | `POLAR_PRODUCT_PRO_YEARLY` |
 
-3. Create an access token with `checkouts:write`, `customers:read`,
+3. Create an access token with `checkouts:read`, `checkouts:write`, `customers:read`, `subscriptions:read`,
    `customer_sessions:write` → `POLAR_ACCESS_TOKEN`.
 4. Add a webhook endpoint → `https://reframeo.com/api/webhooks/polar`
    - Format: **Raw**
-   - Events: `order.paid`, `order.refunded`, and every `subscription.*` event
+   - Events: `checkout.expired`, `order.created`, `order.updated`, `order.paid`,
+     `order.refunded`, `subscription.created`, `subscription.active`,
+     `subscription.updated`, `subscription.canceled`, `subscription.uncanceled`,
+     `subscription.past_due`, `subscription.revoked`. New cycle/pause/resume/migration
+     aliases are authenticated and parsed through the subscription-updated schema.
    - Copy the secret → `POLAR_WEBHOOK_SECRET`
    - Keep the endpoint API version at **2026-04** until a versioned SDK migration
      and real order/subscription payload tests verify **2026-10** compatibility.

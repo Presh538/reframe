@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test": "jest --runInBand --no-watchman",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --no-watchman",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"
@@ -49,7 +49,11 @@
     "zundo": "^2.3.0",
     "zustand": "^4.5.4"
   },
+  "overrides": {
+    "posthog-js": { "fflate": "^0.4.9" }
+  },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@types/dompurify": "^3.0.5",
     "@types/jest": "^30.0.0",
     "@types/node": "^20",

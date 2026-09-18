@@ -1,8 +1,7 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getCurrentAppUser } from '@/lib/auth/current-user'
-import { getDatabase } from '@/lib/db/client'
-import { accountAccessSnapshots, creditAccounts } from '@/lib/db/schema'
+import { getAccountAccess } from '@/lib/billing/entitlements'
+import { getCreditBalance } from '@/lib/billing/balance'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -20,13 +19,7 @@ export async function GET() {
     }, { headers: noStore })
   }
 
-  const db = getDatabase()
-  const [[access], [credits]] = await Promise.all([
-    db.select().from(accountAccessSnapshots)
-      .where(eq(accountAccessSnapshots.userId, user.id)).limit(1),
-    db.select().from(creditAccounts)
-      .where(eq(creditAccounts.userId, user.id)).limit(1),
-  ])
+  const [access, credits] = await Promise.all([getAccountAccess(user.id), getCreditBalance(user.id)])
 
   return NextResponse.json({
     authenticated: true,

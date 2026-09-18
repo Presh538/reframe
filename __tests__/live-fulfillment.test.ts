@@ -20,7 +20,8 @@ try {
 
 // Requires .env.local specifically: a CI runner holding production database
 // credentials must never run tests that write to that database.
-const configured = hasLocalEnv && Boolean(process.env.DATABASE_URL)
+const configured = Boolean(process.env.BILLING_TEST_DATABASE_URL)
+if (configured) process.env.DATABASE_URL = process.env.BILLING_TEST_DATABASE_URL
 
 jest.mock('server-only', () => ({}))
 
@@ -41,8 +42,9 @@ const DAY = 24 * 60 * 60 * 1000
 suite('live subscription fulfilment', () => {
   const sql = postgres(process.env.DATABASE_URL as string, { ssl: 'require', max: 1, prepare: false })
   const run = Date.now()
-  const monthlyProductId = `test_prod_monthly_${run}`
-  const yearlyProductId = `test_prod_yearly_${run}`
+  let monthlyProductId = `test_prod_monthly_${run}`
+  let yearlyProductId = `test_prod_yearly_${run}`
+  const periodStart = new Date(run - DAY), periodEnd = new Date(run + 29 * DAY)
   let userId: string
   let catalogFree = false
 
@@ -67,8 +69,8 @@ suite('live subscription fulfilment', () => {
       id: subscriptionId,
       productId: monthlyProductId,
       status: 'active',
-      currentPeriodStart: new Date(Date.now() - DAY),
-      currentPeriodEnd: new Date(Date.now() + 29 * DAY),
+      currentPeriodStart: periodStart,
+      currentPeriodEnd: periodEnd,
       cancelAtPeriodEnd: false,
       canceledAt: null,
       endedAt: null,
@@ -77,9 +79,10 @@ suite('live subscription fulfilment', () => {
   }) as unknown as Order
 
   beforeAll(async () => {
-    const existing = await sql`select 1 from billing_product where product_key in ('pro_monthly', 'pro_yearly')`
-    catalogFree = existing.length === 0
-    if (!catalogFree) return
+    const existing = await sql`select product_key, provider_product_id from billing_product where product_key in ('pro_monthly', 'pro_yearly')`
+    monthlyProductId = existing.find(row => row.product_key === 'pro_monthly')?.provider_product_id ?? monthlyProductId
+    yearlyProductId = existing.find(row => row.product_key === 'pro_yearly')?.provider_product_id ?? yearlyProductId
+    catalogFree = true
 
     const [u] = await sql`insert into app_user (clerk_user_id) values (${'test_fulfil_' + run}) returning id`
     userId = u.id
@@ -87,7 +90,7 @@ suite('live subscription fulfilment', () => {
     await sql`
       insert into billing_product (product_key, provider_product_id, kind, fulfillment_recipe)
       values ('pro_monthly', ${monthlyProductId}, 'subscription', '{}'),
-             ('pro_yearly',  ${yearlyProductId},  'subscription', '{}')`
+             ('pro_yearly',  ${yearlyProductId},  'subscription', '{}') on conflict do nothing`
   })
 
   afterAll(async () => {
@@ -103,7 +106,7 @@ suite('live subscription fulfilment', () => {
       await sql`delete from account_access_snapshot where user_id = ${userId}`
       await sql`delete from audit_event          where user_id = ${userId}`
       await sql`delete from app_user             where id = ${userId}`
-      await sql`delete from billing_product where provider_product_id in (${monthlyProductId}, ${yearlyProductId})`
+      await sql`delete from billing_product where provider_product_id in (${'test_prod_monthly_' + run}, ${'test_prod_yearly_' + run})`
     }
     await sql.end()
   })
@@ -135,8 +138,8 @@ suite('live subscription fulfilment', () => {
       userId,
       providerProductId: monthlyProductId,
       status: 'active',
-      currentPeriodStart: new Date(Date.now() - DAY),
-      currentPeriodEnd: new Date(Date.now() + 29 * DAY),
+      currentPeriodStart: periodStart,
+      currentPeriodEnd: periodEnd,
       cancelAtPeriodEnd: false,
       canceledAt: null,
       endedAt: null,
@@ -164,6 +167,10 @@ suite('live subscription fulfilment', () => {
 
     const monthOne = new Date()
     const monthTwo = new Date(Date.now() + 32 * DAY)
+    const yearlyOrder = renewalOrder(state.providerSubscriptionId, { productId: yearlyProductId,
+      subscription: { ...renewalOrder(state.providerSubscriptionId).subscription, productId: yearlyProductId,
+        currentPeriodStart: state.currentPeriodStart, currentPeriodEnd: state.currentPeriodEnd } })
+    await fulfillPaidOrder(yearlyOrder)
     await grantSubscriptionPeriodCredits(state, monthOne)
     await grantSubscriptionPeriodCredits(state, monthOne) // repeat: no-op
     await grantSubscriptionPeriodCredits(state, monthTwo)
@@ -172,7 +179,7 @@ suite('live subscription fulfilment', () => {
 
     const grants = await sql`
       select expires_at, created_at from credit_grant
-      where user_id = ${userId} and source_id = ${state.providerSubscriptionId}`
+      where user_id = ${userId} and source_id = ${yearlyOrder.id}`
     expect(grants).toHaveLength(2)
     for (const g of grants) {
       // Never a year-long allowance, even though the billing period is a year.

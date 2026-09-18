@@ -22,6 +22,18 @@ function delivery(scheme: 'standard' | 'legacy', payload = body, offsetSeconds =
 }
 
 describe('Polar signing compatibility (real SDK and Standard Webhooks)', () => {
+  it.each(['subscription.cycled', 'subscription.paused', 'subscription.resumed', 'subscription.migrated'])('authenticates %s before normalizing its parser alias', type => {
+    const aliasBody = JSON.stringify({ type, timestamp: '2026-09-18T02:00:00Z', data: {} })
+    try {
+      validatePolarEvent(aliasBody, delivery('standard', aliasBody), secret)
+      throw new Error('Expected SDK schema rejection')
+    } catch (error) {
+      expect(error).toHaveProperty('name', 'SDKValidationError')
+      expect(error).toHaveProperty('rawValue.type', 'subscription.updated')
+    }
+    const altered = aliasBody.replace(type, 'subscription.updated')
+    expect(() => validatePolarEvent(altered, delivery('standard', aliasBody), secret)).toThrow(/signature/i)
+  })
   it.each(['standard', 'legacy'] as const)('accepts %s and retains SDK date/field transformations', scheme => {
     const event = validatePolarEvent(body, delivery(scheme), secret)
     expect(event.type).toBe('benefit.created')

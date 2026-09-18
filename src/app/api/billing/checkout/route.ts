@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { z } from 'zod'
 import { AuthenticationRequiredError, requireCurrentAppUser } from '@/lib/auth/current-user'
 import { getCatalogProduct, ProductKeySchema } from '@/lib/billing/catalog'
+import { prepareCheckoutIntent } from '@/lib/billing/checkout-intent'
 import { getPolarClient } from '@/lib/billing/polar'
 import { getDatabase } from '@/lib/db/client'
 import { billingProducts, checkoutIntents } from '@/lib/db/schema'
@@ -70,17 +71,13 @@ export async function POST(request: NextRequest) {
     },
   })
 
-  const [createdIntent] = await db.insert(checkoutIntents).values({
-    userId: user.id,
-    productKey: product.productKey,
-    idempotencyKey: parsed.data.idempotencyKey,
-  }).onConflictDoNothing().returning()
+  const prepared = await prepareCheckoutIntent(user.id, product.productKey, parsed.data.idempotencyKey)
+  if (prepared.error) return response({ error: prepared.error }, 409)
+  const createdIntent = prepared.createdIntent
 
   if (!createdIntent) {
-    const [existing] = await db.select().from(checkoutIntents).where(and(
-      eq(checkoutIntents.userId, user.id),
-      eq(checkoutIntents.idempotencyKey, parsed.data.idempotencyKey),
-    )).limit(1)
+    const existing = prepared.existing
+    if (existing?.status === 'succeeded') return response({ error: 'This purchase has already completed. Check Account → Billing.' }, 409)
 
     if (!existing?.providerCheckoutId) {
       return response({ error: 'Checkout creation is already in progress' }, 409)

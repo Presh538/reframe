@@ -2,9 +2,11 @@ import 'server-only'
 
 import { and, eq, gt, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm'
 import { STALE_RESERVATION_MS } from '@/lib/billing/policy'
+import { refundedCreditTarget } from '@/lib/billing/lifecycle-policy'
 import { getDatabase } from '@/lib/db/client'
 import {
   creditAccounts,
+  billingOrders,
   creditGrants,
   creditLedger,
   usageCreditAllocations,
@@ -36,16 +38,18 @@ export async function grantCredits(input: {
   sourceId: string
   idempotencyKey: string
   expiresAt?: Date | null
-}): Promise<{ granted: boolean; grantId: string | null }> {
+}, transaction?: Transaction): Promise<{ granted: boolean; grantId: string | null }> {
   if (!Number.isSafeInteger(input.amount) || input.amount <= 0) {
     throw new Error('Credit grant amount must be a positive integer')
   }
 
-  return getDatabase().transaction(async (tx) => {
+  const grantWithin = async (tx: Transaction) => {
     await tx.insert(creditAccounts).values({
       userId: input.userId,
       creditType: 'ai_generation',
     }).onConflictDoNothing()
+
+    await tx.select().from(creditAccounts).where(eq(creditAccounts.userId, input.userId)).for('update').limit(1)
 
     const [grant] = await tx.insert(creditGrants).values({
       userId: input.userId,
@@ -82,7 +86,8 @@ export async function grantCredits(input: {
     })
 
     return { granted: true, grantId: grant.id }
-  })
+  }
+  return transaction ? grantWithin(transaction) : getDatabase().transaction(grantWithin)
 }
 
 /** Reserves one AI unit and binds it to the earliest-expiring eligible grant. */
@@ -262,14 +267,34 @@ async function releaseOperationWithin(
   const allocations = await tx.select().from(usageCreditAllocations)
     .where(eq(usageCreditAllocations.usageOperationId, operation.id))
 
+  // Always lock account before grants, matching reserve/refund/expiry order.
+  await tx.select().from(creditAccounts).where(eq(creditAccounts.userId, operation.userId)).for('update').limit(1)
+  let restored = 0
+  let releasedEligible = 0
   for (const allocation of allocations) {
+    const [grant] = await tx.select().from(creditGrants).where(eq(creditGrants.id, allocation.creditGrantId)).for('update').limit(1)
+    if (!grant || grant.revokedAt || (grant.expiresAt && grant.expiresAt <= new Date())) continue
+    let withheld = 0
+    const [order] = await tx.select().from(billingOrders).where(and(eq(billingOrders.userId, operation.userId),
+      eq(billingOrders.providerOrderId, grant.sourceId))).limit(1)
+    if (order && order.refundedAmountMinor > 0 && order.netAmountMinor > 0) {
+      const [prior] = await tx.select({ removed: sql<number>`coalesce(sum(-${creditLedger.deltaAvailable}), 0)::bigint` })
+        .from(creditLedger).where(and(eq(creditLedger.creditGrantId, grant.id), eq(creditLedger.entryType, 'refund')))
+      withheld = Math.min(Number(allocation.units), Math.max(0,
+        refundedCreditTarget(grant.amount, order.refundedAmountMinor, order.netAmountMinor) - Number(prior?.removed ?? 0)))
+      if (withheld > 0) await tx.insert(creditLedger).values({ userId: operation.userId, creditType: 'ai_generation',
+        entryType: 'refund', deltaAvailable: -withheld, sourceType: 'refund', sourceId: order.providerOrderId,
+        creditGrantId: grant.id, idempotencyKey: `usage:${operation.id}:release-refund:${grant.id}` })
+    }
+    releasedEligible += Number(allocation.units)
+    restored += Number(allocation.units) - withheld
     await tx.update(creditGrants).set({
-      remaining: sql`${creditGrants.remaining} + ${allocation.units}`,
+      remaining: sql`${creditGrants.remaining} + ${Number(allocation.units) - withheld}`,
     }).where(eq(creditGrants.id, allocation.creditGrantId))
   }
 
   const [updatedAccount] = await tx.update(creditAccounts).set({
-    available: sql`${creditAccounts.available} + ${operation.units}`,
+    available: sql`${creditAccounts.available} + ${restored}`,
     reserved: sql`${creditAccounts.reserved} - ${operation.units}`,
     version: sql`${creditAccounts.version} + 1`,
     updatedAt: new Date(),
@@ -285,7 +310,7 @@ async function releaseOperationWithin(
     userId: operation.userId,
     creditType: 'ai_generation',
     entryType: 'release',
-    deltaAvailable: operation.units,
+    deltaAvailable: releasedEligible,
     deltaReserved: -operation.units,
     sourceType: 'usage',
     sourceId: operation.id,

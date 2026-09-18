@@ -76,6 +76,11 @@ export const billingOrders = pgTable('billing_order', {
   userId: uuid('user_id').notNull().references(() => appUsers.id),
   providerOrderId: text('provider_order_id').notNull().unique(),
   providerCheckoutId: text('provider_checkout_id'),
+  providerSubscriptionId: text('provider_subscription_id'),
+  periodStart: timestamptz('period_start'),
+  periodEnd: timestamptz('period_end'),
+  netAmountMinor: bigint('net_amount_minor', { mode: 'number' }).notNull().default(0),
+  refundedAmountMinor: bigint('refunded_amount_minor', { mode: 'number' }).notNull().default(0),
   status: text('status').notNull(),
   currency: char('currency', { length: 3 }).notNull(),
   amountMinor: bigint('amount_minor', { mode: 'number' }).notNull(),
@@ -111,11 +116,13 @@ export const subscriptions = pgTable('subscription', {
   currentPeriodEnd: timestamptz('current_period_end'),
   cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
   canceledAt: timestamptz('canceled_at'),
+  endedAt: timestamptz('ended_at'),
+  providerUpdatedAt: timestamptz('provider_updated_at'),
   createdAt: timestamptz('created_at').notNull().defaultNow(),
   updatedAt: timestamptz('updated_at').notNull().defaultNow(),
 }, (table) => [
   index('subscription_user_status_idx').on(table.userId, table.status, table.currentPeriodEnd),
-  check('subscription_status_check', sql`${table.status} in ('incomplete', 'active', 'past_due', 'canceled', 'revoked')`),
+  check('subscription_status_check', sql`${table.status} in ('incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'revoked', 'unpaid', 'paused')`),
 ])
 
 export const webhookEvents = pgTable('webhook_event', {

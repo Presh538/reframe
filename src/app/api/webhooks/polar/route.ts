@@ -12,7 +12,7 @@ import {
   UntrustedBillingEventError,
 } from '@/lib/billing/fulfillment'
 import { getDatabase } from '@/lib/db/client'
-import { webhookEvents } from '@/lib/db/schema'
+import { checkoutIntents, webhookEvents } from '@/lib/db/schema'
 import { requireServerEnv } from '@/lib/env'
 
 export const runtime = 'nodejs'
@@ -88,14 +88,18 @@ export async function POST(request: NextRequest) {
       lastErrorCode: null,
     }).where(eventWhere)
 
-    if (event.type === 'order.paid') {
-      await fulfillPaidOrder(event.data)
+    if (event.type === 'checkout.expired') {
+      await db.update(checkoutIntents).set({ status: 'expired', updatedAt: new Date() }).where(and(
+        eq(checkoutIntents.providerCheckoutId, event.data.id), eq(checkoutIntents.status, 'open')))
+    } else if (event.type === 'order.paid') {
+      await fulfillPaidOrder(event.data, event.timestamp)
+      if (event.data.refundedAmount > 0) await refundOrder(event.data)
     } else if (event.type === 'order.created' || event.type === 'order.updated') {
-      // Mirror only -- these never grant. Polar does not always emit
-      // order.paid for subscription charges, so without this a subscription's
-      // revenue is never recorded locally and a later refund would reference
-      // an order this app has never seen.
+      // Record pending invoices without granting. A paid snapshot can also
+      // recover a missing order.paid delivery through the same trusted handler.
       await recordOrderMirror(event.data)
+      if (event.data.paid) await fulfillPaidOrder(event.data, event.timestamp)
+      if (event.data.refundedAmount > 0) await refundOrder(event.data)
     } else if (event.type === 'order.refunded') {
       await refundOrder(event.data)
     } else if (
@@ -109,7 +113,7 @@ export async function POST(request: NextRequest) {
     ) {
       // One reconciling handler for every lifecycle event: each recomputes
       // access from the subscription's current state rather than patching it.
-      const state = subscriptionStateFromWebhook(event.data)
+      const state = subscriptionStateFromWebhook(event.data, event.timestamp)
       await syncSubscription(state)
       // Polar signals a renewal as `subscription.updated` with a new billing
       // period, so the allowance is keyed to the period rather than to an

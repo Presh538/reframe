@@ -3,6 +3,8 @@ const mockUser = jest.fn()
 const mockDatabase = jest.fn()
 jest.mock('@/lib/auth/current-user', () => ({ getCurrentAppUser: (...args: unknown[]) => mockUser(...args) }))
 jest.mock('@/lib/db/client', () => ({ getDatabase: () => mockDatabase() }))
+jest.mock('@/lib/billing/entitlements', () => ({ getAccountAccess: jest.fn(async () => ({ planKey: 'free' })) }))
+jest.mock('@/lib/billing/balance', () => ({ getCreditBalance: jest.fn(async () => ({ available: 0, reserved: 0 })) }))
 
 import { NextRequest } from 'next/server'
 import { PgDialect } from 'drizzle-orm/pg-core'
@@ -44,9 +46,9 @@ describe('private billing status', () => {
     } })
     const response = await GET(new NextRequest('https://reframeo.com/api/billing/status?billing=success&checkout_id=someone-elses-checkout'))
     expect(response.status).toBe(200)
-    expect(conditions).toHaveLength(5)
+    expect(conditions).toHaveLength(3)
     for (const params of conditions) expect(params).toContain('caller-uuid')
-    expect(conditions[4]).toContain('someone-elses-checkout')
+    expect(conditions[2]).toContain('someone-elses-checkout')
     expect(await response.json()).toMatchObject({ plan: 'free', checkout: { status: 'unknown' }, credits: { available: 0 } })
   })
 

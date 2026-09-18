@@ -25,8 +25,8 @@ try {
 // Requires .env.local specifically: these tests write to a real database and
 // a real Redis, so a CI runner that merely has production credentials in its
 // environment must never run them.
-const configured = hasLocalEnv && Boolean(
-process.env.DATABASE_URL)
+const configured = Boolean(process.env.BILLING_TEST_DATABASE_URL)
+if (configured) process.env.DATABASE_URL = process.env.BILLING_TEST_DATABASE_URL
 
 jest.mock('server-only', () => ({}))
 

@@ -21,11 +21,11 @@ try {
 // Requires .env.local specifically: these tests write to a real database and
 // a real Redis, so a CI runner that merely has production credentials in its
 // environment must never run them.
-const configured = hasLocalEnv && Boolean(
-process.env.UPSTASH_REDIS_REST_URL &&
-  process.env.UPSTASH_REDIS_REST_TOKEN &&
-  process.env.RATE_LIMIT_HMAC_SECRET,
-)
+const configured = Boolean(process.env.BILLING_TEST_REDIS_REST_URL && process.env.BILLING_TEST_REDIS_REST_TOKEN && process.env.RATE_LIMIT_HMAC_SECRET)
+if (configured) {
+  process.env.UPSTASH_REDIS_REST_URL = process.env.BILLING_TEST_REDIS_REST_URL
+  process.env.UPSTASH_REDIS_REST_TOKEN = process.env.BILLING_TEST_REDIS_REST_TOKEN
+}
 
 jest.mock('server-only', () => ({}))
 

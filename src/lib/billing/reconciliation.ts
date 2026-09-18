@@ -85,6 +85,7 @@ export async function expireLapsedCreditGrants(limit = 500): Promise<{ expired: 
   for (const grant of lapsed) {
     try {
       await db.transaction(async (tx) => {
+        await tx.select().from(creditAccounts).where(eq(creditAccounts.userId, grant.userId)).for('update').limit(1)
         // Re-read under lock: a concurrent reservation may have just spent
         // from this grant, so the amount to remove is decided here, not above.
         const [locked] = await tx.select().from(creditGrants)
@@ -181,7 +182,7 @@ export async function grantMonthlySubscriptionCredits(limit = 500): Promise<{ ch
     .select()
     .from(subscriptions)
     .where(and(
-      inArray(subscriptions.status, ['active', 'trialing', 'past_due']),
+      eq(subscriptions.status, 'active'),
       gt(subscriptions.currentPeriodEnd, now),
     ))
     .limit(limit)
@@ -206,7 +207,8 @@ export async function grantMonthlySubscriptionCredits(limit = 500): Promise<{ ch
         currentPeriodEnd,
         cancelAtPeriodEnd: row.cancelAtPeriodEnd,
         canceledAt: row.canceledAt,
-        endedAt: null,
+        endedAt: row.endedAt,
+        observedAt: row.providerUpdatedAt ?? undefined,
       }, now)
       checked += 1
     } catch (error) {

@@ -2,7 +2,7 @@ import 'server-only'
 
 import { and, eq, gt, isNull, lte, or, sql } from 'drizzle-orm'
 import { getDatabase } from '@/lib/db/client'
-import { accountAccessSnapshots, entitlementGrants } from '@/lib/db/schema'
+import { accountAccessSnapshots, creditAccounts, entitlementGrants } from '@/lib/db/schema'
 import { getRedis } from '@/lib/redis'
 
 /**
@@ -44,48 +44,15 @@ export type AccountAccess = {
 
 const FREE_ACCESS: AccountAccess = { planKey: 'free', features: {}, entitlementVersion: 0 }
 
-/** Short TTL: a stale read costs at most one cache window of feature access. */
-const CACHE_TTL_SECONDS = 45
 const cacheKey = (userId: string) => `reframe:access:${userId}`
 
 /**
- * Reads the denormalized access snapshot, preferring a short Redis cache.
- *
- * Feature access is safe to cache because it is boolean and revocation is
- * followed by an explicit invalidation. Spendable credit balances are NOT
- * cached anywhere -- those are decided by an atomic Postgres transaction.
+ * Recomputes from live grants. Cached snapshots are not an authorization source.
  */
 export async function getAccountAccess(userId: string): Promise<AccountAccess> {
-  const redis = getRedis()
-
-  if (redis) {
-    try {
-      const cached = await redis.get<AccountAccess>(cacheKey(userId))
-      if (cached && typeof cached.planKey === 'string') return cached
-    } catch { /* cache failures must never block an entitlement read */ }
-  }
-
-  const [snapshot] = await getDatabase()
-    .select()
-    .from(accountAccessSnapshots)
-    .where(eq(accountAccessSnapshots.userId, userId))
-    .limit(1)
-
-  const access: AccountAccess = snapshot
-    ? {
-        planKey: snapshot.planKey,
-        features: snapshot.features ?? {},
-        entitlementVersion: snapshot.entitlementVersion,
-      }
-    : FREE_ACCESS
-
-  if (redis) {
-    try {
-      await redis.set(cacheKey(userId), access, { ex: CACHE_TTL_SECONDS })
-    } catch { /* non-critical */ }
-  }
-
-  return access
+  // Until a cache is explicitly bounded by the next grant expiry, live grants
+  // are the authority. Missed cron jobs and invalidation failures cannot retain Pro.
+  return rebuildAccessSnapshot(userId)
 }
 
 export async function invalidateAccessCache(userId: string): Promise<void> {
@@ -108,7 +75,9 @@ export async function hasFeature(userId: string, featureKey: FeatureKey): Promis
  */
 export async function rebuildAccessSnapshot(userId: string): Promise<AccountAccess> {
   const now = new Date()
-  const db = getDatabase()
+  const result = await getDatabase().transaction(async db => {
+  // Serialize with subscription changes so a stale rebuild cannot win a race.
+  await db.select().from(creditAccounts).where(eq(creditAccounts.userId, userId)).for('update').limit(1)
 
   const active = await db
     .select({ featureKey: entitlementGrants.featureKey })
@@ -147,8 +116,6 @@ export async function rebuildAccessSnapshot(userId: string): Promise<AccountAcce
       },
     })
 
-  await invalidateAccessCache(userId)
-
   const [snapshot] = await db
     .select()
     .from(accountAccessSnapshots)
@@ -156,6 +123,9 @@ export async function rebuildAccessSnapshot(userId: string): Promise<AccountAcce
     .limit(1)
 
   return snapshot
-    ? { planKey: snapshot.planKey, features: snapshot.features ?? {}, entitlementVersion: snapshot.entitlementVersion }
+      ? { planKey: snapshot.planKey, features: snapshot.features ?? {}, entitlementVersion: snapshot.entitlementVersion }
     : FREE_ACCESS
+  })
+  await invalidateAccessCache(userId)
+  return result
 }
