@@ -105,6 +105,12 @@ closed without it rather than running unmetered.
    - Format: **Raw**
    - Events: `order.paid`, `order.refunded`, and every `subscription.*` event
    - Copy the secret → `POLAR_WEBHOOK_SECRET`
+   - Keep the endpoint API version at **2026-04** until a versioned SDK migration
+     and real order/subscription payload tests verify **2026-10** compatibility.
+     API version changes do not change the signing key.
+   - The webhook adapter supports both legacy Polar HMAC and Standard Webhooks
+     secrets introduced September 8, 2026. Never pre-encode the dashboard secret.
+     After changing Vercel environment variables, redeploy the targeted environment.
 5. Keep `POLAR_SERVER=sandbox` until the flow is verified end to end.
 
 Production uses a **separate organization, token, product IDs, and webhook

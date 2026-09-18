@@ -1,5 +1,5 @@
 import { createHash } from 'crypto'
-import { validateEvent } from '@polar-sh/sdk/webhooks'
+import { validatePolarEvent } from '@/lib/billing/polar-webhook'
 import { and, eq, sql } from 'drizzle-orm'
 import { NextResponse, type NextRequest } from 'next/server'
 import {
@@ -30,10 +30,10 @@ export async function POST(request: NextRequest) {
 
   const rawBody = await request.text()
   const headers = Object.fromEntries(request.headers.entries())
-  let event: ReturnType<typeof validateEvent>
+  let event: ReturnType<typeof validatePolarEvent>
 
   try {
-    event = validateEvent(rawBody, headers, requireServerEnv('POLAR_WEBHOOK_SECRET'))
+    event = validatePolarEvent(rawBody, headers, requireServerEnv('POLAR_WEBHOOK_SECRET'))
   } catch (error) {
     // The response stays deliberately generic -- a caller must not learn which
     // check failed. The log is where the distinction lives, because a bare 400
