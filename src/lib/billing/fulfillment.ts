@@ -42,6 +42,10 @@ async function trustedOrder(tx: Tx, order: Order, includeInactive = false) {
 }
 
 /** Mirrors advance pending orders but cannot undo settled refund/dispute state. */
+function isoOrNull(value: Date | null | undefined): string | null {
+  return value instanceof Date && Number.isFinite(value.getTime()) ? value.toISOString() : null
+}
+
 async function mirrorWithin(tx: Tx, order: Order, userId: string, productKey: string) {
   const refunded = order.refundedAmount ?? 0
   if (![order.netAmount, order.totalAmount, refunded].every(Number.isSafeInteger) || order.netAmount < 0 || refunded < 0) throw new UntrustedBillingEventError('Invalid amounts')
@@ -62,9 +66,11 @@ async function mirrorWithin(tx: Tx, order: Order, userId: string, productKey: st
     netAmountMinor: sql`case when ${billingOrders.status} = 'pending' or ${billingOrders.netAmountMinor} = 0 then ${order.netAmount} else ${billingOrders.netAmountMinor} end`,
     refundedAmountMinor: sql`greatest(${billingOrders.refundedAmountMinor}, ${refunded})`,
     providerSubscriptionId: sql`coalesce(${billingOrders.providerSubscriptionId}, ${order.subscriptionId ?? order.subscription?.id ?? null})`,
-    periodStart: sql`coalesce(${billingOrders.periodStart}, ${order.subscription?.currentPeriodStart ?? null})`,
-    periodEnd: sql`coalesce(${billingOrders.periodEnd}, ${order.subscription?.currentPeriodEnd ?? null})`,
-    paidAt: sql`coalesce(${billingOrders.paidAt}, ${order.paid ? new Date() : null})`, updatedAt: new Date(),
+    // Raw SQL parameters carry no column type, so postgres.js cannot serialize
+    // a JS Date inside them and throws. Bind ISO strings with an explicit cast.
+    periodStart: sql`coalesce(${billingOrders.periodStart}, ${isoOrNull(order.subscription?.currentPeriodStart)}::timestamptz)`,
+    periodEnd: sql`coalesce(${billingOrders.periodEnd}, ${isoOrNull(order.subscription?.currentPeriodEnd)}::timestamptz)`,
+    paidAt: sql`coalesce(${billingOrders.paidAt}, ${order.paid ? new Date().toISOString() : null}::timestamptz)`, updatedAt: new Date(),
   } }).returning()
   if (row.userId !== userId) throw new UntrustedBillingEventError('Order ownership mismatch')
   await tx.insert(billingOrderItems).values({ orderId: row.id, productKey, providerProductId: order.productId!, quantity: 1,
