@@ -1,6 +1,8 @@
 'use client'
 
 import { SignInButton, UserButton, useAuth } from '@clerk/nextjs'
+import { CreditCard } from 'lucide-react'
+import { AccountBilling, CheckoutFeedback } from './AccountBilling'
 
 /**
  * Sign-in affordance for the TopBar.
@@ -52,6 +54,8 @@ function AuthControlInner() {
 
   if (isSignedIn) {
     return (
+      <>
+      <CheckoutFeedback />
       <UserButton
         appearance={{
           elements: {
@@ -63,7 +67,12 @@ function AuthControlInner() {
             },
           },
         }}
-      />
+      >
+        <UserButton.UserProfilePage label="Billing" url="billing" labelIcon={<CreditCard size={16} />}>
+          <AccountBilling />
+        </UserButton.UserProfilePage>
+      </UserButton>
+      </>
     )
   }
 

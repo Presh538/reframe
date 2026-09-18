@@ -206,10 +206,87 @@ export async function fulfillPaidOrder(order: Order): Promise<void> {
   })
 }
 
+/**
+ * Mirrors an order without granting anything.
+ *
+ * Polar does not always emit `order.paid` for a subscription's charges, so
+ * relying on that event alone leaves subscription revenue unrecorded locally
+ * and makes a later refund reference an order this app has never seen. This
+ * records the order only -- entitlements and credits stay with the paid and
+ * subscription handlers, so a mirrored order can never grant anything.
+ */
+export async function recordOrderMirror(order: Order): Promise<string | null> {
+  if (!order.productId) return null
+
+  const externalUserId = UuidSchema.safeParse(order.customer.externalId)
+  if (!externalUserId.success) return null
+
+  const db = getDatabase()
+  const [[user], [product]] = await Promise.all([
+    db.select().from(appUsers).where(and(
+      eq(appUsers.id, externalUserId.data),
+      eq(appUsers.status, 'active'),
+    )).limit(1),
+    db.select().from(billingProducts).where(and(
+      eq(billingProducts.providerProductId, order.productId),
+      eq(billingProducts.active, true),
+    )).limit(1),
+  ])
+
+  if (!user || !product) return null
+
+  const status = order.paid ? 'paid' : 'pending'
+
+  return db.transaction(async (tx) => {
+    await tx.insert(billingCustomers).values({
+      userId: user.id,
+      providerCustomerId: order.customerId,
+      externalCustomerId: user.id,
+    }).onConflictDoUpdate({
+      target: billingCustomers.userId,
+      set: { providerCustomerId: order.customerId, updatedAt: new Date() },
+    })
+
+    const [row] = await tx.insert(billingOrders).values({
+      userId: user.id,
+      providerOrderId: order.id,
+      providerCheckoutId: order.checkoutId ?? null,
+      status,
+      currency: order.currency.toUpperCase(),
+      amountMinor: order.totalAmount,
+      paidAt: order.paid ? new Date() : null,
+    }).onConflictDoUpdate({
+      target: billingOrders.providerOrderId,
+      // Never downgrade an order that fulfilment already settled.
+      set: { amountMinor: order.totalAmount, updatedAt: new Date() },
+    }).returning({ id: billingOrders.id })
+
+    await tx.insert(billingOrderItems).values({
+      orderId: row.id,
+      productKey: product.productKey,
+      providerProductId: product.providerProductId,
+      quantity: 1,
+      amountMinor: order.netAmount,
+    }).onConflictDoNothing()
+
+    return row.id
+  })
+}
+
 export async function refundOrder(order: Order): Promise<void> {
   const db = getDatabase()
-  const [localOrder] = await db.select().from(billingOrders)
+  let [localOrder] = await db.select().from(billingOrders)
     .where(eq(billingOrders.providerOrderId, order.id)).limit(1)
+
+  if (!localOrder) {
+    // The order may never have been mirrored -- Polar does not reliably emit
+    // order.paid for subscription charges. Record it now so the refund has
+    // something to act on; throwing here would return 500 and have Polar
+    // retry the refund forever.
+    await recordOrderMirror(order)
+    ;[localOrder] = await db.select().from(billingOrders)
+      .where(eq(billingOrders.providerOrderId, order.id)).limit(1)
+  }
 
   if (!localOrder) throw new UntrustedBillingEventError('Refund references unknown order')
 

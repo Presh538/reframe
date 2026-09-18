@@ -5,6 +5,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import {
   fulfillPaidOrder,
   grantSubscriptionPeriodCredits,
+  recordOrderMirror,
   refundOrder,
   subscriptionStateFromWebhook,
   syncSubscription,
@@ -89,6 +90,12 @@ export async function POST(request: NextRequest) {
 
     if (event.type === 'order.paid') {
       await fulfillPaidOrder(event.data)
+    } else if (event.type === 'order.created' || event.type === 'order.updated') {
+      // Mirror only -- these never grant. Polar does not always emit
+      // order.paid for subscription charges, so without this a subscription's
+      // revenue is never recorded locally and a later refund would reference
+      // an order this app has never seen.
+      await recordOrderMirror(event.data)
     } else if (event.type === 'order.refunded') {
       await refundOrder(event.data)
     } else if (
