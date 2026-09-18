@@ -6,6 +6,7 @@ import { getCatalogProduct, ProductKeySchema } from '@/lib/billing/catalog'
 import { getPolarClient } from '@/lib/billing/polar'
 import { getDatabase } from '@/lib/db/client'
 import { billingProducts, checkoutIntents } from '@/lib/db/schema'
+import { returnOriginFor } from '@/lib/app-origin'
 import { checkRateLimit, RateLimitUnavailableError } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
@@ -93,7 +94,9 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  // Return to the deployment the purchase started on (e.g. a preview), never to
+  // an arbitrary Host header.
+  const appUrl = returnOriginFor(request)
   const customerIpAddress = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || undefined
 
   try {

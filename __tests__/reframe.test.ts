@@ -317,30 +317,69 @@ describe('Proxy', () => {
   })
 })
 
-// ── 7. PROXY ORIGIN ALLOWLIST ─────────────────────────────────────
+// ── 7. APP ORIGIN ALLOWLIST ───────────────────────────────────────
 
-describe('Proxy origin allowlist', () => {
-  test('accepts the deployment\'s own Vercel origins, not just the canonical domain', () => {
-    // Preview deployments run with NODE_ENV=production but are served from
-    // *.vercel.app. Without these, every same-origin mutation on a preview
-    // would be rejected as cross-origin.
-    expect(proxySrc).toContain('VERCEL_URL')
-    expect(proxySrc).toContain('VERCEL_BRANCH_URL')
-    expect(proxySrc).toContain('VERCEL_PROJECT_PRODUCTION_URL')
+import { allowedAppOrigins, isAllowedAppOrigin, returnOriginFor } from '@/lib/app-origin'
+
+describe('App origin allowlist', () => {
+  const saved = { ...process.env }
+  afterEach(() => { process.env = { ...saved } })
+
+  const configure = () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://reframeo.com'
+    process.env.VERCEL_URL = 'reframe-abc123-team.vercel.app'
+    process.env.VERCEL_BRANCH_URL = 'reframe-git-dev-team.vercel.app'
+    delete process.env.VERCEL_PROJECT_PRODUCTION_URL
+  }
+
+  test('accepts the canonical domain and the deployment\'s own Vercel hostnames', () => {
+    configure()
+    expect(isAllowedAppOrigin('https://reframeo.com')).toBe(true)
+    expect(isAllowedAppOrigin('https://reframe-abc123-team.vercel.app')).toBe(true)
+    expect(isAllowedAppOrigin('https://reframe-git-dev-team.vercel.app')).toBe(true)
   })
 
-  test('compares parsed origins rather than raw strings', () => {
-    // Substring or prefix matching would let evil-reframeo.com through.
-    expect(proxySrc).toContain('new URL(origin).origin')
-    expect(proxySrc).toContain('allowedOrigins.includes')
+  test('rejects lookalike and suffix-attack origins', () => {
+    configure()
+    for (const origin of [
+      'https://evil-reframeo.com',
+      'https://reframeo.com.evil.com',
+      'http://reframeo.com',             // scheme downgrade
+      'https://reframeo.com:8443',       // different port
+      'https://other-project.vercel.app',
+      'null',
+      'not a url',
+    ]) {
+      expect(isAllowedAppOrigin(origin)).toBe(false)
+    }
   })
 
-  test('still rejects cross-origin mutations in production', () => {
+  test('never lists a duplicate or malformed origin', () => {
+    configure()
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = 'reframeo.com'
+    expect(allowedAppOrigins()).toEqual([
+      'https://reframeo.com',
+      'https://reframe-abc123-team.vercel.app',
+      'https://reframe-git-dev-team.vercel.app',
+    ])
+  })
+
+  test('returns a checkout to the preview it started on', () => {
+    configure()
+    const request = new Request('https://reframe-abc123-team.vercel.app/api/billing/checkout')
+    expect(returnOriginFor(request)).toBe('https://reframe-abc123-team.vercel.app')
+  })
+
+  test('never redirects to an untrusted Host header', () => {
+    configure()
+    const request = new Request('https://attacker.example/api/billing/checkout')
+    expect(returnOriginFor(request)).toBe('https://reframeo.com')
+  })
+
+  test('proxy still rejects cross-origin mutations in production and never sends credentials', () => {
+    expect(proxySrc).toContain('isAllowedAppOrigin')
     expect(proxySrc).toContain("process.env.NODE_ENV === 'production'")
     expect(proxySrc).toMatch(/status:\s*403/)
-  })
-
-  test('never reflects credentials back to a caller', () => {
     expect(proxySrc).toContain("'Access-Control-Allow-Credentials', 'false'")
   })
 })

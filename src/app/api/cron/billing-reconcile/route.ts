@@ -14,6 +14,7 @@ import { timingSafeEqual } from 'crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 import {
   expireLapsedCreditGrants,
+  grantMonthlySubscriptionCredits,
   recordReconciliationAudit,
   refreshLapsedAccess,
   releaseStaleReservations,
@@ -50,6 +51,7 @@ export async function GET(request: NextRequest) {
     const reservations = await releaseStaleReservations()
     const grants = await expireLapsedCreditGrants()
     const access = await refreshLapsedAccess()
+    const monthly = await grantMonthlySubscriptionCredits()
 
     const summary = {
       reservationsReleased: reservations.released,
@@ -57,6 +59,7 @@ export async function GET(request: NextRequest) {
       grantsExpired: grants.expired,
       creditsExpired: grants.credits,
       snapshotsRebuilt: access.rebuilt,
+      subscriptionsCheckedForMonthlyGrant: monthly.checked,
     }
 
     await recordReconciliationAudit(summary)

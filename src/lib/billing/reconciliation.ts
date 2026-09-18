@@ -2,15 +2,18 @@ import 'server-only'
 
 import { and, eq, gt, inArray, isNull, lt, lte, sql } from 'drizzle-orm'
 import { releaseAiCredit } from '@/lib/billing/credits'
+import { grantSubscriptionPeriodCredits } from '@/lib/billing/fulfillment'
 import { rebuildAccessSnapshot } from '@/lib/billing/entitlements'
 import { STALE_RESERVATION_MS } from '@/lib/billing/policy'
 import { getDatabase } from '@/lib/db/client'
 import {
   auditEvents,
+  billingProducts,
   creditAccounts,
   creditGrants,
   creditLedger,
   entitlementGrants,
+  subscriptions,
   usageOperations,
 } from '@/lib/db/schema'
 
@@ -162,6 +165,58 @@ export async function refreshLapsedAccess(lookbackHours = 26, limit = 500): Prom
   }
 
   return { rebuilt }
+}
+
+/**
+ * Issues this month's allowance to every entitled subscription.
+ *
+ * Annual plans receive no renewal event for eleven months of the year, so
+ * without this sweep they would get a single monthly grant per year. Monthly
+ * plans are included too: the calendar-month key makes it a no-op when the
+ * renewal webhook already granted, and a repair when it was missed.
+ */
+export async function grantMonthlySubscriptionCredits(limit = 500): Promise<{ checked: number }> {
+  const now = new Date()
+  const rows = await getDatabase()
+    .select()
+    .from(subscriptions)
+    .where(and(
+      inArray(subscriptions.status, ['active', 'trialing', 'past_due']),
+      gt(subscriptions.currentPeriodEnd, now),
+    ))
+    .limit(limit)
+
+  let checked = 0
+  for (const row of rows) {
+    // Period columns are nullable in the mirror; a row without both is not
+    // yet fully synced and is left for the next webhook.
+    if (!row.currentPeriodStart || !row.currentPeriodEnd) continue
+    const { currentPeriodStart, currentPeriodEnd } = row
+    try {
+      const [product] = await getDatabase().select().from(billingProducts)
+        .where(eq(billingProducts.productKey, row.productKey)).limit(1)
+      if (!product) continue
+
+      await grantSubscriptionPeriodCredits({
+        providerSubscriptionId: row.providerSubscriptionId,
+        userId: row.userId,
+        providerProductId: product.providerProductId,
+        status: row.status,
+        currentPeriodStart,
+        currentPeriodEnd,
+        cancelAtPeriodEnd: row.cancelAtPeriodEnd,
+        canceledAt: row.canceledAt,
+        endedAt: null,
+      }, now)
+      checked += 1
+    } catch (error) {
+      console.error('[reconciliation] monthly grant failed', {
+        subscriptionId: row.providerSubscriptionId,
+        error: error instanceof Error ? error.name : 'unknown',
+      })
+    }
+  }
+  return { checked }
 }
 
 export async function recordReconciliationAudit(summary: Record<string, number>): Promise<void> {
