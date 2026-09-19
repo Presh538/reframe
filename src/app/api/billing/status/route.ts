@@ -1,8 +1,8 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getCurrentAppUser } from '@/lib/auth/current-user'
 import { getDatabase } from '@/lib/db/client'
-import { billingOrders, checkoutIntents, subscriptions } from '@/lib/db/schema'
+import { billingOrderItems, billingOrders, checkoutIntents, subscriptions } from '@/lib/db/schema'
 import { getAccountAccess } from '@/lib/billing/entitlements'
 import { getCreditBalance } from '@/lib/billing/balance'
 
@@ -24,8 +24,12 @@ export async function GET(request: NextRequest) {
       db.select({ productKey: subscriptions.productKey, status: subscriptions.status,
         currentPeriodEnd: subscriptions.currentPeriodEnd, cancelAtPeriodEnd: subscriptions.cancelAtPeriodEnd })
         .from(subscriptions).where(eq(subscriptions.userId, user.id)).orderBy(desc(subscriptions.updatedAt)).limit(5),
-      db.select({ status: billingOrders.status, amountMinor: billingOrders.amountMinor,
-        currency: billingOrders.currency, createdAt: billingOrders.createdAt })
+      db.select({ id: billingOrders.id, status: billingOrders.status, amountMinor: billingOrders.amountMinor,
+        currency: billingOrders.currency, createdAt: billingOrders.createdAt,
+        // One item per order today; the subquery names what was bought so the
+        // account panel can say "25 AI Credits" rather than a bare amount.
+        productKey: sql<string | null>`(select ${billingOrderItems.productKey} from ${billingOrderItems}
+          where ${billingOrderItems.orderId} = ${billingOrders.id} limit 1)` })
         .from(billingOrders).where(eq(billingOrders.userId, user.id)).orderBy(desc(billingOrders.createdAt)).limit(5),
       checkoutId ? db.select({ status: checkoutIntents.status }).from(checkoutIntents)
         .where(and(eq(checkoutIntents.userId, user.id), eq(checkoutIntents.providerCheckoutId, checkoutId))).limit(1)

@@ -1,30 +1,134 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
+import { ExternalLink, RefreshCw } from 'lucide-react'
+import styles from './AccountBilling.module.css'
 
 type BillingStatus = {
   plan: string
   credits: { available: number; reserved: number }
   subscriptions: { productKey: string; status: string; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean }[]
-  orders: { status: string; amountMinor: number; currency: string; createdAt: string }[]
+  orders: { id?: string; status: string; amountMinor: number; currency: string; createdAt: string; productKey?: string | null }[]
   checkout: { status: string } | null
 }
 
+type Tone = 'positive' | 'warning' | 'critical' | 'neutral'
+
+// ── Presentation maps ─────────────────────────────────────────
+// Raw provider values never reach the screen: they are opaque to customers
+// ("past_due", "pro_monthly") and a screen reader would read them literally.
+
+const PRODUCT_NAMES: Record<string, string> = {
+  pro_monthly: 'Pro Monthly',
+  pro_yearly: 'Pro Yearly',
+  ai_credits_25: '25 AI Credits',
+  export_4k_single: '4K Export Pass',
+  project_pass_7d: '7-Day Project Pass',
+}
+
+const PLAN_NAMES: Record<string, string> = { free: 'Free', pro: 'Pro', studio: 'Studio' }
+
+const SUBSCRIPTION_STATUS: Record<string, { label: string; tone: Tone }> = {
+  active: { label: 'Active', tone: 'positive' },
+  trialing: { label: 'Trial', tone: 'positive' },
+  past_due: { label: 'Payment due', tone: 'warning' },
+  incomplete: { label: 'Incomplete', tone: 'warning' },
+  unpaid: { label: 'Unpaid', tone: 'critical' },
+  incomplete_expired: { label: 'Expired', tone: 'neutral' },
+  paused: { label: 'Paused', tone: 'neutral' },
+  canceled: { label: 'Canceled', tone: 'neutral' },
+  revoked: { label: 'Ended', tone: 'neutral' },
+}
+
+const ORDER_STATUS: Record<string, { label: string; tone: Tone }> = {
+  paid: { label: 'Paid', tone: 'positive' },
+  pending: { label: 'Pending', tone: 'warning' },
+  refunded: { label: 'Refunded', tone: 'neutral' },
+  partially_refunded: { label: 'Partly refunded', tone: 'neutral' },
+  disputed: { label: 'Disputed', tone: 'critical' },
+}
+
+const DOT: Record<Tone, string> = {
+  positive: styles.dotPositive,
+  warning: styles.dotWarning,
+  critical: styles.dotCritical,
+  neutral: '',
+}
+
+function titleCase(key: string): string {
+  return key.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function productName(key: string | null | undefined): string {
+  if (!key) return 'Payment'
+  return PRODUCT_NAMES[key] ?? titleCase(key)
+}
+
+const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
+
+function DateText({ iso }: { iso: string }) {
+  const date = new Date(iso)
+  if (!Number.isFinite(date.getTime())) return null
+  return <time dateTime={date.toISOString()}>{dateFormat.format(date)}</time>
+}
+
+function formatMoney(amountMinor: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amountMinor / 100)
+  } catch {
+    // An unexpected currency code must not take the whole panel down.
+    return `${(amountMinor / 100).toFixed(2)} ${currency}`
+  }
+}
+
+function StatusPill({ label, tone }: { label: string; tone: Tone }) {
+  return (
+    <span className={styles.status}>
+      <span className={`${styles.dot} ${DOT[tone]}`} aria-hidden="true" />
+      {label}
+    </span>
+  )
+}
+
+function subscriptionMeta(sub: BillingStatus['subscriptions'][number]) {
+  if (!sub.currentPeriodEnd) return null
+  const ended = new Date(sub.currentPeriodEnd).getTime() <= Date.now()
+  const date = <DateText iso={sub.currentPeriodEnd} />
+
+  if (sub.status === 'revoked') return <>Access ended</>
+  if (sub.cancelAtPeriodEnd) return <>Ends {date} · won’t renew</>
+  if (sub.status === 'canceled') return ended ? <>Ended {date}</> : <>Access until {date}</>
+  if (['active', 'trialing', 'past_due'].includes(sub.status)) return <>Renews {date}</>
+  return <>Period ends {date}</>
+}
+
+// ── Component ─────────────────────────────────────────────────
+
 export function AccountBilling() {
+  const titleId = useId()
+  const subsId = useId()
+  const paymentsId = useId()
   const [data, setData] = useState<BillingStatus | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [syncedAt, setSyncedAt] = useState<Date | null>(null)
+  // Polite announcements for assistive tech; errors use role="alert" instead.
+  const [announcement, setAnnouncement] = useState('')
+
   const refresh = useCallback(async (signal?: AbortSignal) => {
     try {
       const response = await fetch('/api/billing/status', { cache: 'no-store', signal })
-      if (!response.ok) throw new Error('Unable to load billing. Please try again.')
+      if (!response.ok) throw new Error('We couldn’t load your billing details.')
       setData(await response.json())
       setError('')
     } catch (e) {
-      if (!signal?.aborted) setError(e instanceof Error ? e.message : 'Unable to load billing.')
+      if (!signal?.aborted) setError(e instanceof Error ? e.message : 'We couldn’t load your billing details.')
     }
   }, [])
+
+  // Status refreshes on open and whenever the window regains focus -- which is
+  // exactly when a customer returns from Polar -- so no manual refresh button.
   useEffect(() => {
     const controller = new AbortController()
     void refresh(controller.signal)
@@ -36,9 +140,10 @@ export function AccountBilling() {
   async function openPortal() {
     setBusy(true)
     setError('')
+    setAnnouncement('Opening Polar billing…')
     try {
       const response = await fetch('/api/billing/portal', { method: 'POST' })
-      if (!response.ok) throw new Error('Unable to open billing management. Please try again.')
+      if (!response.ok) throw new Error('We couldn’t open billing management. Please try again.')
       const { portalUrl } = await response.json()
       const url = new URL(portalUrl)
       if (url.protocol !== 'https:' || !['polar.sh', 'sandbox.polar.sh'].includes(url.hostname)) {
@@ -46,48 +151,175 @@ export function AccountBilling() {
       }
       window.location.assign(url.toString())
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to open billing management.')
+      setError(e instanceof Error ? e.message : 'We couldn’t open billing management.')
+      setAnnouncement('')
       setBusy(false)
     }
   }
 
   async function syncStatus() {
     setSyncing(true)
+    setError('')
+    setAnnouncement('Syncing subscription…')
     try {
       const response = await fetch('/api/billing/reconcile', { method: 'POST' })
-      if (!response.ok) throw new Error('Unable to complete subscription sync. Please refresh your status and try again shortly.')
+      if (!response.ok) throw new Error('Sync didn’t complete. Please try again in a moment.')
       await refresh()
-    } catch (e) { setError(e instanceof Error ? e.message : 'Unable to sync subscriptions.') }
-    finally { setSyncing(false) }
+      setSyncedAt(new Date())
+      setAnnouncement('Subscription synced.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Sync didn’t complete.')
+      setAnnouncement('')
+    } finally {
+      setSyncing(false)
+    }
   }
 
-  return <section style={{ display: 'grid', gap: 16 }}>
-    <h2>Billing & credits</h2>
-    {error && <p role="alert">{error}</p>}
-    {!data && !error && <p role="status">Loading billing…</p>}
-    {data && <>
-      <p>Plan: <strong>{data.plan}</strong> · {data.credits.available} AI credits available
-        {data.credits.reserved > 0 && ` (${data.credits.reserved} in use)`}</p>
-      <h3>Subscriptions</h3>
-      {data.subscriptions.length === 0 && <p>No subscription recorded yet.</p>}
-      {data.subscriptions.map((subscription, index) => <p key={index}>
-        {subscription.productKey.replaceAll('_', ' ')}: {subscription.status}
-        {subscription.currentPeriodEnd && ` · ${subscription.cancelAtPeriodEnd ? 'Cancellation scheduled for' : 'Current period ends'} ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`}
-      </p>)}
-      <h3>Recent payments</h3>
-      {data.orders.length === 0 && <p>No payments recorded yet.</p>}
-      {data.orders.map((order, index) => <p key={index}>
-        {new Intl.NumberFormat(undefined, { style: 'currency', currency: order.currency }).format(order.amountMinor / 100)}
-        {' · '}{order.status}{' · '}{new Date(order.createdAt).toLocaleDateString()}
-      </p>)}
-      <p>Manage subscriptions, payment methods, and invoices securely through Polar.</p>
-    </>}
-    <div style={{ display: 'flex', gap: 12 }}>
-      <button type="button" disabled={busy} onClick={openPortal}>{busy ? 'Opening…' : 'Manage billing'}</button>
-      <button type="button" onClick={() => { void refresh() }}>Refresh status</button>
-      <button type="button" disabled={syncing} onClick={syncStatus}>{syncing ? 'Syncing…' : 'Sync subscription'}</button>
-    </div>
-  </section>
+  const loading = !data && !error
+  const planKey = data?.plan ?? 'free'
+  const reserved = data?.credits.reserved ?? 0
+
+  return (
+    <section className={styles.root} aria-labelledby={titleId} aria-busy={loading || syncing}>
+      <header className={styles.header}>
+        <h2 id={titleId} className={styles.title}>Billing</h2>
+        <p className={styles.subtitle}>Your plan, AI credits and payments.</p>
+      </header>
+
+      <div className={styles.srOnly} aria-live="polite" aria-atomic="true">{announcement}</div>
+
+      {error && (
+        <div className={styles.alert} role="alert">
+          <p className={styles.alertText}>{error}</p>
+          <button type="button" className={styles.linkButton} onClick={() => { setError(''); void refresh() }}>
+            Retry
+          </button>
+        </div>
+      )}
+
+      {loading && (
+        <div>
+          <span className={styles.srOnly}>Loading billing details…</span>
+          {[0, 1, 2].map((row) => (
+            <div key={row} className={styles.row} aria-hidden="true">
+              <span className={styles.skeleton} style={{ width: 64 }} />
+              <div className={styles.content}>
+                <span className={styles.skeleton} style={{ width: '55%' }} />
+                <span className={styles.skeleton} style={{ width: '35%' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {data && (
+        <>
+          <div className={styles.row}>
+            <h3 className={styles.label}>Plan</h3>
+            <div className={styles.content}>
+              <div className={styles.planLine}>
+                <span className={`${styles.badge} ${planKey !== 'free' ? styles.badgePaid : ''}`}>
+                  {PLAN_NAMES[planKey] ?? titleCase(planKey)}
+                </span>
+              </div>
+              <p className={styles.credits} style={{ margin: 0 }}>
+                <span className={styles.creditsValue}>{data.credits.available.toLocaleString()}</span>
+                <span className={styles.muted}>AI credits available</span>
+              </p>
+              {reserved > 0 && (
+                <p className={styles.caption}>
+                  {reserved} {reserved === 1 ? 'credit is' : 'credits are'} held for a generation in progress.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className={styles.row}>
+            <h3 id={subsId} className={styles.label}>Subscription</h3>
+            <div className={styles.content}>
+              {data.subscriptions.length === 0 ? (
+                <p className={styles.empty}>No active subscription.</p>
+              ) : (
+                <ul className={styles.list} aria-labelledby={subsId}>
+                  {data.subscriptions.map((sub) => {
+                    const status = SUBSCRIPTION_STATUS[sub.status] ?? { label: titleCase(sub.status), tone: 'neutral' as Tone }
+                    const meta = subscriptionMeta(sub)
+                    return (
+                      <li key={`${sub.productKey}-${sub.currentPeriodEnd ?? sub.status}`} className={styles.item}>
+                        <p className={styles.itemName}>{productName(sub.productKey)}</p>
+                        {meta && <p className={styles.itemMeta}>{meta}</p>}
+                        <div className={styles.itemEnd}>
+                          <StatusPill label={status.label} tone={status.tone} />
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          <div className={styles.row}>
+            <h3 id={paymentsId} className={styles.label}>Payments</h3>
+            <div className={styles.content}>
+              {data.orders.length === 0 ? (
+                <p className={styles.empty}>No payments yet.</p>
+              ) : (
+                <ul className={styles.list} aria-labelledby={paymentsId}>
+                  {data.orders.map((order, index) => {
+                    const status = ORDER_STATUS[order.status] ?? { label: titleCase(order.status), tone: 'neutral' as Tone }
+                    return (
+                      <li key={order.id ?? `${order.createdAt}-${index}`} className={styles.item}>
+                        <p className={styles.itemName}>{productName(order.productKey)}</p>
+                        <p className={styles.itemMeta}><DateText iso={order.createdAt} /></p>
+                        <div className={styles.itemEnd}>
+                          <StatusPill label={status.label} tone={status.tone} />
+                          <span className={styles.amount}>{formatMoney(order.amountMinor, order.currency)}</span>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className={styles.row}>
+        <h3 className={styles.label}>Manage</h3>
+        <div className={styles.content}>
+          <div className={styles.actions}>
+            <button
+              type="button"
+              className={`${styles.button} ${styles.primary}`}
+              disabled={busy}
+              aria-busy={busy}
+              onClick={openPortal}
+            >
+              {busy ? 'Opening…' : 'Manage billing'}
+              <ExternalLink size={14} aria-hidden="true" />
+              <span className={styles.srOnly}> (opens Polar)</span>
+            </button>
+            <button
+              type="button"
+              className={styles.button}
+              disabled={syncing}
+              aria-busy={syncing}
+              onClick={syncStatus}
+            >
+              <RefreshCw size={14} aria-hidden="true" className={syncing ? styles.spin : undefined} />
+              {syncing ? 'Syncing…' : 'Sync subscription'}
+            </button>
+          </div>
+          <p className={styles.caption}>
+            Payment method, invoices and cancellation are handled on Polar.
+            {syncedAt && <> Synced at <time dateTime={syncedAt.toISOString()}>{syncedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time>.</>}
+          </p>
+        </div>
+      </div>
+    </section>
+  )
 }
 
 /** Bounded polling; the return URL cannot grant access or assert a successful payment. */
@@ -110,26 +342,29 @@ export function CheckoutFeedback() {
         const status: BillingStatus = await response.json()
         if (controller.signal.aborted) return
         if (status.checkout?.status === 'succeeded') {
-          setMessage('Payment recorded. View your credits and plan in Account → Billing.')
+          setMessage('Payment recorded. Your credits and plan are in Account → Billing.')
           return
         }
         if (['unknown', 'failed', 'expired'].includes(status.checkout?.status ?? 'unknown')) {
-          setMessage('Payment could not be confirmed. Check Account → Billing before trying again.')
+          setMessage('We couldn’t confirm this payment. Check Account → Billing before trying again.')
           return
         }
       } catch {
         if (controller.signal.aborted) return
       }
       if (++attempts < 10) timer = setTimeout(check, 3000)
-      else setMessage('Still waiting for payment confirmation. Check Account → Billing shortly; do not pay again.')
+      else setMessage('Still confirming your payment. Check Account → Billing shortly — please don’t pay again.')
     }
     void check()
     return () => { controller.abort(); clearTimeout(timer) }
   }, [])
   if (!message) return null
-  return <div role="status" style={{ position: 'fixed', bottom: 24, left: 24, right: 24,
-    zIndex: 50, background: '#202020', color: '#fff', padding: 16, borderRadius: 12,
-    display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-    <span>{message}</span><button type="button" aria-label="Dismiss payment status" onClick={() => setMessage('')}>Dismiss</button>
-  </div>
+  return (
+    <div className={styles.toast} role="status" aria-live="polite" aria-atomic="true">
+      <p className={styles.toastText}>{message}</p>
+      <button type="button" className={styles.toastButton} aria-label="Dismiss payment status" onClick={() => setMessage('')}>
+        Dismiss
+      </button>
+    </div>
+  )
 }
