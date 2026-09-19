@@ -10,6 +10,8 @@ import {
   trackShareLinkCreated,
 } from '@/lib/analytics'
 import { SPRING } from '@/lib/motion'
+import { CanvasThemeToggle, type CanvasTheme } from './CanvasThemeToggle'
+import { UpgradeModal } from './UpgradeModal'
 import { useToast } from '@/components/ui/Toast'
 import { CodeSheet } from '@/components/ui/CodeSheet'
 import { AuthControl } from '@/components/editor/AuthControl'
@@ -34,14 +36,18 @@ interface TopBarProps {
   onChangeFile3D?: () => void
   onBrowseLibrary?: () => void
   isLibraryOpen?: boolean
+  canvasTheme?: CanvasTheme
+  onCanvasThemeChange?: (theme: CanvasTheme) => void
 }
 
 export function TopBar({
   appMode = 'animate',
   onExport3D, onExportWebM3D, onCopyEmbed3D, canExport3D, asset3dFileName, asset3dKind,
   onChangeFile3D, onBrowseLibrary, isLibraryOpen,
+  canvasTheme, onCanvasThemeChange,
 }: TopBarProps) {
   const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [upgradeOpen,     setUpgradeOpen]     = useState(false)
   const [format3d,        setFormat3d]        = useState<Format3D>('gif')
   const [embedCode,       setEmbedCode]       = useState<string | null>(null)
 
@@ -129,7 +135,9 @@ export function TopBar({
           <div
             className="inline-flex items-center gap-[8px] px-[18px] py-[12px]"
             style={{
-              width: displayFileName ? 365 : 62,
+              // Wide enough for the mark plus the wordmark; the pill clips its
+              // contents, so this must track the logo's real width.
+              width: displayFileName ? 365 : 118,
               height: 62,
               borderRadius: 58,
               background: 'var(--filepanel-bg)',
@@ -191,8 +199,12 @@ export function TopBar({
           </div>
         </div>
 
-        {/* ── Right: Sign in + Export ── */}
+        {/* ── Right: Theme + Upgrade + Sign in + Export ── */}
         <div className="pointer-events-auto flex items-center gap-[10px]">
+          {canvasTheme && onCanvasThemeChange && (
+            <CanvasThemeToggle theme={canvasTheme} onChange={onCanvasThemeChange} />
+          )}
+          <UpgradeButton onClick={() => setUpgradeOpen(true)} />
           <AuthControl />
           <motion.button
             onClick={displayCanExport && !isRunning ? () => { setExportModalOpen(true); trackExportModalOpened() } : undefined}
@@ -234,6 +246,10 @@ export function TopBar({
       </motion.div>
 
       <AnimatePresence>
+        {upgradeOpen && <UpgradeModal key="upgrade-modal" onClose={() => setUpgradeOpen(false)} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {embedCode !== null && (
           <CodeSheet
             key="embed-sheet"
@@ -267,7 +283,67 @@ export function TopBar({
 }
 
 function ReframeLogo() {
-  return <img src="/figma-icons/platform-logo.svg" alt="" width={26} height={26} style={{ flexShrink: 0, filter: 'var(--pill-icon-filter)' }} />
+  // Mark plus wordmark, per Figma 102:797. The wordmark carries the product
+  // name, so the group is labelled once here and both images stay decorative.
+  return (
+    <span
+      role="img"
+      aria-label="Reframe"
+      style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
+    >
+      <img src="/figma-icons/reframe-mark.svg" alt="" width={26} height={26} style={{ flexShrink: 0, display: 'block', filter: 'var(--pill-icon-filter)' }} />
+      <img src="/figma-icons/reframe-wordmark.svg" alt="" width={50} height={10} style={{ flexShrink: 0, display: 'block', filter: 'var(--pill-icon-filter)' }} />
+    </span>
+  )
+}
+
+/**
+ * Upgrade entry point (Figma 102:1244): a dark pill whose label carries the
+ * plan gradient. `color` is set before the gradient so engines without
+ * background-clip: text still render readable text rather than nothing.
+ */
+function UpgradeButton({ onClick }: { onClick: () => void }) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      // The label is spelled out because the gradient paints the text with a
+      // transparent fill, which some assistive tech skips when naming.
+      aria-label="Upgrade to Pro"
+      whileTap={{ scale: 0.96 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 46,
+        padding: '0 22px',
+        borderRadius: 999,
+        border: '1px solid rgba(255,255,255,0.10)',
+        background: '#0E0E0F',
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = '#161618')}
+      onMouseLeave={e => (e.currentTarget.style.background = '#0E0E0F')}
+    >
+      <span
+        style={{
+          ...f,
+          fontWeight: 500,
+          fontSize: 14,
+          letterSpacing: 0.028,
+          color: '#C9D4FF',
+          backgroundImage: 'linear-gradient(94deg, #FF6B6B 9.6%, #8098F9 102%)',
+          backgroundClip: 'text',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        }}
+      >
+        Upgrade
+      </span>
+    </motion.button>
+  )
 }
 
 // ── Export Modal ─────────────────────────────────────────────────

@@ -1,0 +1,224 @@
+/*
+ * Upgrade modal — Figma node 102:1913.
+ *
+ * Copy is deliberately narrower than the source design: it names only what Pro
+ * actually enforces today (the monthly AI allowance). Feature claims belong
+ * here only once the matching gate exists in the code.
+ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+  background: rgba(17, 17, 17, 0.7);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
+.dialog {
+  position: relative;
+  width: 467px;
+  max-width: 100%;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 32px 40px;
+  border: 0.5px solid rgba(36, 36, 49, 0.64);
+  border-radius: 28px;
+  background: rgba(46, 46, 46, 0.85);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  box-shadow: 0 16px 70px rgba(0, 0, 0, 0.5);
+  color: #f5f5f7;
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 20px;
+  letter-spacing: -0.9492px;
+  color: #f5f5f7;
+}
+
+/* The plan chip. The gradient paints the text itself, so a colour is set
+   first as the fallback for engines without background-clip: text. */
+.planChip {
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #65dbff;
+  border-radius: 30px;
+  background: #2c2f39;
+  box-shadow:
+    inset 0 4px 14px rgba(255, 243, 81, 0.1),
+    inset 0 4px 4px rgba(55, 90, 119, 0.35);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: -0.5004px;
+  white-space: nowrap;
+  color: #65dbff;
+  background-image: linear-gradient(150.59deg, #65dbff 25.3%, #f3ff13 103.56%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@supports not ((background-clip: text) or (-webkit-background-clip: text)) {
+  .planChip {
+    background-image: none;
+    -webkit-text-fill-color: #65dbff;
+  }
+}
+
+.lede {
+  margin: 0;
+  max-width: 339px;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: -0.5004px;
+  color: #98989d;
+}
+
+.priceRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.price {
+  margin: 0;
+  font-size: 64px;
+  font-weight: 600;
+  line-height: 64px;
+  letter-spacing: -1.3813px;
+  color: #f5f5f7;
+}
+
+.priceMeta {
+  display: flex;
+  flex-direction: column;
+}
+
+.priceMeta span {
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: -0.5004px;
+  color: #98989d;
+}
+
+.features {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: -0.5004px;
+  color: #f5f5f7;
+}
+
+.feature img {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+}
+
+.cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 40px;
+  border: none;
+  border-radius: 999px;
+  background: #d06523;
+  box-shadow: inset 0 2.5px 5px rgba(255, 255, 255, 0.35);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  letter-spacing: -0.3744px;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.cta:hover:not(:disabled) { background: #e07028; }
+.cta:disabled { opacity: 0.6; cursor: progress; }
+
+.close {
+  position: absolute;
+  top: 13.5px;
+  right: 12.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.close:hover { opacity: 1; }
+
+.close img {
+  width: 24px;
+  height: 24px;
+}
+
+.error {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: #ff9b85;
+}
+
+.footnote {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: #98989d;
+}
+
+@media (max-width: 520px) {
+  .dialog { padding: 28px 24px; gap: 20px; }
+  .price { font-size: 52px; line-height: 52px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta { transition: none; }
+}
