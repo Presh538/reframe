@@ -24,5 +24,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly' as const,
       priority: 0.8,
     })),
+    ...['/privacy', '/terms'].map((path) => ({
+      url: `${APP_URL}${path}`,
+      lastModified: now,
+      changeFrequency: 'yearly' as const,
+      priority: 0.2,
+    })),
   ]
 }
