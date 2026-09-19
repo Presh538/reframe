@@ -8,11 +8,11 @@ export const LEGAL = {
   product: 'Reframe',
   site: 'https://reframeo.com',
   /** The person or company legally responsible for the service. */
-  operator: '[[OPERATOR LEGAL NAME]]',
+  operator: 'Precious Ogar',
   /** Where privacy and support requests should go. */
-  contactEmail: '[[CONTACT EMAIL]]',
+  contactEmail: 'support@reframeo.com',
   /** Law and courts that govern the Terms. */
-  governingLaw: '[[COUNTRY / STATE]]',
+  governingLaw: 'the Federal Republic of Nigeria',
   effectiveDate: '[[EFFECTIVE DATE]]',
 } as const
 
