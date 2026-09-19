@@ -13,7 +13,7 @@ export const LEGAL = {
   contactEmail: 'support@reframeo.com',
   /** Law and courts that govern the Terms. */
   governingLaw: 'the Federal Republic of Nigeria',
-  effectiveDate: '[[EFFECTIVE DATE]]',
+  effectiveDate: '19 September 2026',
 } as const
 
 export function hasPlaceholders(): string[] {
