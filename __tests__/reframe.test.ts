@@ -224,8 +224,9 @@ describe('Export constants — GIF', () => {
     expect(Number(m![1])).toBeGreaterThanOrEqual(20)
   })
 
-  test('setQuality is called with 1 (maximum NeuQuant quality)', () => {
-    expect(gifSrc).toContain('setQuality(1)')
+  test('NeuQuant receives the validated dynamic quality value', () => {
+    expect(gifSrc).toContain('probe.setQuality(quality)')
+    expect(gifSrc).toContain('encoder.setQuality(quality)')
   })
 
   test('imageSmoothingQuality is set to "high"', () => {
@@ -234,8 +235,8 @@ describe('Export constants — GIF', () => {
 })
 
 describe('Export constants — WebM', () => {
-  test('bitrate is at least 8_000_000 for flow WebM', () => {
-    const m = webmSrc.match(/videoBitsPerSecond\s*[=:]\s*([\d_]+)/)
+  test('full-quality bitrate is at least 8_000_000 for flow WebM', () => {
+    const m = webmSrc.match(/Math\.round\(([\d_]+) \* qFraction\)/)
     expect(m).not.toBeNull()
     const bps = Number(m![1].replace(/_/g, ''))
     expect(bps).toBeGreaterThanOrEqual(8_000_000)
@@ -289,20 +290,96 @@ describe('Motion constants', () => {
   })
 })
 
-// ── 6. MIDDLEWARE ROUTING ─────────────────────────────────────────
+// ── 6. PROXY ROUTING ──────────────────────────────────────────────
 
-const middlewareSrc = fs.readFileSync(
-  path.resolve(__dirname, '../middleware.ts'), 'utf8'
-)
+// Next resolves the proxy next to the app directory, so in a src/ project it
+// must live at src/proxy.ts. At the repo root it is silently never executed.
+const PROXY_PATH = path.resolve(__dirname, '../src/proxy.ts')
 
-describe('Middleware', () => {
-  test('public paths (api, _next, favicon) are excluded from auth', () => {
-    expect(middlewareSrc).toContain('/api/')
-    expect(middlewareSrc).toContain('_next')
-    expect(middlewareSrc).toContain('favicon')
+const proxySrc = fs.readFileSync(PROXY_PATH, 'utf8')
+
+describe('Proxy', () => {
+  test('proxy lives beside the app directory so Next actually runs it', () => {
+    // A proxy at the repo root is ignored in a src/ project: no error, it just
+    // never executes, silently disabling CORS and the payload cap.
+    expect(fs.existsSync(PROXY_PATH)).toBe(true)
+    expect(fs.existsSync(path.resolve(__dirname, '../proxy.ts'))).toBe(false)
   })
 
-  test('middleware file is non-empty', () => {
-    expect(middlewareSrc.length).toBeGreaterThan(50)
+  test('static assets are excluded while API routes remain covered', () => {
+    expect(proxySrc).toContain("'/(api|trpc)(.*)'")
+    expect(proxySrc).toContain('_next/static')
+    expect(proxySrc).toContain('favicon.ico')
+  })
+
+  test('proxy file is non-empty', () => {
+    expect(proxySrc.length).toBeGreaterThan(50)
+  })
+})
+
+// ── 7. APP ORIGIN ALLOWLIST ───────────────────────────────────────
+
+import { allowedAppOrigins, isAllowedAppOrigin, returnOriginFor } from '@/lib/app-origin'
+
+describe('App origin allowlist', () => {
+  const saved = { ...process.env }
+  afterEach(() => { process.env = { ...saved } })
+
+  const configure = () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://reframeo.com'
+    process.env.VERCEL_URL = 'reframe-abc123-team.vercel.app'
+    process.env.VERCEL_BRANCH_URL = 'reframe-git-dev-team.vercel.app'
+    delete process.env.VERCEL_PROJECT_PRODUCTION_URL
+  }
+
+  test('accepts the canonical domain and the deployment\'s own Vercel hostnames', () => {
+    configure()
+    expect(isAllowedAppOrigin('https://reframeo.com')).toBe(true)
+    expect(isAllowedAppOrigin('https://reframe-abc123-team.vercel.app')).toBe(true)
+    expect(isAllowedAppOrigin('https://reframe-git-dev-team.vercel.app')).toBe(true)
+  })
+
+  test('rejects lookalike and suffix-attack origins', () => {
+    configure()
+    for (const origin of [
+      'https://evil-reframeo.com',
+      'https://reframeo.com.evil.com',
+      'http://reframeo.com',             // scheme downgrade
+      'https://reframeo.com:8443',       // different port
+      'https://other-project.vercel.app',
+      'null',
+      'not a url',
+    ]) {
+      expect(isAllowedAppOrigin(origin)).toBe(false)
+    }
+  })
+
+  test('never lists a duplicate or malformed origin', () => {
+    configure()
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = 'reframeo.com'
+    expect(allowedAppOrigins()).toEqual([
+      'https://reframeo.com',
+      'https://reframe-abc123-team.vercel.app',
+      'https://reframe-git-dev-team.vercel.app',
+    ])
+  })
+
+  test('returns a checkout to the preview it started on', () => {
+    configure()
+    const request = new Request('https://reframe-abc123-team.vercel.app/api/billing/checkout')
+    expect(returnOriginFor(request)).toBe('https://reframe-abc123-team.vercel.app')
+  })
+
+  test('never redirects to an untrusted Host header', () => {
+    configure()
+    const request = new Request('https://attacker.example/api/billing/checkout')
+    expect(returnOriginFor(request)).toBe('https://reframeo.com')
+  })
+
+  test('proxy still rejects cross-origin mutations in production and never sends credentials', () => {
+    expect(proxySrc).toContain('isAllowedAppOrigin')
+    expect(proxySrc).toContain("process.env.NODE_ENV === 'production'")
+    expect(proxySrc).toMatch(/status:\s*403/)
+    expect(proxySrc).toContain("'Access-Control-Allow-Credentials', 'false'")
   })
 })

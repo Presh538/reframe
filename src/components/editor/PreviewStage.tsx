@@ -9,6 +9,8 @@ import DOMPurify from 'dompurify'
 import { validateSvgFile, sanitizeSvgClient, normalizeSvgElement, extractLayerInfo } from '@/lib/svg/sanitize'
 import { autoGroupSvg } from '@/lib/svg/autoGroup'
 import { useToast } from '@/components/ui/Toast'
+import { applyAnimationPlan } from '@/lib/custom-animation/apply'
+import { buildSceneManifest } from '@/lib/custom-animation/scene'
 
 const ZOOM_MIN = 0.1
 const ZOOM_MAX = 1        // Cap at 100% — preview fits the SVG at native size
@@ -32,6 +34,7 @@ export function PreviewStage() {
   const svgSource      = useEditorStore(s => s.svgSource)
   const svgFileName    = useEditorStore(s => s.svgFileName)
   const activePresetId = useEditorStore(s => s.activePresetId)
+  const customAnimationPlan = useEditorStore(s => s.customAnimationPlan)
   const params         = useEditorStore(s => s.params)
   const isPlaying      = useEditorStore(s => s.isPlaying)
   const restartTick    = useEditorStore(s => s.restartTick)
@@ -53,9 +56,11 @@ export function PreviewStage() {
   // Always-current refs so effects and timers avoid stale closures
   const paramsRef          = useRef(params)
   const activePresetIdRef  = useRef(activePresetId)
+  const customAnimationPlanRef = useRef(customAnimationPlan)
   const isPlayingRef       = useRef(isPlaying)
   paramsRef.current        = params
   activePresetIdRef.current = activePresetId
+  customAnimationPlanRef.current = customAnimationPlan
   isPlayingRef.current     = isPlaying
 
   // Tracks which svgSource string has already been auto-grouped so we never
@@ -100,11 +105,6 @@ export function PreviewStage() {
 
     loopTimerRef.current = setTimeout(() => {
       if (!svgRef.current || !isPlayingRef.current) return
-      const presetId = activePresetIdRef.current
-      if (!presetId) return
-      const preset = getPreset(presetId)
-      if (!preset) return
-
       // CSS animation restart trick — avoids the clear→unanimated-state flash.
       // Briefly set animation to 'none' on each element to reset the iteration
       // counter, force a style recalculation (not a visual repaint), then restore.
@@ -127,6 +127,23 @@ export function PreviewStage() {
       scheduleLoop()
     }, waitMs)
   }, [clearLoopTimer])
+
+  const applyCurrentAnimation = useCallback((svgEl: SVGSVGElement): boolean => {
+    const customPlan = customAnimationPlanRef.current
+    if (customPlan) {
+      // Re-injection replaces the DOM, so recreate the deterministic node IDs
+      // before applying a plan generated from the same source ordering.
+      buildSceneManifest(svgEl)
+      applyAnimationPlan(svgEl, customPlan, paramsRef.current)
+      return true
+    }
+
+    const presetId = activePresetIdRef.current
+    const preset = presetId ? getPreset(presetId) : null
+    if (!preset) return false
+    preset.apply(svgEl, paramsRef.current)
+    return true
+  }, [])
 
   // ── Apply CSS transform directly to the canvas div ───────────
   const applyTransform = useCallback(() => {
@@ -310,11 +327,15 @@ export function PreviewStage() {
     }
 
     clearLoopTimer()
-    if (!activePresetId) return
-    const preset = getPreset(activePresetId)
-    if (!preset || !svgRef.current) return
+    if ((!activePresetId && !customAnimationPlan) || !svgRef.current) return
     clearAnimations(svgRef.current)
-    preset.apply(svgRef.current, params)
+    try {
+      if (!applyCurrentAnimation(svgRef.current)) return
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Could not apply custom animation', 'error')
+      setPlaying(false)
+      return
+    }
     finishedRef.current = false   // fresh animation — not in the finished state
     setPlaying(true)
     // Arm JS-managed loop restart for 'loop' and 'bounce' modes
@@ -325,7 +346,7 @@ export function PreviewStage() {
       liveSvgRef.current = null
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [svgSource, activePresetId, params, injectSvg, setPlaying, setSvgHasGroups])
+  }, [svgSource, activePresetId, customAnimationPlan, params, injectSvg, setPlaying, setSvgHasGroups, applyCurrentAnimation])
 
   // ── Detect animation completion (once mode only) ───────────────
   // For loop/bounce the JS timer handles restart; for 'once' we stop playback.
@@ -355,8 +376,7 @@ export function PreviewStage() {
       if (finishedRef.current) {
         // The sequence had played to its end — Play means "replay from frame 0".
         finishedRef.current = false
-        const preset = activePresetIdRef.current ? getPreset(activePresetIdRef.current) : null
-        if (preset && svgRef.current) {
+        if ((activePresetIdRef.current || customAnimationPlanRef.current) && svgRef.current) {
           clearAnimations(svgRef.current)
           // Force a style flush so the cleared (animation removed) state is
           // committed before re-applying. Without this, clearing and re-setting
@@ -365,8 +385,12 @@ export function PreviewStage() {
           // frozen at its finished frame. (scheduleLoop's restart uses the same
           // reflow trick.)
           void svgRef.current.getBoundingClientRect()
-          preset.apply(svgRef.current, paramsRef.current)
-          scheduleLoop()
+          try {
+            if (applyCurrentAnimation(svgRef.current)) scheduleLoop()
+          } catch (error) {
+            toast(error instanceof Error ? error.message : 'Could not replay animation', 'error')
+            setPlaying(false)
+          }
         }
       } else {
         // Resume from a manual pause (animation still mid-flight).
@@ -382,23 +406,27 @@ export function PreviewStage() {
       clearLoopTimer()
       els.forEach(el => { el.style.animationPlayState = 'paused' })
     }
-  }, [isPlaying, scheduleLoop, clearLoopTimer])
+  }, [isPlaying, scheduleLoop, clearLoopTimer, applyCurrentAnimation, setPlaying, toast])
 
   // ── Restart button (restartTick increments) ───────────────────
   // Fires when the user presses the Restart button in ControlsSidebar.
   // Does a full clear + re-apply so the animation always starts from frame 0,
   // even when params haven't changed (unlike the loop restart trick above).
   useEffect(() => {
-    if (!restartTick || !svgRef.current || !activePresetId) return
-    const preset = getPreset(activePresetId)
-    if (!preset) return
+    if (!restartTick || !svgRef.current || (!activePresetId && !customAnimationPlan)) return
     clearLoopTimer()
     clearAnimations(svgRef.current)
     // Force a style flush before re-applying — otherwise clearing and re-setting
     // the same animation string in one tick coalesces to "no change" and the
     // browser doesn't restart it (same reason as the Play replay path above).
     void svgRef.current.getBoundingClientRect()
-    preset.apply(svgRef.current, paramsRef.current)
+    try {
+      if (!applyCurrentAnimation(svgRef.current)) return
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Could not restart animation', 'error')
+      setPlaying(false)
+      return
+    }
     finishedRef.current = false   // fresh animation — not in the finished state
     setPlaying(true)
     scheduleLoop()

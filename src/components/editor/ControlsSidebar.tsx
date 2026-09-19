@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { useEditorStore } from '@/lib/store/editor'
+import { useEditorStore, selectCanPlay } from '@/lib/store/editor'
 import { SPRING } from '@/lib/motion'
 import type { AnimParams, EasingType } from '@/types'
 import { PRESETS } from '@/lib/presets'
@@ -44,6 +44,7 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
   const zoom             = useEditorStore(s => s.zoom)
   const isPanMode        = useEditorStore(s => s.isPanMode)
   const activePresetId   = useEditorStore(s => s.activePresetId)
+  const customAnimationPlan = useEditorStore(s => s.customAnimationPlan)
   const setPlaying       = useEditorStore(s => s.setPlaying)
   const setActivePreset  = useEditorStore(s => s.setActivePreset)
   const updateParam      = useEditorStore(s => s.updateParam)
@@ -51,9 +52,9 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
   const setPanMode       = useEditorStore(s => s.setPanMode)
 
   const hasFile = svgSource !== null
-  // Play / restart need both a file AND an applied preset — otherwise clicking
+  // Play / restart need both a file AND an applied animation — otherwise clicking
   // Play produces no motion (nothing to animate), which reads as a broken button.
-  const canPlay = hasFile && activePresetId !== null
+  const canPlay = useEditorStore(selectCanPlay)
 
   const set = <K extends keyof AnimParams>(key: K) => (value: AnimParams[K]) => updateParam(key, value)
 
@@ -158,7 +159,7 @@ export function ControlsSidebar({ onOpenPresets, onOpenEasing, presetsOpen, easi
         <div style={{ position: 'relative', width: 333 }}>
           <SelectorRow
             label="Preset"
-            value={activePreset?.name ?? '— Please select'}
+            value={customAnimationPlan?.name ?? activePreset?.name ?? '— Please select'}
             icon={activePresetId ? <PresetIcon id={activePresetId} /> : <Icon src="/figma-icons/keyframes.svg" size={18} />}
             onClick={onOpenPresets}
             active={presetsOpen}

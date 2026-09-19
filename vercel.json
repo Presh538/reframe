@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/cleanup-shares",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/billing-reconcile",
+      "schedule": "0 4 * * *"
     }
   ]
 }

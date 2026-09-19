@@ -12,6 +12,7 @@ import {
 import { SPRING } from '@/lib/motion'
 import { useToast } from '@/components/ui/Toast'
 import { CodeSheet } from '@/components/ui/CodeSheet'
+import { AuthControl } from '@/components/editor/AuthControl'
 import { computeSequenceDuration } from '@/lib/svg/animate'
 import type { ExportFormat } from '@/types'
 
@@ -47,6 +48,7 @@ export function TopBar({
   const format         = useEditorStore(s => s.format)
   const exportState    = useEditorStore(s => s.export)
   const activePresetId = useEditorStore(s => s.activePresetId)
+  const customAnimationPlan = useEditorStore(s => s.customAnimationPlan)
   const params         = useEditorStore(s => s.params)
   const canExport      = useEditorStore(selectCanExport)
   const svgFileName    = useEditorStore(s => s.svgFileName)
@@ -82,11 +84,11 @@ export function TopBar({
 
   const handleExport = async (quality?: number, fps?: number) => {
     if (appMode === 'animate') {
-      if (!canExport || !activePresetId) return
+      if (!canExport) return
       trackExportStarted({ format, quality, fps })
       setExportState({ isRunning: true, progress: 0, error: null })
       await runExport({
-        format, activePresetId, params, quality, fps,
+        format, activePresetId, customAnimationPlan, params, quality, fps,
         onProgress:  p    => setExportState({ progress: p }),
         onError:     msg  => { setExportState({ error: msg }); toast(msg, 'error') },
         onSuccess:   msg  => toast(msg, 'success'),
@@ -189,8 +191,9 @@ export function TopBar({
           </div>
         </div>
 
-        {/* ── Right: Export button ── */}
-        <div className="pointer-events-auto">
+        {/* ── Right: Sign in + Export ── */}
+        <div className="pointer-events-auto flex items-center gap-[10px]">
+          <AuthControl />
           <motion.button
             onClick={displayCanExport && !isRunning ? () => { setExportModalOpen(true); trackExportModalOpened() } : undefined}
             disabled={!displayCanExport || isRunning}

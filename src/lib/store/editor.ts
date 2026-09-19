@@ -12,6 +12,7 @@ import type { EditorState, AnimParams, ExportFormat, SvgLayerInfo } from '@/type
 import { DEFAULT_PARAMS } from '@/types'
 import { fragmentSvg } from '@/lib/svg/fragment'
 import { extractLayerInfo, normalizeSvgElement } from '@/lib/svg/sanitize'
+import type { AnimationPlan } from '@/lib/custom-animation/schema'
 
 // ── Actions ───────────────────────────────────────────────────
 
@@ -22,6 +23,8 @@ interface EditorActions {
   clearSvg: () => void
   /** Set the active preset */
   setActivePreset: (id: string | null) => void
+  /** Apply a schema-validated custom animation plan */
+  setCustomAnimationPlan: (plan: AnimationPlan | null) => void
   /** Update a single animation parameter */
   updateParam: <K extends keyof AnimParams>(key: K, value: AnimParams[K]) => void
   /** Replace all params at once (e.g. on preset change) */
@@ -56,6 +59,7 @@ const INITIAL_STATE: EditorState = {
   svgFileName: '',
   svgLayers: null,
   activePresetId: null,
+  customAnimationPlan: null,
   params: DEFAULT_PARAMS,
   format: 'gif',
   isPlaying: false,
@@ -82,13 +86,24 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       ...INITIAL_STATE,
 
       setSvgSource: (source, fileName, layers) =>
-        set({ svgSource: source, svgFileName: fileName, svgLayers: layers, isFragmented: false, svgHasGroups: true }, false, 'setSvgSource'),
+        set({
+          svgSource: source,
+          svgFileName: fileName,
+          svgLayers: layers,
+          isFragmented: false,
+          svgHasGroups: true,
+          activePresetId: null,
+          customAnimationPlan: null,
+        }, false, 'setSvgSource'),
 
       clearSvg: () =>
         set({ ...INITIAL_STATE }, false, 'clearSvg'),
 
       setActivePreset: (id) =>
-        set({ activePresetId: id }, false, 'setActivePreset'),
+        set({ activePresetId: id, ...(id ? { customAnimationPlan: null } : {}) }, false, 'setActivePreset'),
+
+      setCustomAnimationPlan: (plan) =>
+        set({ customAnimationPlan: plan, ...(plan ? { activePresetId: null } : {}) }, false, 'setCustomAnimationPlan'),
 
       updateParam: (key, value) =>
         set(
@@ -139,7 +154,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
             normalizeSvgElement(svgEl)
             const layers = extractLayerInfo(svgEl)
             set(
-              { svgSource: result.svg, svgLayers: layers, isFragmented: true, activePresetId: null },
+              { svgSource: result.svg, svgLayers: layers, isFragmented: true, activePresetId: null, customAnimationPlan: null },
               false,
               'fragmentElements'
             )
@@ -147,7 +162,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
           }
         } catch { /* fall through */ }
 
-        set({ svgSource: result.svg, isFragmented: true, activePresetId: null }, false, 'fragmentElements')
+        set({ svgSource: result.svg, isFragmented: true, activePresetId: null, customAnimationPlan: null }, false, 'fragmentElements')
       },
     }),
     {
@@ -158,6 +173,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         svgFileName:   state.svgFileName,
         svgLayers:     state.svgLayers,
         activePresetId: state.activePresetId,
+        customAnimationPlan: state.customAnimationPlan,
         params:        state.params,
         isFragmented:  state.isFragmented,
       }),
@@ -185,13 +201,13 @@ export const redoEditor = () => useEditorStore.temporal.getState().redo()
 
 export const selectSvgReady = (s: EditorState) => s.svgSource !== null
 export const selectCanExport = (s: EditorState) =>
-  s.svgSource !== null && s.activePresetId !== null && !s.export.isRunning
+  s.svgSource !== null && (s.activePresetId !== null || s.customAnimationPlan !== null) && !s.export.isRunning
 
-/** Playback (play / restart / Space) requires both an SVG and an applied preset.
- *  Pressing play with no preset produced no motion, which read as a broken
+/** Playback (play / restart / Space) requires both an SVG and an animation.
+ *  Pressing play with no animation produced no motion, which read as a broken
  *  button — so we disable the control until there's something to animate. */
 export const selectCanPlay = (s: EditorState) =>
-  s.svgSource !== null && s.activePresetId !== null
+  s.svgSource !== null && (s.activePresetId !== null || s.customAnimationPlan !== null)
 
 // ── Live SVG element ref ───────────────────────────────────────
 // A module-level mutable ref to the live, animated SVG element rendered inside

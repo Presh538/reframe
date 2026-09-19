@@ -14,6 +14,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { ValidateSvgResponse, SvgLayerInfo } from '@/types'
+import { checkRateLimit, RateLimitUnavailableError } from '@/lib/rate-limit'
 
 // ── Route segment config ──────────────────────────────────────
 // Raise the default 4 MB body limit so large SVG files can pass through.
@@ -22,29 +23,6 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 30 // seconds (generous for large file processing)
 // Next.js App Router body size (applies to the Node.js runtime)
 export const runtime = 'nodejs'
-
-// ── Rate limiter ──────────────────────────────────────────────
-// Simple in-memory sliding window — 10 requests per IP per minute.
-// KNOWN LIMITATION: serverless instances are ephemeral; a burst attack
-// distributed across enough concurrent requests will spin up fresh instances
-// and bypass this window entirely. For production hardening, replace rateMap
-// with a shared KV store (e.g. Vercel KV / Redis). Until then this blocks
-// trivial single-IP abuse only.
-const rateMap = new Map<string, { count: number; reset: number }>()
-const RATE_LIMIT   = 10
-const RATE_WINDOW  = 60_000 // ms
-
-function isRateLimited(ip: string): boolean {
-  const now   = Date.now()
-  const entry = rateMap.get(ip)
-  if (!entry || now > entry.reset) {
-    rateMap.set(ip, { count: 1, reset: now + RATE_WINDOW })
-    return false
-  }
-  if (entry.count >= RATE_LIMIT) return true
-  entry.count++
-  return false
-}
 
 // ── Request schema ────────────────────────────────────────────
 const RequestSchema = z.object({
@@ -67,11 +45,14 @@ const EXTERNAL_REFS = /\s(href|src|xlink:href)\s*=\s*["'](?!#|data:image\/(png|j
 
 // ── Handler ───────────────────────────────────────────────────
 export async function POST(request: Request) {
-  // Rate limiting — extract IP from Vercel's forwarded header
-  const ip = (request.headers.get('x-forwarded-for') ?? '').split(',')[0]?.trim() || 'unknown'
-  if (isRateLimited(ip)) {
-    return error('Too many requests — please wait a moment', 429)
+  let rateLimit
+  try {
+    rateLimit = await checkRateLimit(request, { name: 'validate-svg', limit: 10, window: '1 m' })
+  } catch (rateError) {
+    if (rateError instanceof RateLimitUnavailableError) return error('Validation is temporarily unavailable', 503)
+    throw rateError
   }
+  if (!rateLimit.success) return error('Too many requests — please wait a moment', 429)
 
   let body: unknown
   try {

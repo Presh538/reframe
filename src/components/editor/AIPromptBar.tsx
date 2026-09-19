@@ -11,6 +11,7 @@ import {
 } from '@/lib/analytics'
 import type { AnimateResponse } from '@/app/api/ai-animate/route'
 import type { AnimParams } from '@/types'
+import { buildSceneManifest } from '@/lib/custom-animation/scene'
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -28,10 +29,12 @@ export function AIPromptBar({ isLight = false }: { isLight?: boolean }) {
 
   // Store selectors
   const activePresetId  = useEditorStore(s => s.activePresetId)
+  const customAnimationPlan = useEditorStore(s => s.customAnimationPlan)
   const params          = useEditorStore(s => s.params)
   const svgLayers       = useEditorStore(s => s.svgLayers)
   const svgFileName     = useEditorStore(s => s.svgFileName)
   const setActivePreset = useEditorStore(s => s.setActivePreset)
+  const setCustomAnimationPlan = useEditorStore(s => s.setCustomAnimationPlan)
   const updateParam     = useEditorStore(s => s.updateParam)
   const restartAnimation = useEditorStore(s => s.restartAnimation)
   const setPlaying      = useEditorStore(s => s.setPlaying)
@@ -71,21 +74,27 @@ export function AIPromptBar({ isLight = false }: { isLight?: boolean }) {
     setSuggestionsOpen(false)
     setStatus('loading')
     setValue('')
-    trackAiPromptSubmitted({ promptLength: prompt.length, hasActivePreset: !!activePresetId })
+    trackAiPromptSubmitted({ promptLength: prompt.length, hasActivePreset: !!activePresetId || !!customAnimationPlan })
 
     try {
+      const scene = liveSvgRef.current ? buildSceneManifest(liveSvgRef.current) : null
+      // One key per submission, so a retried request cannot be billed twice.
+      const idempotencyKey = crypto.randomUUID()
       const res = await fetch('/api/ai-animate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt,
+          idempotencyKey,
           context: {
             currentPresetId: activePresetId,
+            currentPlan: customAnimationPlan,
             currentParams: params,
             svgLayers: svgLayers
               ? { groups: svgLayers.groups, paths: svgLayers.paths, total: svgLayers.total }
               : null,
             svgFileName: svgFileName || '',
+            scene,
           },
         }),
       })
@@ -97,13 +106,16 @@ export function AIPromptBar({ isLight = false }: { isLight?: boolean }) {
 
       const data: AnimateResponse = await res.json()
 
-      // Apply preset
-      setActivePreset(data.presetId)
-
       // Apply each param individually
       const paramKeys = Object.keys(data.params) as (keyof AnimParams)[]
       for (const key of paramKeys) {
         updateParam(key, data.params[key] as never)
+      }
+
+      if (data.kind === 'custom') {
+        setCustomAnimationPlan(data.plan)
+      } else {
+        setActivePreset(data.presetId)
       }
 
       // Restart + play so the user sees the result immediately
@@ -111,7 +123,7 @@ export function AIPromptBar({ isLight = false }: { isLight?: boolean }) {
       setPlaying(true)
 
       // Show explanation briefly
-      trackAiPromptSucceeded({ presetId: data.presetId, promptLength: prompt.length })
+      trackAiPromptSucceeded({ presetId: data.kind === 'preset' ? data.presetId : 'custom', promptLength: prompt.length })
       setExplanation(data.explanation)
       setStatus('success')
       setTimeout(() => setStatus('idle'), 3000)

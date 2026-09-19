@@ -18,29 +18,11 @@ import { NextResponse } from 'next/server'
 import { z }            from 'zod'
 import { createShare, SHARE_TTL_DAYS } from '@/lib/share'
 import { getPostHogClient } from '@/lib/posthog-server'
+import { checkRateLimit, RateLimitUnavailableError } from '@/lib/rate-limit'
 
 export const runtime    = 'nodejs'
 export const dynamic    = 'force-dynamic'
 export const maxDuration = 15  // sanitize + compress + Blob upload; 15s is generous
-
-// ── Rate limiter: 5 creates / IP / 10 min ────────────────────────
-// Same in-memory pattern as /api/validate-svg.
-// NOTE: For production hardening replace with Vercel KV.
-const rateMap   = new Map<string, { count: number; reset: number }>()
-const RATE_LIMIT  = 5
-const RATE_WINDOW = 10 * 60_000  // 10 minutes
-
-function isRateLimited(ip: string): boolean {
-  const now   = Date.now()
-  const entry = rateMap.get(ip)
-  if (!entry || now > entry.reset) {
-    rateMap.set(ip, { count: 1, reset: now + RATE_WINDOW })
-    return false
-  }
-  if (entry.count >= RATE_LIMIT) return true
-  entry.count++
-  return false
-}
 
 // ── Request schema ────────────────────────────────────────────────
 const RequestSchema = z.object({
@@ -50,11 +32,15 @@ const RequestSchema = z.object({
 
 // ── POST handler ──────────────────────────────────────────────────
 export async function POST(request: Request) {
-  // Rate limit by IP
   const ip = (request.headers.get('x-forwarded-for') ?? '').split(',')[0]?.trim() || 'unknown'
-  if (isRateLimited(ip)) {
-    return err('Too many share requests — please wait a few minutes', 429)
+  let rateLimit
+  try {
+    rateLimit = await checkRateLimit(request, { name: 'share-create', limit: 5, window: '10 m' })
+  } catch (error) {
+    if (error instanceof RateLimitUnavailableError) return err('Sharing is temporarily unavailable', 503)
+    throw error
   }
+  if (!rateLimit.success) return err('Too many share requests — please wait a few minutes', 429)
 
   // Parse body
   let body: unknown

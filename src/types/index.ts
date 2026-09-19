@@ -83,6 +83,8 @@ export interface EditorState {
   svgLayers: SvgLayerInfo | null
   /** Active preset id */
   activePresetId: string | null
+  /** Schema-validated AI motion plan; mutually exclusive with activePresetId */
+  customAnimationPlan: import('@/lib/custom-animation/schema').AnimationPlan | null
   /** Tweak params */
   params: AnimParams
   /** Selected export format */
