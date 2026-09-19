@@ -91,6 +91,43 @@
   }
 }
 
+/* Plan switch (Figma 102:2004): a pill group where the selected option sits on
+   a lighter surface. Selection is never signalled by colour alone — the
+   selected tab also carries aria-selected for assistive tech. */
+.tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 40px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.tab {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 40px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: -0.224px;
+  color: #98989d;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tab:hover { color: #d7d7db; }
+
+.tabActive {
+  background: rgba(255, 255, 255, 0.10);
+  color: #fff;
+}
+
 .lede {
   margin: 0;
   max-width: 339px;
@@ -98,6 +135,13 @@
   line-height: 20px;
   letter-spacing: -0.5004px;
   color: #98989d;
+}
+
+/* Keeps the price/feature rhythm the dialog's own gap used to provide. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .priceRow {
