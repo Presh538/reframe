@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useId, useState } from 'react'
-import { ExternalLink, RefreshCw } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import styles from './AccountBilling.module.css'
 
 type BillingStatus = {
@@ -102,6 +102,37 @@ function subscriptionMeta(sub: BillingStatus['subscriptions'][number]) {
   return <>Period ends {date}</>
 }
 
+/**
+ * Checkout and portal URLs come from our own API, but are still checked before
+ * navigating: an https URL on Polar's domain only. Subdomains are accepted so
+ * production checkout works whichever Polar host it is served from.
+ */
+function trustedPolarUrl(raw: unknown): string {
+  const url = new URL(String(raw))
+  const polarHost = url.hostname === 'polar.sh' || url.hostname.endsWith('.polar.sh')
+  if (url.protocol !== 'https:' || !polarHost) throw new Error('Invalid billing destination.')
+  return url.toString()
+}
+
+// Marks a trip to the Polar portal, so the return can trigger one repair sync.
+const PORTAL_VISIT_KEY = 'rf-billing-portal-visit'
+
+function takePortalVisit(): boolean {
+  try {
+    const at = Number(sessionStorage.getItem(PORTAL_VISIT_KEY))
+    if (!at) return false
+    sessionStorage.removeItem(PORTAL_VISIT_KEY)
+    return Date.now() - at < 60 * 60 * 1000
+  } catch {
+    return false // storage unavailable (private mode): webhooks and the daily cron still cover it
+  }
+}
+
+const PURCHASES: { key: string; label: string }[] = [
+  { key: 'pro_monthly', label: 'Upgrade to Pro' },
+  { key: 'ai_credits_25', label: 'Buy 25 AI credits' },
+]
+
 // ── Component ─────────────────────────────────────────────────
 
 export function AccountBilling() {
@@ -110,9 +141,11 @@ export function AccountBilling() {
   const paymentsId = useId()
   const [data, setData] = useState<BillingStatus | null>(null)
   const [error, setError] = useState('')
+  // Retry reloads billing data, so it is offered only when loading failed --
+  // not after a checkout or portal error, where it would do the wrong thing.
+  const [canRetry, setCanRetry] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [syncing, setSyncing] = useState(false)
-  const [syncedAt, setSyncedAt] = useState<Date | null>(null)
+  const [buying, setBuying] = useState<string | null>(null)
   // Polite announcements for assistive tech; errors use role="alert" instead.
   const [announcement, setAnnouncement] = useState('')
 
@@ -122,8 +155,12 @@ export function AccountBilling() {
       if (!response.ok) throw new Error('We couldn’t load your billing details.')
       setData(await response.json())
       setError('')
+      setCanRetry(false)
     } catch (e) {
-      if (!signal?.aborted) setError(e instanceof Error ? e.message : 'We couldn’t load your billing details.')
+      if (!signal?.aborted) {
+        setError(e instanceof Error ? e.message : 'We couldn’t load your billing details.')
+        setCanRetry(true)
+      }
     }
   }, [])
 
@@ -131,8 +168,20 @@ export function AccountBilling() {
   // exactly when a customer returns from Polar -- so no manual refresh button.
   useEffect(() => {
     const controller = new AbortController()
-    void refresh(controller.signal)
-    const onFocus = () => { void refresh(controller.signal) }
+
+    // Returning from the Polar portal is the one moment a customer's change
+    // (cancel, undo, plan switch) may not have arrived by webhook yet. Repair
+    // once, silently: webhooks and the daily cron remain the primary path, so
+    // a failure here is not the customer's problem to act on.
+    const load = async () => {
+      if (takePortalVisit()) {
+        await fetch('/api/billing/reconcile', { method: 'POST', signal: controller.signal }).catch(() => undefined)
+      }
+      await refresh(controller.signal)
+    }
+
+    void load()
+    const onFocus = () => { void load() }
     window.addEventListener('focus', onFocus)
     return () => { controller.abort(); window.removeEventListener('focus', onFocus) }
   }, [refresh])
@@ -145,42 +194,51 @@ export function AccountBilling() {
       const response = await fetch('/api/billing/portal', { method: 'POST' })
       if (!response.ok) throw new Error('We couldn’t open billing management. Please try again.')
       const { portalUrl } = await response.json()
-      const url = new URL(portalUrl)
-      if (url.protocol !== 'https:' || !['polar.sh', 'sandbox.polar.sh'].includes(url.hostname)) {
-        throw new Error('Invalid billing portal destination.')
-      }
-      window.location.assign(url.toString())
+      const destination = trustedPolarUrl(portalUrl)
+      try { sessionStorage.setItem(PORTAL_VISIT_KEY, String(Date.now())) } catch { /* optional */ }
+      window.location.assign(destination)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'We couldn’t open billing management.')
+      setCanRetry(false)
       setAnnouncement('')
       setBusy(false)
     }
   }
 
-  async function syncStatus() {
-    setSyncing(true)
+  async function buy(productKey: string, label: string) {
+    setBuying(productKey)
     setError('')
-    setAnnouncement('Syncing subscription…')
+    setAnnouncement(`Opening checkout for ${label}…`)
     try {
-      const response = await fetch('/api/billing/reconcile', { method: 'POST' })
-      if (!response.ok) throw new Error('Sync didn’t complete. Please try again in a moment.')
-      await refresh()
-      setSyncedAt(new Date())
-      setAnnouncement('Subscription synced.')
+      const response = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // One key per click: a double-submit reuses the same checkout.
+        body: JSON.stringify({ productKey, idempotencyKey: crypto.randomUUID() }),
+      })
+      const body = await response.json().catch(() => ({}))
+      // 409 carries a customer-readable reason (e.g. already subscribed).
+      if (!response.ok) throw new Error(body.error ?? 'We couldn’t start checkout. Please try again.')
+      window.location.assign(trustedPolarUrl(body.checkoutUrl))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Sync didn’t complete.')
+      setError(e instanceof Error ? e.message : 'We couldn’t start checkout.')
+      setCanRetry(false)
       setAnnouncement('')
-    } finally {
-      setSyncing(false)
+      setBuying(null)
     }
   }
 
   const loading = !data && !error
   const planKey = data?.plan ?? 'free'
   const reserved = data?.credits.reserved ?? 0
+  const subscribed = (data?.subscriptions ?? []).some((sub) => ['active', 'trialing', 'past_due'].includes(sub.status))
+  // The portal needs an existing Polar customer; without any purchase it would
+  // only fail, so it is offered once there is something to manage.
+  const hasBillingHistory = (data?.orders.length ?? 0) > 0 || (data?.subscriptions.length ?? 0) > 0
+  const offers = PURCHASES.filter((offer) => !(offer.key === 'pro_monthly' && subscribed))
 
   return (
-    <section className={styles.root} aria-labelledby={titleId} aria-busy={loading || syncing}>
+    <section className={styles.root} aria-labelledby={titleId} aria-busy={loading || buying !== null}>
       <header className={styles.header}>
         <h2 id={titleId} className={styles.title}>Billing</h2>
         <p className={styles.subtitle}>Your plan, AI credits and payments.</p>
@@ -191,9 +249,11 @@ export function AccountBilling() {
       {error && (
         <div className={styles.alert} role="alert">
           <p className={styles.alertText}>{error}</p>
-          <button type="button" className={styles.linkButton} onClick={() => { setError(''); void refresh() }}>
-            Retry
-          </button>
+          {canRetry && (
+            <button type="button" className={styles.linkButton} onClick={() => { setError(''); void refresh() }}>
+              Retry
+            </button>
+          )}
         </div>
       )}
 
@@ -286,38 +346,55 @@ export function AccountBilling() {
         </>
       )}
 
-      <div className={styles.row}>
-        <h3 className={styles.label}>Manage</h3>
-        <div className={styles.content}>
-          <div className={styles.actions}>
-            <button
-              type="button"
-              className={`${styles.button} ${styles.primary}`}
-              disabled={busy}
-              aria-busy={busy}
-              onClick={openPortal}
-            >
-              {busy ? 'Opening…' : 'Manage billing'}
-              <ExternalLink size={14} aria-hidden="true" />
-              <span className={styles.srOnly}> (opens Polar)</span>
-            </button>
-            <button
-              type="button"
-              className={styles.button}
-              disabled={syncing}
-              aria-busy={syncing}
-              onClick={syncStatus}
-            >
-              <RefreshCw size={14} aria-hidden="true" className={syncing ? styles.spin : undefined} />
-              {syncing ? 'Syncing…' : 'Sync subscription'}
-            </button>
+      {data && offers.length > 0 && (
+        <div className={styles.row}>
+          <h3 className={styles.label}>Get more</h3>
+          <div className={styles.content}>
+            <div className={styles.actions}>
+              {offers.map((offer, index) => (
+                <button
+                  key={offer.key}
+                  type="button"
+                  // The first offer is the primary action unless the customer
+                  // already has a subscription to manage.
+                  className={`${styles.button} ${index === 0 && !subscribed ? styles.primary : ''}`}
+                  disabled={buying !== null}
+                  aria-busy={buying === offer.key}
+                  onClick={() => { void buy(offer.key, offer.label) }}
+                >
+                  {buying === offer.key ? 'Opening checkout…' : offer.label}
+                </button>
+              ))}
+            </div>
+            <p className={styles.caption}>
+              {subscribed ? 'Credit packs never expire.' : 'Pro includes 300 AI credits every month. Credit packs never expire.'}
+              {' '}Payment is handled securely by Polar.
+            </p>
           </div>
-          <p className={styles.caption}>
-            Payment method, invoices and cancellation are handled on Polar.
-            {syncedAt && <> Synced at <time dateTime={syncedAt.toISOString()}>{syncedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time>.</>}
-          </p>
         </div>
-      </div>
+      )}
+
+      {data && hasBillingHistory && (
+        <div className={styles.row}>
+          <h3 className={styles.label}>Manage</h3>
+          <div className={styles.content}>
+            <div className={styles.actions}>
+              <button
+                type="button"
+                className={`${styles.button} ${subscribed ? styles.primary : ''}`}
+                disabled={busy}
+                aria-busy={busy}
+                onClick={openPortal}
+              >
+                {busy ? 'Opening…' : 'Manage billing'}
+                <ExternalLink size={14} aria-hidden="true" />
+                <span className={styles.srOnly}> (opens Polar)</span>
+              </button>
+            </div>
+            <p className={styles.caption}>Payment method, invoices and cancellation are handled on Polar.</p>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

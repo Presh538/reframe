@@ -61,8 +61,8 @@ export async function beginAiGeneration(
           reason: trial.reason,
           error:
             trial.reason === 'guest_allowance_exhausted'
-              ? 'You have used your free AI generations. Sign in to continue.'
-              : 'The free AI allowance for this network has been used up. Sign in to continue.',
+              ? 'You’ve used today’s free AI generations. Sign in to get 10 more.'
+              : 'The free AI allowance for this network is used up for today. Sign in to keep going.',
         })
       }
       return { mode: 'guest', remaining: trial.remaining, guestCookie: trial.setCookie }
@@ -91,7 +91,7 @@ export async function beginAiGeneration(
       throw new AiMeterDeniedError({
         status: 402,
         reason: 'insufficient_credits',
-        error: 'You are out of AI credits. Top up to keep generating.',
+        error: 'You’re out of AI credits. Top up from your avatar → Billing to keep generating.',
       })
     }
     throw error
