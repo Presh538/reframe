@@ -273,6 +273,8 @@ export function LandingPage({ config: c }: { config: LandingConfig }) {
                 style={{ display: 'block', height: 32, width: 'auto' }}
               />
             </a>
+            <Link href="/privacy" style={{ fontSize: 13, color: 'var(--text-soft)', textDecoration: 'none' }}>Privacy</Link>
+            <Link href="/terms" style={{ fontSize: 13, color: 'var(--text-soft)', textDecoration: 'none' }}>Terms</Link>
             <Link href="/" style={{ fontSize: 13, color: 'var(--text-soft)', textDecoration: 'none' }}>reframeo.com →</Link>
           </div>
         </div>
