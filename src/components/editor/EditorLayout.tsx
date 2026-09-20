@@ -14,6 +14,7 @@ import { sanitizeSvgClient, normalizeSvgElement, extractLayerInfo } from '@/lib/
 import { EditorAnalytics } from '@/components/EditorAnalytics'
 import type { CanvasTheme } from './CanvasThemeToggle'
 import modalBackdropStyles from './ModalBackdrop.module.css'
+import modalSurfaceStyles from './ModalSurface.module.css'
 
 export type AppMode = 'animate' | '3d'
 
@@ -306,12 +307,9 @@ function InfoButton({ onClick }: { onClick: () => void }) {
 function InfoModal({ onClose }: { onClose: () => void }) {
   return (
     <motion.div
-      className="absolute inset-0 select-none"
+      className={`absolute inset-0 select-none ${modalBackdropStyles.backdrop}`}
       style={{
         zIndex: 80,
-        background: 'rgba(17,17,17,0.60)',
-        backdropFilter: 'blur(7px)',
-        WebkitBackdropFilter: 'blur(7px)',
       }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -319,6 +317,7 @@ function InfoModal({ onClose }: { onClose: () => void }) {
       transition={{ duration: 0.18 }}
     >
       <motion.article
+        className={modalSurfaceStyles.surface}
         initial={{ opacity: 0, y: 14, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 8, scale: 0.98 }}
@@ -330,14 +329,7 @@ function InfoModal({ onClose }: { onClose: () => void }) {
           width: 554,
           maxHeight: 'calc(100vh - 140px)',
           maxWidth: 'calc(100vw - 124px)',
-          borderRadius: 28,
           overflow: 'hidden',
-          background: '#2E2E2E',
-          border: '0.5px solid rgba(36,36,49,0.64)',
-          boxShadow: '0 16px 70px rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(25px)',
-          WebkitBackdropFilter: 'blur(25px)',
-          boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -467,6 +459,7 @@ function EmptyStateModal({ onBrowseLibrary, onTryExample, onUpload }: { onBrowse
       transition={{ duration: 0.18 }}
     >
       <motion.div
+        className={modalSurfaceStyles.surface}
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -8, scale: 0.97 }}
@@ -475,13 +468,7 @@ function EmptyStateModal({ onBrowseLibrary, onTryExample, onUpload }: { onBrowse
           position: 'relative',
           width: 554,
           height: 602,
-          borderRadius: 28,
           overflow: 'hidden',
-          background: 'rgba(46,46,46,0.85)',
-          border: '0.5px solid rgba(36,36,49,0.64)',
-          boxShadow: '0 16px 70px rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(25px)',
-          WebkitBackdropFilter: 'blur(25px)',
         }}
       >
         <div

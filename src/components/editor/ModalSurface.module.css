@@ -1,0 +1,11 @@
+/* Shared frosted card material used by every editor modal. Individual dialogs
+   continue to own their dimensions, padding, and overflow behavior. */
+.surface {
+  border: 0.5px solid rgba(36, 36, 49, 0.64);
+  border-radius: 28px;
+  background: rgba(46, 46, 46, 0.85);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  box-shadow: 0 16px 70px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
+}

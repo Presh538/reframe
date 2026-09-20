@@ -7,6 +7,7 @@ import { startCheckout } from '@/lib/billing/checkout-client'
 import styles from './UpgradeModal.module.css'
 import { useModalDismiss } from './useModalDismiss'
 import modalBackdropStyles from './ModalBackdrop.module.css'
+import modalSurfaceStyles from './ModalSurface.module.css'
 
 /**
  * Upgrade modal — Figma node 102:1913.
@@ -129,7 +130,7 @@ export function UpgradeModal({ onClose }: { onClose: () => void }) {
     >
       <motion.div
         ref={dialogRef}
-        className={styles.dialog}
+        className={`${styles.dialog} ${modalSurfaceStyles.surface}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="upgrade-title"

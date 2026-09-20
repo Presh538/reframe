@@ -20,6 +20,8 @@ import { AuthControl } from '@/components/editor/AuthControl'
 import { computeSequenceDuration } from '@/lib/svg/animate'
 import type { ExportFormat } from '@/types'
 import topbarStyles from './TopBar.module.css'
+import modalBackdropStyles from './ModalBackdrop.module.css'
+import modalSurfaceStyles from './ModalSurface.module.css'
 
 const FORMATS_3D = [
   { value: 'gif'   as const, label: 'Export GIF'  },
@@ -264,10 +266,9 @@ function PlanControl({ onUpgrade, onBilling }: { onUpgrade: () => void; onBillin
   const count = credits ?? 0
   const creditLabel = `${count} AI ${count === 1 ? 'credit' : 'credits'}`
   const hasCredits = count > 0
+
   // Anyone with something to manage goes to billing; only an account with
   // neither a plan nor a balance is offered checkout.
-  const onClick = isPro || hasCredits ? onBilling : onUpgrade
-
   if (isPro) {
     return (
       <motion.button
@@ -289,7 +290,7 @@ function PlanControl({ onUpgrade, onBilling }: { onUpgrade: () => void; onBillin
   return (
     <motion.button
       type="button"
-      onClick={onClick}
+      onClick={hasCredits ? onBilling : onUpgrade}
       // The label is spelled out because the gradient paints the text with a
       // transparent fill, which some assistive tech skips when naming.
       aria-label={hasCredits ? `${creditLabel} remaining. View billing` : 'Upgrade to Pro'}
@@ -375,16 +376,11 @@ function ExportModal({
   return (
     <>
       <motion.div
-        className="fixed inset-0 z-40 select-none"
+        className={`fixed inset-0 z-40 select-none ${modalBackdropStyles.backdrop}`}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.18 }}
-        style={{
-          background: 'rgba(17,17,17,0.70)',
-          backdropFilter: 'blur(7px)',
-          WebkitBackdropFilter: 'blur(7px)',
-        }}
         onClick={onClose}
       />
 
@@ -397,6 +393,7 @@ function ExportModal({
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       >
         <div
+          className={modalSurfaceStyles.surface}
           role="dialog"
           aria-modal="true"
           aria-label="Export animation"
@@ -405,14 +402,7 @@ function ExportModal({
             position: 'relative',
             width: 489,
             height: 555,
-            borderRadius: 28,
             overflow: 'hidden',
-            background: 'rgba(46,46,46,0.85)',
-            border: '0.5px solid rgba(36,36,49,0.64)',
-            boxShadow: '0 16px 70px rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(25px)',
-            WebkitBackdropFilter: 'blur(25px)',
-            boxSizing: 'border-box',
           }}
         >
           <h2

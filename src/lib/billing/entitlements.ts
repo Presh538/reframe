@@ -51,8 +51,12 @@ export function planForProductKey(productKey: string): string | null {
   return PLAN_BY_PRODUCT[productKey] ?? null
 }
 
-/** Subscription states that still confer the plan, matching fulfillment. */
-const ENTITLING_STATUSES = ['active', 'trialing', 'past_due']
+/**
+ * Subscription states that still confer the plan. Shared with fulfillment so
+ * the rule for "this subscription is in force" has exactly one definition --
+ * two copies would drift the day a state is added.
+ */
+export const ENTITLING_STATUSES = ['active', 'trialing', 'past_due']
 
 export type AccountAccess = {
   planKey: string
@@ -124,7 +128,7 @@ export async function rebuildAccessSnapshot(userId: string): Promise<AccountAcce
   // name a hostage to the feature list: adding one key to PLAN_FEATURES
   // demoted every existing subscriber to 'free' until their grants were
   // re-synced, because their rows predated the new key. Adding
-  // export.watermark_free did exactly that to a live subscriber.
+  // export.watermark_free tripped exactly that.
   //
   // Capability is still decided by the grants -- hasFeature() reads `features`
   // -- so an account can hold a feature without holding the plan, and a

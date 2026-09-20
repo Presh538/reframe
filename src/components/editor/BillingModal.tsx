@@ -6,6 +6,7 @@ import { AccountBilling } from './AccountBilling'
 import { useModalDismiss } from './useModalDismiss'
 import styles from './BillingModal.module.css'
 import modalBackdropStyles from './ModalBackdrop.module.css'
+import modalSurfaceStyles from './ModalSurface.module.css'
 
 /**
  * Billing, opened from the plan control in the header.
@@ -37,7 +38,7 @@ export function BillingModal({ onClose }: { onClose: () => void }) {
     >
       <motion.div
         ref={dialogRef}
-        className={styles.dialog}
+        className={`${styles.dialog} ${modalSurfaceStyles.surface}`}
         role="dialog"
         aria-modal="true"
         aria-label="Billing"
