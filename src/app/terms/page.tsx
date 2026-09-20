@@ -25,7 +25,8 @@ export default function TermsPage() {
       <p>
         Reframe is a browser-based tool for animating SVG files, with presets, AI-assisted animation and export.
         Much of it is free to use without an account; some features, such as additional AI generations, require an
-        account or a purchase. We may add, change or remove features over time.
+        account or a purchase. GIF and WebM exports made on the free tier include a small Reframe watermark, which
+        a Pro subscription removes. We may add, change or remove features over time.
       </p>
 
       <h2>2. Your account</h2>

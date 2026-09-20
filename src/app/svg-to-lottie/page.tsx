@@ -32,7 +32,7 @@ const config: LandingConfig = {
     ['How do I convert an SVG to Lottie?', 'Upload your SVG to Reframe, animate it with an AI prompt or a preset, then export to Lottie JSON. No After Effects or Bodymovin required.'],
     ['What is Lottie JSON good for?', 'Lottie is ideal for web and mobile UI animation — onboarding, icons, loaders, and micro-interactions — because it’s vector-based, tiny, and scales perfectly on any screen.'],
     ['Do I need After Effects to make a Lottie file?', 'No. Reframe exports Lottie JSON directly from your animated SVG in the browser, with no After Effects or Bodymovin plugin.'],
-    ['Is exporting to Lottie free?', 'Yes. Reframe is free to use, with no account required.'],
+    ['Is exporting to Lottie free?', 'Yes. Reframe is free to use with no account required, and Lottie exports are never watermarked — the watermark only applies to free GIF and WebM exports.'],
   ],
   finalHeading: 'Export your SVG as Lottie',
   finalSubhead: 'Animate in the browser and export lightweight Lottie JSON — free, no plugins.',

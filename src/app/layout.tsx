@@ -13,10 +13,10 @@ const APP_URL  = process.env.NEXT_PUBLIC_APP_URL ?? 'https://reframeo.com'
 const APP_NAME = 'Reframe'
 const TITLE    = 'Reframe — Free AI SVG Animator Online'
 const DESCRIPTION =
-  'Reframe is a free online SVG animator with AI. Describe the motion you want in plain English and let AI animate it, or pick from 30+ presets, fine-tune speed and easing, then export as GIF, WebM, CSS, or Lottie JSON. No code, no After Effects — instant motion in seconds.'
+  'Reframe is a free online SVG animator with AI. Describe the motion you want in plain English and let AI animate it, or pick from 30+ presets, fine-tune speed and easing, then export as GIF, WebM, or Lottie JSON. No code, no After Effects — instant motion in seconds.'
 
 // One-line summary used for AI answer engines and social cards.
-const TAGLINE = 'Free AI-powered SVG animator: type a prompt or pick a preset, then export to GIF, WebM, CSS, or Lottie.'
+const TAGLINE = 'Free AI-powered SVG animator: type a prompt or pick a preset, then export to GIF, WebM, or Lottie.'
 
 // OG image — self-hosted from /public (1200x630, optimized to ~360 KB so
 // chat scrapers like WhatsApp, which drop images >~600 KB, render it).
@@ -169,7 +169,7 @@ const jsonLd = {
         '30+ hand-crafted animation presets',
         'Export animated SVG as GIF',
         'Export as WebM video',
-        'Export as CSS animation',
+        'Export as CSS animation (coming soon)',
         'Export as Lottie JSON',
         'Transparent background GIF',
         'Adjustable quality and frame rate on export',
@@ -225,7 +225,7 @@ const jsonLd = {
           '@type': 'HowToStep',
           position: 4,
           name: 'Export or share',
-          text: 'Export as GIF, WebM, CSS, or Lottie JSON, or copy a shareable preview link.',
+          text: 'Export as GIF, WebM, or Lottie JSON, or copy a shareable preview link.',
         },
       ],
     },
@@ -248,7 +248,7 @@ const jsonLd = {
           name: 'What is the best free online SVG animator?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Reframe (reframeo.com) is a free online SVG animator. It combines an AI prompt, 30+ presets, and fine-grained speed/easing controls, then exports to GIF, WebM, CSS, or Lottie — no code or After Effects required.',
+            text: 'Reframe (reframeo.com) is a free online SVG animator. It combines an AI prompt, 30+ presets, and fine-grained speed/easing controls, then exports to GIF, WebM, or Lottie — no code or After Effects required.',
           },
         },
         {
@@ -256,7 +256,7 @@ const jsonLd = {
           name: 'Is Reframe free to use?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Yes, Reframe is free to use in the browser. Upload an SVG, animate it with AI or a preset, and export your animation at no cost.',
+            text: 'Reframe is free to use in the browser: upload an SVG, animate it with a preset or the AI prompt, and export it without an account. Free GIF and WebM exports include a small Reframe watermark, and AI generations have a daily limit. A paid Pro plan removes the watermark and adds a monthly AI allowance.',
           },
         },
         {
@@ -264,7 +264,7 @@ const jsonLd = {
           name: 'What formats can I export my animation to?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Reframe exports animated SVGs as GIF (including transparent background), WebM video, CSS animation, and Lottie JSON, with adjustable quality and frame rate.',
+            text: 'Reframe exports animated SVGs as GIF (including transparent background), WebM video, and Lottie JSON, with adjustable quality and frame rate. CSS export is coming soon.',
           },
         },
         {
