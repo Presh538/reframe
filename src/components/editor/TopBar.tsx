@@ -326,6 +326,7 @@ const ANIMATE_FORMATS: { value: ExportFormat; label: string; locked?: boolean }[
   { value: 'gif',    label: 'GIF'    },
   { value: 'webm',   label: 'WebM'   },
   { value: 'lottie', label: 'Lottie' },
+  { value: 'svg',    label: 'SVG'    },
   { value: 'css',    label: 'CSS',    locked: true },
 ]
 

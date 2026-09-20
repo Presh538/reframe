@@ -97,6 +97,11 @@ export async function runExport({
       exportLottie(svgEl, animation, params)
       onSuccess('Lottie exported ✓')
 
+    } else if (format === 'svg') {
+      const { exportAnimatedSvg } = await import('./svg')
+      exportAnimatedSvg(svgEl, animation.id)
+      onSuccess('SVG exported ✓')
+
     } else if (format === 'embed') {
       const { generateEmbedHtml } = await import('./embed')
       const html = generateEmbedHtml(svgEl, animation.name)

@@ -106,10 +106,12 @@ export const metadata: Metadata = {
   // ── Icons ────────────────────────────────────────────────────────
   icons: {
     icon: [
-      { url: '/logo.svg', type: 'image/svg+xml' },
+      { url: '/favicon-96.png', sizes: '96x96', type: 'image/png' },
     ],
-    shortcut:    '/logo.svg',
-    apple:       '/logo.svg',
+    shortcut: '/favicon-96.png',
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
   },
 
   // ── Robots ───────────────────────────────────────────────────────
@@ -277,7 +279,7 @@ const jsonLd = {
           name: 'What formats can I export my animation to?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Reframe exports animated SVGs as GIF (including transparent background), WebM video, and Lottie JSON, with adjustable quality and frame rate. CSS export is coming soon.',
+            text: 'Reframe exports as an animated SVG file, GIF (including transparent background), WebM video, and Lottie JSON, with adjustable quality and frame rate. CSS export is coming soon.',
           },
         },
         {
