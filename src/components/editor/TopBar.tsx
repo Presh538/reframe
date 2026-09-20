@@ -157,7 +157,7 @@ export function TopBar({
           {canvasTheme && onCanvasThemeChange && (
             <CanvasThemeToggle theme={canvasTheme} onChange={onCanvasThemeChange} />
           )}
-          <UpgradeButton onClick={() => setUpgradeOpen(true)} />
+          <PlanControl onClick={() => setUpgradeOpen(true)} />
           <motion.button
             type="button"
             onClick={displayCanExport && !isRunning ? () => { setExportModalOpen(true); trackExportModalOpened() } : undefined}
@@ -238,24 +238,54 @@ function ReframeLogo() {
  * plan gradient. `color` is set before the gradient so engines without
  * background-clip: text still render readable text rather than nothing.
  */
-function UpgradeButton({ onClick }: { onClick: () => void }) {
+/**
+ * The plan control, in one of three states:
+ *
+ *   Pro            -> a badge, not a button. Shows the plan and the remaining
+ *                     allowance; there is nothing useful to buy, and offering
+ *                     checkout would dead-end on "already subscribed".
+ *   Has credits    -> the balance, and clicking tops it up.
+ *   Nothing        -> "Upgrade".
+ *
+ * Renders nothing until the plan resolves, so a paying customer is never shown
+ * "Upgrade" for a frame while the request is in flight.
+ */
+function PlanControl({ onClick }: { onClick: () => void }) {
+  const { loading, isPro, credits } = useEntitlements()
+
+  if (loading) return null
+
+  const count = credits ?? 0
+  const creditLabel = `${count} AI ${count === 1 ? 'credit' : 'credits'}`
+
+  if (isPro) {
+    return (
+      <span className={topbarStyles.planBadge}>
+        <span className={topbarStyles.upgradeLabel}>Pro</span>
+        <span className={topbarStyles.planBadgeCredits} aria-label={`${creditLabel} remaining`}>
+          {count}
+        </span>
+      </span>
+    )
+  }
+
+  const hasCredits = count > 0
+
   return (
     <motion.button
       type="button"
       onClick={onClick}
       // The label is spelled out because the gradient paints the text with a
       // transparent fill, which some assistive tech skips when naming.
-      aria-label="Upgrade to Pro"
+      aria-label={hasCredits ? `${creditLabel} remaining. Buy more` : 'Upgrade to Pro'}
       whileTap={{ scale: 0.96 }}
       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
       className={topbarStyles.upgradeButton}
       onMouseEnter={e => (e.currentTarget.style.background = '#161618')}
       onMouseLeave={e => (e.currentTarget.style.background = '#0E0E0F')}
     >
-      <span
-        className={topbarStyles.upgradeLabel}
-      >
-        Upgrade
+      <span className={topbarStyles.upgradeLabel}>
+        {hasCredits ? creditLabel : 'Upgrade'}
       </span>
     </motion.button>
   )

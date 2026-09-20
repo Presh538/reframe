@@ -130,3 +130,31 @@
 @media (max-width: 470px) {
   .upgradeButton { display: none; }
 }
+
+/* Plan badge — the non-interactive state of the plan control, shown when the
+   account is already on Pro. It mirrors .upgradeButton's metrics so swapping
+   between the two never shifts the header layout. */
+.planBadge {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #0e0e0f;
+  font-family: var(--font-geist-sans), sans-serif;
+  font-size: 14px;
+  line-height: 18px;
+  letter-spacing: 0.028px;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.planBadgeCredits {
+  color: #8a8a8f;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 860px) {
+  .planBadge { display: none; }
+}
