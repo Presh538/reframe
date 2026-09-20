@@ -21,7 +21,7 @@ const config: LandingConfig = {
     ['Upload your SVG', 'Drag and drop any SVG file, or start from a built-in example. Everything runs in your browser.'],
     ['Animate with AI or a preset', 'Describe the motion in plain English for the AI, or pick from 30+ hand-crafted presets.'],
     ['Fine-tune the motion', 'Adjust speed, easing, delay, and which elements animate until it feels right.'],
-    ['Export or share', 'Export to GIF, WebM, or Lottie JSON, or copy a shareable preview link. Free GIF and WebM exports carry a small Reframe watermark.'],
+    ['Export or share', 'Export to GIF, WebM, or Lottie JSON, or copy a shareable preview link. Free GIF and WebM exports carry a small Reframe watermark, removed by a credit or a Pro plan.'],
   ],
   whyHeading: 'A genuinely free SVG animation tool',
   whyParagraphs: [
@@ -29,7 +29,7 @@ const config: LandingConfig = {
     'It’s built for designers, developers, and creators who want polished motion without the overhead — logos, icons, illustrations, and UI graphics animated in seconds. Add AI prompts, 30+ presets, fine-grained speed and easing control, and export to GIF, WebM, or Lottie, and you have a complete SVG animation workflow. The editor is free to use; free GIF and WebM exports carry a small watermark, which Pro removes.',
   ],
   faqs: [
-    ['Is Reframe really free?', 'Yes — upload an SVG, animate it and export, with no account and no payment. Two things are paid: AI generations beyond the free daily allowance, and removing the small Reframe watermark from GIF and WebM exports.'],
+    ['Is Reframe really free?', 'Yes — upload an SVG, animate it and export, with no account and no payment. Credits are what you pay for: one buys an AI generation, or removes the watermark from a GIF or WebM export. Pro includes 300 a month and removes the watermark from every export.'],
     ['What can I animate with it?', 'Any SVG — logos, icons, illustrations, and UI graphics. Use an AI prompt or pick from 30+ presets, then fine-tune speed and easing.'],
     ['What formats can I export to?', 'GIF (including transparent background), WebM video, and Lottie JSON, with adjustable quality and frame rate. CSS export is coming soon.'],
     ['Do I need to install anything or sign up?', 'No. Reframe runs entirely in your browser with no install and no account — just open it and start animating.'],

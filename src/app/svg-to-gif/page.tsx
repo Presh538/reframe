@@ -29,10 +29,10 @@ const config: LandingConfig = {
     'Reframe handles the whole pipeline in one place: animate the SVG, then export a GIF tuned to your needs — transparent background for overlays, higher frame rate for smooth motion, or lower quality for a lightweight file. It’s free, browser-based, and needs no After Effects, plugins, or code.',
   ],
   faqs: [
-    ['How do I convert an SVG to an animated GIF?', 'Upload your SVG to Reframe, animate it with an AI prompt or a preset, set your quality and frame rate, then export to GIF. It all happens in your browser. Free GIF exports carry a small Reframe watermark.'],
+    ['How do I convert an SVG to an animated GIF?', 'Upload your SVG to Reframe, animate it with an AI prompt or a preset, set your quality and frame rate, then export to GIF. It all happens in your browser. Free GIF exports carry a small Reframe watermark, which a credit or a Pro plan removes.'],
     ['Can I export a GIF with a transparent background?', 'Yes. Reframe supports transparent-background GIF export, so your animation sits cleanly over any color or image.'],
     ['Can I control the GIF quality and frame rate?', 'Yes. You can set quality from 10% to 100% and frame rate from 5 to 50 FPS, trading smoothness and sharpness against file size.'],
-    ['Is the SVG to GIF converter free?', 'Yes, and no account is required. Free GIF exports carry a small Reframe watermark; the Pro plan removes it.'],
+    ['Is the SVG to GIF converter free?', 'Yes, and no account is required. GIF exports carry a small Reframe watermark on the free tier. Spending one AI credit removes it from an export, and Pro removes it from every export.'],
   ],
   finalHeading: 'Turn your SVG into a GIF',
   finalSubhead: 'Animate it, tune the quality, and export a clean GIF — free, in seconds.',

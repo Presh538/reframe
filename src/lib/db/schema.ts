@@ -219,7 +219,7 @@ export const usageOperations = pgTable('usage_operation', {
 }, (table) => [
   uniqueIndex('usage_operation_user_idempotency_uidx').on(table.userId, table.idempotencyKey),
   index('usage_operation_status_reserved_idx').on(table.status, table.reservedAt),
-  check('usage_operation_type_check', sql`${table.operationType} = 'ai_animation'`),
+  check('usage_operation_type_check', sql`${table.operationType} in ('ai_animation', 'export_watermark_free')`),
   check('usage_operation_status_check', sql`${table.status} in ('reserved', 'running', 'succeeded', 'failed', 'released')`),
   check('usage_operation_units_check', sql`${table.units} > 0`),
 ])

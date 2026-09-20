@@ -30,7 +30,7 @@ const config: LandingConfig = {
   ],
   faqs: [
     ['Can I animate an SVG using AI?', 'Yes. Reframe has an AI prompt bar — describe the motion you want in plain English (for example, “make the logo bounce in slowly”) and the AI applies and tunes the animation for you. No timeline or code needed.'],
-    ['Is AI SVG animation free?', 'Reframe is free to use in the browser, with no account required. AI generations have a daily limit on the free tier, and free GIF and WebM exports carry a small Reframe watermark. Pro lifts both.'],
+    ['Is AI SVG animation free?', 'Reframe is free to use in the browser, with no account required. AI generations have a daily limit on the free tier, and GIF and WebM exports carry a small Reframe watermark. One AI credit removes the watermark from an export; Pro removes it from every export.'],
     ['What formats can I export to?', 'GIF (including transparent background), WebM video, and Lottie JSON, all with adjustable quality and frame rate. CSS export is coming soon.'],
     ['Do I need After Effects or coding skills?', 'No. Reframe runs entirely in your browser. You can animate an SVG with a plain-English AI prompt or a one-click preset — no After Effects, plugins, or code required.'],
   ],

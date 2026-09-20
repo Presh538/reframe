@@ -256,7 +256,7 @@ const jsonLd = {
           name: 'Is Reframe free to use?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Reframe is free to use in the browser: upload an SVG, animate it with a preset or the AI prompt, and export it without an account. Free GIF and WebM exports include a small Reframe watermark, and AI generations have a daily limit. A paid Pro plan removes the watermark and adds a monthly AI allowance.',
+            text: 'Reframe is free to use in the browser: upload an SVG, animate it with a preset or the AI prompt, and export it without an account. GIF and WebM exports include a small Reframe watermark on the free tier. Spending one AI credit removes it from an export, and a Pro subscription removes it from every export.',
           },
         },
         {

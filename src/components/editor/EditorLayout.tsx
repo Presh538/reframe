@@ -394,7 +394,7 @@ function InfoModal({ onClose }: { onClose: () => void }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {[
               ['Can I animate SVGs with AI?', 'Yes. Type how you want it to move and Reframe\'s AI picks and applies the right animation — no timeline needed.'],
-              ['Is it free?', 'Animating and exporting are free, with no account needed. Free GIF and WebM exports carry a small Reframe watermark, and AI generations have a daily limit. Pro removes the watermark and includes 300 AI generations a month.'],
+              ['Is it free?', 'Animating and exporting are free, with no account needed. GIF and WebM exports carry a small Reframe watermark on the free tier — one AI credit removes it from an export, and Pro removes it from every export plus includes 300 credits a month.'],
               ['What formats can I export?', 'GIF (with transparent background option), WebM, and Lottie JSON — with adjustable quality and frame rate. CSS export is coming soon.'],
               ['Do I need After Effects or code?', 'No. Everything runs in the browser. Upload, animate, export — done.'],
             ].map(([q, a]) => (

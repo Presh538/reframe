@@ -13,6 +13,7 @@ import { SPRING } from '@/lib/motion'
 import { CanvasThemeToggle, type CanvasTheme } from './CanvasThemeToggle'
 import { UpgradeModal } from './UpgradeModal'
 import { BillingModal } from './BillingModal'
+import { beginMeteredExport, finishMeteredExport } from '@/lib/billing/export-credit-client'
 import { useEntitlements } from '@/lib/billing/useEntitlements'
 import { useToast } from '@/components/ui/Toast'
 import { CodeSheet } from '@/components/ui/CodeSheet'
@@ -54,9 +55,6 @@ export function TopBar({
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [upgradeOpen,     setUpgradeOpen]     = useState(false)
   const [billingOpen,     setBillingOpen]     = useState(false)
-  const entitlements = useEntitlements()
-  // Fails closed: until the account's plan is known, the export is marked.
-  const watermark = !entitlements.has('export.watermark_free')
   const [format3d,        setFormat3d]        = useState<Format3D>('gif')
   const [embedCode,       setEmbedCode]       = useState<string | null>(null)
 
@@ -102,13 +100,19 @@ export function TopBar({
       if (!canExport) return
       trackExportStarted({ format, quality, fps })
       setExportState({ isRunning: true, progress: 0, error: null })
+      // The server decides the watermark and reserves the credit; the result
+      // is settled or handed back once the file is produced.
+      const permit = await beginMeteredExport(format)
+      let succeeded = true
       await runExport({
-        format, activePresetId, customAnimationPlan, params, quality, fps, watermark,
+        format, activePresetId, customAnimationPlan, params, quality, fps,
+        watermark: permit.watermark,
         onProgress:  p    => setExportState({ progress: p }),
-        onError:     msg  => { setExportState({ error: msg }); toast(msg, 'error') },
+        onError:     msg  => { succeeded = false; setExportState({ error: msg }); toast(msg, 'error') },
         onSuccess:   msg  => toast(msg, 'success'),
         onEmbedCode: html => setEmbedCode(html),
       })
+      await finishMeteredExport(permit, succeeded ? 'succeeded' : 'failed')
       setExportState({ isRunning: false, progress: 0 })
     } else {
       if (!canExport3D) return
