@@ -25,7 +25,8 @@ export const metadata: Metadata = {
     title:       `Animation Preview — ${APP_NAME}`,
     description: `Created with ${APP_NAME} — the free SVG animator.`,
     url:         APP_URL,
-    images:      [{ url: `${APP_URL}/og-image.jpg`, width: 1200, height: 630 }],
+    // No `images` here on purpose: opengraph-image.tsx renders the shared
+    // artwork itself, and file-based metadata overrides this object.
   },
 }
 

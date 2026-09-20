@@ -156,10 +156,23 @@ const jsonLd = {
       applicationSubCategory: 'SVG Animation Tool',
       operatingSystem: 'Web',
       browserRequirements: 'Requires JavaScript. Works in all modern browsers.',
+      // Freemium, so the range is declared rather than a bare 0: search results
+      // and answer engines both read this, and "free" alone now understates
+      // what is on sale while "11.99" alone would scare off the free tier.
       offers: {
-        '@type': 'Offer',
-        price: '0',
+        '@type': 'AggregateOffer',
         priceCurrency: 'USD',
+        lowPrice: '0',
+        highPrice: '11.99',
+        offerCount: 3,
+        offers: [
+          { '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'USD',
+            description: 'Animate and export in the browser without an account. GIF and WebM exports carry a small Reframe watermark.' },
+          { '@type': 'Offer', name: '25 AI credits', price: '4.99', priceCurrency: 'USD',
+            description: 'One-off pack. Each credit buys an AI generation or removes the watermark from one export. Credits never expire.' },
+          { '@type': 'Offer', name: 'Pro', price: '11.99', priceCurrency: 'USD',
+            description: '300 AI generations a month and watermark-free exports.' },
+        ],
       },
       screenshot: OG_IMAGE,
       image:      OG_IMAGE,
