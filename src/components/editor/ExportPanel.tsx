@@ -17,6 +17,7 @@ const EXPORT_LABELS: Record<ExportFormat, string> = {
   gif:    'Export GIF',
   webm:   'Export WebM',
   lottie: 'Export Lottie JSON',
+  svg:    'Export animated SVG',
   css:    'Export CSS',
   embed:  'Copy Embed',
 }
