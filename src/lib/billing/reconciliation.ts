@@ -2,7 +2,7 @@ import 'server-only'
 
 import { and, eq, gt, inArray, isNull, lt, lte, sql } from 'drizzle-orm'
 import { releaseAiCredit } from '@/lib/billing/credits'
-import { grantSubscriptionPeriodCredits } from '@/lib/billing/fulfillment'
+import { grantSubscriptionPeriodCredits, syncSubscription } from '@/lib/billing/fulfillment'
 import { rebuildAccessSnapshot } from '@/lib/billing/entitlements'
 import { STALE_RESERVATION_MS } from '@/lib/billing/policy'
 import { getDatabase } from '@/lib/db/client'
@@ -198,7 +198,7 @@ export async function grantMonthlySubscriptionCredits(limit = 500): Promise<{ ch
         .where(eq(billingProducts.productKey, row.productKey)).limit(1)
       if (!product) continue
 
-      await grantSubscriptionPeriodCredits({
+      const state = {
         providerSubscriptionId: row.providerSubscriptionId,
         userId: row.userId,
         providerProductId: product.providerProductId,
@@ -209,7 +209,16 @@ export async function grantMonthlySubscriptionCredits(limit = 500): Promise<{ ch
         canceledAt: row.canceledAt,
         endedAt: row.endedAt,
         observedAt: row.providerUpdatedAt ?? undefined,
-      }, now)
+      }
+
+      // Re-sync entitlements, not only credits. Feature grants are otherwise
+      // written once per webhook, so a subscriber keeps whatever PLAN_FEATURES
+      // contained on the day of their last billing event -- adding a feature
+      // would not reach them until their next renewal. syncSubscription
+      // re-grants the whole set under stable idempotency keys, so this is a
+      // no-op when nothing has changed and a backfill when it has.
+      await syncSubscription(state)
+      await grantSubscriptionPeriodCredits(state, now)
       checked += 1
     } catch (error) {
       console.error('[reconciliation] monthly grant failed', {

@@ -5,7 +5,7 @@ import { and, desc, eq, gt, gte, lt, inArray, isNull, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { recordAudit } from './audit'
 import { grantCredits } from './credits'
-import { PLAN_FEATURES, rebuildAccessSnapshot } from './entitlements'
+import { PLAN_FEATURES, planForProductKey, rebuildAccessSnapshot } from './entitlements'
 import { acceptSubscriptionState, allowanceWindow, refundedCreditTarget } from './lifecycle-policy'
 import { ALLOWANCE } from './policy'
 import { getDatabase } from '@/lib/db/client'
@@ -22,7 +22,7 @@ export type SubscriptionState = {
   canceledAt: Date | null; endedAt: Date | null; observedAt?: Date
 }
 const entitledStatuses = ['active', 'trialing', 'past_due']
-const planProduct = (key: string) => key === 'pro_monthly' || key === 'pro_yearly'
+const planProduct = (key: string) => planForProductKey(key) !== null
 
 async function lockAccount(tx: Tx, userId: string) {
   const [account] = await tx.select().from(creditAccounts).where(and(eq(creditAccounts.userId, userId),
