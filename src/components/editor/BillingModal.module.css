@@ -28,35 +28,8 @@
   color: #f5f5f7;
 }
 
-.close {
-  position: absolute;
-  top: 13.5px;
-  right: 12.5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  cursor: pointer;
-  opacity: 0.7;
-  transition: opacity 0.15s;
-}
-
-.close:hover { opacity: 1; }
-
-.close img {
-  width: 24px;
-  height: 24px;
-}
 
 @media (max-width: 620px) {
   .dialog { padding: 28px 20px; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .close { transition: none; }
-}

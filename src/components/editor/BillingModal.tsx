@@ -47,7 +47,7 @@ export function BillingModal({ onClose }: { onClose: () => void }) {
         exit={{ opacity: 0, y: -8, scale: 0.97 }}
         transition={{ type: 'spring', stiffness: 300, damping: 28 }}
       >
-        <button ref={closeRef} type="button" className={styles.close} onClick={onClose} aria-label="Close">
+        <button ref={closeRef} type="button" className={modalSurfaceStyles.close} onClick={onClose} aria-label="Close">
           <img src="/figma-icons/xmark.svg" alt="" width={24} height={24} />
         </button>
 

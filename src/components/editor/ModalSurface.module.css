@@ -1,11 +1,53 @@
 /* Shared frosted card material used by every editor modal. Individual dialogs
    continue to own their dimensions, padding, and overflow behavior. */
 .surface {
-  border: 0.5px solid rgba(36, 36, 49, 0.64);
+  border: 0.5px solid rgb(36, 36, 49);
   border-radius: 28px;
-  background: rgba(46, 46, 46, 0.85);
+  background: rgb(46, 46, 46);
   backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(125px);
   box-shadow: 0 16px 70px rgba(0, 0, 0, 0.5);
   box-sizing: border-box;
+}
+
+/* Shared modal chrome. The export dialog is the reference: a 24px close
+   control inset 15.5px from the top-right, and an 18px/600 title. Every modal
+   uses these so the corner never shifts between dialogs. */
+.close {
+  position: absolute;
+  top: 15.5px;
+  right: 16.5px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+
+.close:hover { opacity: 1; }
+
+.close img {
+  display: block;
+  width: 24px;
+  height: 24px;
+  max-width: none;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-geist-sans), sans-serif;
+  font-size: 18px;
+  line-height: 23px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .close { transition: none; }
 }

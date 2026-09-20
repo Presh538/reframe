@@ -410,18 +410,8 @@ function ExportModal({
           }}
         >
           <h2
-            style={{
-              ...f,
-              position: 'absolute',
-              left: 15.5,
-              top: 15.5,
-              margin: 0,
-              fontSize: 18,
-              lineHeight: '23px',
-              fontWeight: 600,
-              letterSpacing: 0.2,
-              color: '#FFFFFF',
-            }}
+            className={modalSurfaceStyles.title}
+            style={{ position: 'absolute', left: 15.5, top: 15.5 }}
           >
             Export animation
           </h2>
@@ -430,27 +420,9 @@ function ExportModal({
             onClick={onClose}
             aria-label="Close"
             whileTap={{ scale: 0.9 }}
-            style={{
-              position: 'absolute',
-              left: 448.5,
-              top: 15.5,
-              width: 24,
-              height: 24,
-              border: 'none',
-              background: 'transparent',
-              padding: 0,
-              cursor: 'pointer',
-              display: 'grid',
-              placeItems: 'center',
-            }}
+            className={modalSurfaceStyles.close}
           >
-            <img
-              src="/figma-icons/xmark.svg"
-              alt=""
-              width={24}
-              height={24}
-              style={{ display: 'block', width: 24, height: 24, maxWidth: 'none' }}
-            />
+            <img src="/figma-icons/xmark.svg" alt="" width={24} height={24} />
           </motion.button>
 
           <ExportLivePreview />
