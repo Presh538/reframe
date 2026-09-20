@@ -145,7 +145,7 @@ export function UpgradeModal({ onClose }: { onClose: () => void }) {
 
         <div className={styles.head}>
           <div className={styles.titleRow}>
-            <h2 id="upgrade-title" className={styles.title}>{plan.title}</h2>
+            <h2 id="upgrade-title" className={modalSurfaceStyles.title}>{plan.title}</h2>
             <span className={styles.planChip}>{plan.chip}</span>
           </div>
           <p className={styles.lede}>{plan.lede}</p>

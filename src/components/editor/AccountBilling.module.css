@@ -36,11 +36,14 @@
   border-bottom: 1px solid var(--line);
 }
 
+/* Matches the shared modal title (ModalSurface .title) so the panel reads the
+   same whether it is opened from the header or from the profile page. */
 .title {
   margin: 0;
-  font-size: 17px;
+  font-size: 18px;
+  line-height: 23px;
   font-weight: 600;
-  line-height: 1.3;
+  letter-spacing: 0.2px;
 }
 
 .subtitle {
