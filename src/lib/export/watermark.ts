@@ -45,31 +45,32 @@ function stamp(canvas: HTMLCanvasElement, wordmark: HTMLImageElement): void {
   const { width: W, height: H } = canvas
   const shortEdge = Math.min(W, H)
 
-  // Wordmark height ~4.5% of the short edge, clamped so it stays legible on
+  // Wordmark height ~3.2% of the short edge, clamped so it stays legible on
   // small exports without dominating large ones.
-  const markH = Math.max(6, Math.min(22, shortEdge * 0.045))
+  const markH = Math.max(7, Math.min(16, shortEdge * 0.032))
   const markW = markH * WORDMARK_RATIO
-  const padX = markH * 0.9
-  const padY = markH * 0.62
-  const pillW = markW + padX * 2
-  const pillH = markH + padY * 2
-  const margin = Math.max(4, shortEdge * 0.03)
-  const x = W - pillW - margin
-  const y = H - pillH - margin
+  const margin = Math.max(6, shortEdge * 0.025)
+  const x = W - markW - margin
+  const y = H - markH - margin
 
   // Nothing sensible to draw if the frame is smaller than the mark itself.
   if (x < 0 || y < 0) return
 
   ctx.save()
-  ctx.globalAlpha = 1 // GIF keys out anything below alpha 128.
+  // Over opaque artwork this blends down to a soft grey. Over a transparent
+  // area it lands just above GIF's alpha-128 cut-off, so the mark survives
+  // instead of being keyed out (gif.ts then flattens it to opaque).
+  ctx.globalAlpha = 0.62
   ctx.globalCompositeOperation = 'source-over'
 
-  ctx.beginPath()
-  ctx.roundRect(x, y, pillW, pillH, pillH / 2)
-  ctx.fillStyle = '#0E0E0F'
-  ctx.fill()
+  // A shadow rather than a plate: it keeps the wordmark readable on light
+  // artwork, and its own pixels fall below the alpha cut-off, so a transparent
+  // export carries the mark without a grey halo baked around it.
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.55)'
+  ctx.shadowBlur = markH * 0.6
+  ctx.shadowOffsetY = markH * 0.12
 
-  ctx.drawImage(wordmark, x + padX, y + padY, markW, markH)
+  ctx.drawImage(wordmark, x, y, markW, markH)
   ctx.restore()
 }
 
