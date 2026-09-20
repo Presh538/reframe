@@ -15,6 +15,13 @@
       "when": 1789702489931,
       "tag": "0001_fluffy_synch",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789905829906,
+      "tag": "0002_fancy_miracleman",
+      "breakpoints": true
     }
   ]
 }

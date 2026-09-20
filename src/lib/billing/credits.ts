@@ -91,9 +91,17 @@ export async function grantCredits(input: {
 }
 
 /** Reserves one AI unit and binds it to the earliest-expiring eligible grant. */
+/**
+ * What a reserved unit is being spent on. Both draw from the same
+ * ai_generation balance -- exports without a watermark are priced in the same
+ * credits -- but they are recorded separately so usage stays legible.
+ */
+export type UsageOperationType = 'ai_animation' | 'export_watermark_free'
+
 export async function reserveAiCredit(input: {
   userId: string
   idempotencyKey: string
+  operationType?: UsageOperationType
 }): Promise<{ operationId: string; status: string; charged: boolean }> {
   return getDatabase().transaction(async (tx) => {
     const [existing] = await tx.select({
@@ -158,7 +166,7 @@ export async function reserveAiCredit(input: {
 
     const [operation] = await tx.insert(usageOperations).values({
       userId: input.userId,
-      operationType: 'ai_animation',
+      operationType: input.operationType ?? 'ai_animation',
       status: 'reserved',
       units: 1,
       idempotencyKey: input.idempotencyKey,

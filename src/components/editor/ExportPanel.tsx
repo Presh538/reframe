@@ -5,7 +5,7 @@ import { useEditorStore, selectCanExport } from '@/lib/store/editor'
 import { runExport } from '@/lib/export/runExport'
 import { useToast } from '@/components/ui/Toast'
 import type { ExportFormat } from '@/types'
-import { useEntitlements } from '@/lib/billing/useEntitlements'
+import { beginMeteredExport, finishMeteredExport } from '@/lib/billing/export-credit-client'
 
 const FORMAT_OPTIONS: { value: ExportFormat; label: string; tier: 'free' | 'pro' }[] = [
   { value: 'gif',  label: 'GIF',  tier: 'free' },
@@ -33,23 +33,25 @@ export function ExportPanel() {
   const setExportState = useEditorStore(s => s.setExportState)
 
   const { toast } = useToast()
-  const entitlements = useEntitlements()
-  // Fails closed: until the account's plan is known, the export is marked.
-  const watermark = !entitlements.has('export.watermark_free')
 
   const handleExport = async () => {
     if (!canExport) return
     setExportState({ isRunning: true, progress: 0, error: null })
+    // The server decides the watermark and reserves the credit; the result is
+    // settled or handed back once the file is produced.
+    const permit = await beginMeteredExport(format)
+    let succeeded = true
     await runExport({
       format,
       activePresetId,
       customAnimationPlan,
       params,
-      watermark,
+      watermark: permit.watermark,
       onProgress: (pct) => setExportState({ progress: pct }),
-      onError:    (msg) => { setExportState({ error: msg }); toast(msg, 'error') },
+      onError:    (msg) => { succeeded = false; setExportState({ error: msg }); toast(msg, 'error') },
       onSuccess:  (msg) => toast(msg, 'success'),
     })
+    await finishMeteredExport(permit, succeeded ? 'succeeded' : 'failed')
     setExportState({ isRunning: false, progress: 0 })
   }
 

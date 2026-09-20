@@ -68,39 +68,14 @@ const FREE_ACCESS: AccountAccess = { planKey: 'free', features: {}, entitlementV
 
 const cacheKey = (userId: string) => `reframe:access:${userId}`
 
-/**
- * Recomputes from live grants. Cached snapshots are not an authorization source.
- */
-export async function getAccountAccess(userId: string): Promise<AccountAccess> {
-  // Until a cache is explicitly bounded by the next grant expiry, live grants
-  // are the authority. Missed cron jobs and invalidation failures cannot retain Pro.
-  return rebuildAccessSnapshot(userId)
-}
-
-export async function invalidateAccessCache(userId: string): Promise<void> {
-  const redis = getRedis()
-  if (!redis) return
-  try {
-    await redis.del(cacheKey(userId))
-  } catch { /* non-critical */ }
-}
-
-export async function hasFeature(userId: string, featureKey: FeatureKey): Promise<boolean> {
-  const access = await getAccountAccess(userId)
-  return access.features[featureKey] === true
-}
+type AccessReader = Pick<ReturnType<typeof getDatabase>, 'select'>
 
 /**
- * Recomputes the snapshot from live entitlement grants -- the authoritative
- * rows -- rather than trusting whatever the last webhook happened to write.
- * Safe to run at any time; this is also the admin repair path.
+ * The single definition of "what may this account do". Takes any reader, so
+ * the read path can use a plain connection and the rebuild can pass its
+ * transaction -- the rule cannot differ between them.
  */
-export async function rebuildAccessSnapshot(userId: string): Promise<AccountAccess> {
-  const now = new Date()
-  const result = await getDatabase().transaction(async db => {
-  // Serialize with subscription changes so a stale rebuild cannot win a race.
-  await db.select().from(creditAccounts).where(eq(creditAccounts.userId, userId)).for('update').limit(1)
-
+async function computeAccess(db: AccessReader, userId: string, now: Date): Promise<{ planKey: string; features: Record<string, boolean> }> {
   const active = await db
     .select({
       featureKey: entitlementGrants.featureKey,
@@ -159,6 +134,55 @@ export async function rebuildAccessSnapshot(userId: string): Promise<AccountAcce
   )
 
   const planKey = (heldBySubscription && PLAN_BY_PRODUCT[entitling.productKey]) || 'free'
+
+  return { planKey, features }
+}
+
+/**
+ * Recomputes from live grants. Cached snapshots are not an authorization source.
+ *
+ * This is the READ path, and it only reads: two plain selects, no transaction,
+ * no row lock and no snapshot write. It used to call rebuildAccessSnapshot,
+ * which meant every read took the account's FOR UPDATE lock and wrote a row.
+ * Page load issues several of these at once -- the header, the export panel and
+ * the billing panel all ask -- so they queued behind each other on that lock,
+ * turning one slow answer into several.
+ *
+ * Authority is unchanged: the answer still comes from live grants every time,
+ * so a missed cron or a failed invalidation still cannot retain Pro. Only the
+ * bookkeeping write is dropped, and the mutation paths still persist it.
+ */
+export async function getAccountAccess(userId: string): Promise<AccountAccess> {
+  const { planKey, features } = await computeAccess(getDatabase(), userId, new Date())
+  // Versions belong to the stored snapshot; a read does not mint one.
+  return { planKey, features, entitlementVersion: 0 }
+}
+
+export async function invalidateAccessCache(userId: string): Promise<void> {
+  const redis = getRedis()
+  if (!redis) return
+  try {
+    await redis.del(cacheKey(userId))
+  } catch { /* non-critical */ }
+}
+
+export async function hasFeature(userId: string, featureKey: FeatureKey): Promise<boolean> {
+  const access = await getAccountAccess(userId)
+  return access.features[featureKey] === true
+}
+
+/**
+ * Recomputes the snapshot from live entitlement grants -- the authoritative
+ * rows -- rather than trusting whatever the last webhook happened to write.
+ * Safe to run at any time; this is also the admin repair path.
+ */
+export async function rebuildAccessSnapshot(userId: string): Promise<AccountAccess> {
+  const now = new Date()
+  const result = await getDatabase().transaction(async db => {
+  // Serialize with subscription changes so a stale rebuild cannot win a race.
+  await db.select().from(creditAccounts).where(eq(creditAccounts.userId, userId)).for('update').limit(1)
+
+  const { planKey, features } = await computeAccess(db, userId, now)
 
   await db
     .insert(accountAccessSnapshots)

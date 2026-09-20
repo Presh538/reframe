@@ -172,7 +172,19 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
 
 // ── Internal helpers ──────────────────────────────────────────
 
+/**
+ * Hands the main thread back so the browser can paint.
+ *
+ * scheduler.yield() resumes with priority over other pending work, so a long
+ * loop broken up with it keeps its place in the queue instead of going to the
+ * back on every iteration. setTimeout is the fallback, and is clamped to ~4ms,
+ * which is why the encode loop yields on an interval rather than every frame.
+ */
+type Scheduler = { yield?: () => Promise<void> }
+
 function yieldToMain(): Promise<void> {
+  const scheduler = (globalThis as { scheduler?: Scheduler }).scheduler
+  if (typeof scheduler?.yield === 'function') return scheduler.yield()
   return new Promise(r => setTimeout(r, 0))
 }
 
@@ -386,10 +398,31 @@ async function encodeGif(
   // One yield to flush the progress bar update to React before the encode loop.
   await yieldToMain()
 
+  // addFrame quantises and LZW-encodes synchronously, so encoding every frame
+  // in one pass blocks the main thread for the whole export -- long enough that
+  // the progress bar cannot paint the numbers it is being given, which is what
+  // made the UI look frozen. Yielding on an interval lets the browser paint
+  // between frames; the interval keeps the cost of yielding itself small when a
+  // frame encodes quickly.
+  let lastYield = performance.now()
   for (let i = 0; i < frames.length; i++) {
     const ctx = frames[i].getContext('2d')!
     encoder.addFrame(ctx.getImageData(0, 0, W, H).data)
     onProgress?.((i + 1) / frames.length)
+
+    // Release the canvas as soon as it is encoded: its backing store is
+    // W x H x 4 bytes, and holding every frame until the end is what pushes
+    // large exports towards the memory ceiling.
+    frames[i].width = 0
+    frames[i].height = 0
+
+    // Only yield when there is something to paint. Background tabs clamp
+    // setTimeout to about a second, so yielding in a hidden tab would trade a
+    // freeze nobody can see for an export that takes minutes longer.
+    if (document.visibilityState === 'visible' && performance.now() - lastYield > 32) {
+      await yieldToMain()
+      lastYield = performance.now()
+    }
   }
 
   encoder.finish()

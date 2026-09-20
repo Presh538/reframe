@@ -1,0 +1,2 @@
+ALTER TABLE "usage_operation" DROP CONSTRAINT "usage_operation_type_check";--> statement-breakpoint
+ALTER TABLE "usage_operation" ADD CONSTRAINT "usage_operation_type_check" CHECK ("usage_operation"."operation_type" in ('ai_animation', 'export_watermark_free'));

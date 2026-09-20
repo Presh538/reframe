@@ -1,13 +1,14 @@
 import 'server-only'
 
 import { auth } from '@clerk/nextjs/server'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { getDatabase } from '@/lib/db/client'
 import {
   accountAccessSnapshots,
   appUsers,
   billingCustomers,
   creditAccounts,
+  creditGrants,
   type AppUser,
 } from '@/lib/db/schema'
 import { grantCredits } from '@/lib/billing/credits'
@@ -32,6 +33,41 @@ export async function getCurrentAppUser(): Promise<AppUser | null> {
   if (!userId) return null
 
   const db = getDatabase()
+
+  // Fast path: one round trip.
+  //
+  // Provisioning only matters the first time an account is seen, but it used
+  // to run on every authenticated request -- a five-statement transaction plus
+  // grantCredits' own transaction, so roughly a dozen round trips before any
+  // route did its actual work. Every one after the first was a no-op that
+  // still cost the latency.
+  //
+  // The check cannot be "does the user row exist": the Clerk webhook creates
+  // that row on its own, without the credit account or the free grant, so a
+  // webhook-created account would be handed back unprovisioned and would then
+  // look like it had no credits. The join confirms the rows that actually
+  // matter are present before taking the shortcut.
+  const [existing] = await db
+    .select({
+      user: appUsers,
+      creditAccountUserId: creditAccounts.userId,
+      freeGrantId: creditGrants.id,
+    })
+    .from(appUsers)
+    .leftJoin(creditAccounts, and(
+      eq(creditAccounts.userId, appUsers.id),
+      eq(creditAccounts.creditType, 'ai_generation'),
+    ))
+    .leftJoin(creditGrants, and(
+      eq(creditGrants.userId, appUsers.id),
+      eq(creditGrants.grantType, 'free_allowance'),
+    ))
+    .where(eq(appUsers.clerkUserId, userId))
+    .limit(1)
+
+  if (existing && existing.user.status !== 'active') return null
+  if (existing?.creditAccountUserId && existing.freeGrantId) return existing.user
+
   const user = await db.transaction(async (tx) => {
     await tx.insert(appUsers).values({ clerkUserId: userId }).onConflictDoNothing()
 

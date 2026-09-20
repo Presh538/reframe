@@ -13,6 +13,7 @@ import * as schema from '@/lib/db/schema'
 import { fulfillPaidOrder, refundOrder, recordOrderMirror, syncSubscription, grantSubscriptionPeriodCredits, type SubscriptionState } from '@/lib/billing/fulfillment'
 import { getAccountAccess } from '@/lib/billing/entitlements'
 import { grantCredits, releaseAiCredit, reserveAiCredit } from '@/lib/billing/credits'
+import { beginExport, refundExport, settleExport } from '@/lib/billing/export-metering'
 import { getCreditBalance } from '@/lib/billing/balance'
 import { prepareCheckoutIntent } from '@/lib/billing/checkout-intent'
 
@@ -49,6 +50,7 @@ beforeAll(async () => {
   mockDb.mockReturnValue(db)
   await client.exec(readFileSync('db/migrations/0000_stale_mordo.sql', 'utf8'))
   await client.exec(readFileSync('db/migrations/0001_fluffy_synch.sql', 'utf8'))
+  await client.exec(readFileSync('db/migrations/0002_fancy_miracleman.sql', 'utf8'))
 })
 beforeEach(async () => {
   await client.exec('TRUNCATE app_user, billing_product CASCADE')
@@ -264,4 +266,51 @@ it('partial refunds withheld during an in-flight reservation are recovered when 
   await refundOrder({ ...paid, refundedAmount: 250 })
   for (const operation of operations) await releaseAiCredit(operation.operationId, 'failed')
   expect(await getCreditBalance(userId)).toEqual({ available: 13, reserved: 0 })
+})
+
+// ── Export watermark metering ──────────────────────────────────
+it('gives a Pro account a clean export without charging a credit', async () => {
+  await fulfillPaidOrder(order())
+  const before = await available()
+  const meter = await beginExport(userId, randomUUID())
+  expect(meter).toEqual({ watermark: false, operationId: null })
+  expect(await available()).toBe(before)
+})
+it('charges one credit for a clean export when there is no subscription', async () => {
+  await fulfillPaidOrder(await pack())
+  expect(await available()).toBe(25)
+  const meter = await beginExport(userId, randomUUID())
+  expect(meter.watermark).toBe(false)
+  expect(meter.operationId).not.toBeNull()
+  expect(await available()).toBe(24)
+  await settleExport(userId, meter.operationId!)
+  expect(await available()).toBe(24)
+})
+it('watermarks the export rather than failing when there is nothing to charge', async () => {
+  const meter = await beginExport(userId, randomUUID())
+  expect(meter).toEqual({ watermark: true, operationId: null })
+})
+it('returns the credit when the export fails', async () => {
+  await fulfillPaidOrder(await pack())
+  const meter = await beginExport(userId, randomUUID())
+  expect(await available()).toBe(24)
+  await refundExport(userId, meter.operationId!, 'export_failed')
+  expect(await available()).toBe(25)
+})
+it('ignores a settle or refund for another account\'s operation', async () => {
+  await fulfillPaidOrder(await pack())
+  const meter = await beginExport(userId, randomUUID())
+  const stranger = randomUUID()
+  await db.insert(schema.appUsers).values({ id: stranger, clerkUserId: stranger })
+  await refundExport(stranger, meter.operationId!, 'export_failed')
+  // The credit stays reserved: a stranger cannot hand back what is not theirs.
+  expect(await available()).toBe(24)
+})
+it('never charges twice for one export, however often it is retried', async () => {
+  await fulfillPaidOrder(await pack())
+  const key = randomUUID()
+  await beginExport(userId, key)
+  await beginExport(userId, key)
+  await beginExport(userId, key)
+  expect(await available()).toBe(24)
 })

@@ -48,7 +48,7 @@ const PLANS: Plan[] = [
     price: '$11.99',
     meta: ['per month', 'billed monthly'],
     features: [
-      '300 AI generations every month',
+      '300 AI generations or watermark-free exports a month',
       'Fresh credits each billing period',
       'Failed generations are never charged',
       'Cancel anytime, access runs to the period end',
@@ -66,10 +66,10 @@ const PLANS: Plan[] = [
     price: '$4.99',
     meta: ['one-time', 'no renewal'],
     features: [
-      '25 AI generations',
+      '25 AI generations, or watermark-free exports',
       'Credits never expire',
       'Failed generations are never charged',
-      'Stacks with Pro, and is used last',
+      'Removes the export watermark, one credit per export',
       'Secure checkout — we never see your card',
     ],
     cta: 'Buy 25 credits',
@@ -145,7 +145,7 @@ export function UpgradeModal({ onClose }: { onClose: () => void }) {
 
         <div className={styles.head}>
           <div className={styles.titleRow}>
-            <h2 id="upgrade-title" className={styles.title}>{plan.title}</h2>
+            <h2 id="upgrade-title" className={modalSurfaceStyles.title}>{plan.title}</h2>
             <span className={styles.planChip}>{plan.chip}</span>
           </div>
           <p className={styles.lede}>{plan.lede}</p>
