@@ -261,7 +261,11 @@ function ReframeLogo() {
 function PlanControl({ onUpgrade, onBilling }: { onUpgrade: () => void; onBilling: () => void }) {
   const { loading, isPro, credits } = useEntitlements()
 
-  if (loading) return null
+  // The plan is only known after the client has hydrated and read
+  // /api/me/access, so the first paint has no answer. Hold the space rather
+  // than rendering nothing: the label cannot be guessed (showing "Upgrade" to
+  // a subscriber would be wrong), but the header should not jump when it lands.
+  if (loading) return <span className={topbarStyles.planSkeleton} aria-hidden="true" />
 
   const count = credits ?? 0
   const creditLabel = `${count} AI ${count === 1 ? 'credit' : 'credits'}`

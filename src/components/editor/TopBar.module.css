@@ -159,3 +159,18 @@
 @media (max-width: 860px) {
   .planBadge { display: none; }
 }
+
+/* Placeholder for the plan control while the account's plan is being read.
+   The control cannot render its real label yet -- showing "Upgrade" to a
+   subscriber would be wrong -- but it can hold the space, so the header does
+   not reflow when the answer arrives. */
+.planSkeleton {
+  height: 32px;
+  width: 76px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+@media (max-width: 860px) {
+  .planSkeleton { display: none; }
+}
