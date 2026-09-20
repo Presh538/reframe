@@ -18,6 +18,7 @@ export const FEATURE_KEYS = [
   'share.private',
   'project.history',
   'render.priority',
+  'export.watermark_free',
 ] as const
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number]
@@ -32,6 +33,7 @@ export const PLAN_FEATURES: Record<string, FeatureKey[]> = {
     'share.permanent',
     'share.private',
     'project.history',
+    'export.watermark_free',
   ],
   studio: [...FEATURE_KEYS],
 }

@@ -27,6 +27,11 @@ export interface RunExportOptions {
   quality?: number
   /** Frames per second. Used by GIF and WebM. */
   fps?: number
+  /**
+   * Burn the free-tier mark into GIF and WebM frames. Decided from the
+   * account's entitlements by the caller, never from anything computed here.
+   */
+  watermark?: boolean
 }
 
 export async function runExport({
@@ -40,6 +45,7 @@ export async function runExport({
   onEmbedCode,
   quality,
   fps,
+  watermark,
 }: RunExportOptions): Promise<void> {
   const preset = activePresetId ? getPreset(activePresetId) : undefined
   if (!preset && !customAnimationPlan) { onError('No animation found — apply an animation first'); return }
@@ -70,13 +76,13 @@ export async function runExport({
   try {
     if (format === 'gif') {
       const { exportGif } = await import('./gif')
-      const blob = await exportGif({ svgEl, onProgress, quality, fps })
+      const blob = await exportGif({ svgEl, onProgress, quality, fps, watermark })
       triggerDownload(blob, `reframe-${animation.id}.gif`)
       onSuccess('GIF downloaded ✓')
 
     } else if (format === 'webm') {
       const { exportWebm } = await import('./webm')
-      const blob = await exportWebm({ svgEl, onProgress, quality, fps })
+      const blob = await exportWebm({ svgEl, onProgress, quality, fps, watermark })
       triggerDownload(blob, `reframe-${animation.id}.webm`)
       onSuccess('WebM downloaded ✓')
 

@@ -2,8 +2,10 @@
 
 import { SignInButton, useAuth } from '@clerk/nextjs'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { motion } from 'motion/react'
 import { startCheckout } from '@/lib/billing/checkout-client'
 import styles from './UpgradeModal.module.css'
+import modalBackdropStyles from './ModalBackdrop.module.css'
 
 /**
  * Upgrade modal — Figma node 102:1913.
@@ -139,18 +141,26 @@ export function UpgradeModal({ onClose }: { onClose: () => void }) {
   }, [plan.productKey])
 
   return (
-    <div
-      className={styles.overlay}
+    <motion.div
+      className={`${styles.overlay} ${modalBackdropStyles.backdrop}`}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
       // Only a click that starts and ends on the backdrop dismisses, so a
       // drag that ends outside the dialog does not close it by accident.
       onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}
     >
-      <div
+      <motion.div
         ref={dialogRef}
         className={styles.dialog}
         role="dialog"
         aria-modal="true"
         aria-labelledby="upgrade-title"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8, scale: 0.97 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 28 }}
       >
         <button ref={closeRef} type="button" className={styles.close} onClick={onClose} aria-label="Close">
           <img src="/figma-icons/xmark.svg" alt="" width={24} height={24} />
@@ -220,7 +230,7 @@ export function UpgradeModal({ onClose }: { onClose: () => void }) {
         <p className={styles.footnote}>
           Billed by Polar, our merchant of record. Manage or cancel anytime from your avatar → Billing.
         </p>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

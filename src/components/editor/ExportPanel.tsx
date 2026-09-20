@@ -5,6 +5,7 @@ import { useEditorStore, selectCanExport } from '@/lib/store/editor'
 import { runExport } from '@/lib/export/runExport'
 import { useToast } from '@/components/ui/Toast'
 import type { ExportFormat } from '@/types'
+import { useEntitlements } from '@/lib/billing/useEntitlements'
 
 const FORMAT_OPTIONS: { value: ExportFormat; label: string; tier: 'free' | 'pro' }[] = [
   { value: 'gif',  label: 'GIF',  tier: 'free' },
@@ -32,6 +33,9 @@ export function ExportPanel() {
   const setExportState = useEditorStore(s => s.setExportState)
 
   const { toast } = useToast()
+  const entitlements = useEntitlements()
+  // Fails closed: until the account's plan is known, the export is marked.
+  const watermark = !entitlements.has('export.watermark_free')
 
   const handleExport = async () => {
     if (!canExport) return
@@ -41,6 +45,7 @@ export function ExportPanel() {
       activePresetId,
       customAnimationPlan,
       params,
+      watermark,
       onProgress: (pct) => setExportState({ progress: pct }),
       onError:    (msg) => { setExportState({ error: msg }); toast(msg, 'error') },
       onSuccess:  (msg) => toast(msg, 'success'),

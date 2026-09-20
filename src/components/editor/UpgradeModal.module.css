@@ -15,9 +15,7 @@
   justify-content: center;
   padding: 24px;
   overflow-y: auto;
-  background: rgba(17, 17, 17, 0.7);
-  backdrop-filter: blur(7px);
-  -webkit-backdrop-filter: blur(7px);
+  user-select: none;
 }
 
 .dialog {
@@ -31,7 +29,11 @@
   padding: 32px 40px;
   border: 0.5px solid rgba(36, 36, 49, 0.64);
   border-radius: 28px;
-  background: rgba(46, 46, 46, 0.85);
+  /* Keep the surface opaque like the start-page card. A translucent panel
+     allows bright SVG artwork to show through and changes the perceived
+     colour from screen to screen. */
+  background: #2e2e2e;
+  overflow: hidden;
   backdrop-filter: blur(25px);
   -webkit-backdrop-filter: blur(25px);
   box-shadow: 0 16px 70px rgba(0, 0, 0, 0.5);
@@ -96,6 +98,7 @@
    selected tab also carries aria-selected for assistive tech. */
 .tabs {
   display: inline-flex;
+  align-self: flex-start;
   align-items: center;
   gap: 2px;
   padding: 4px;

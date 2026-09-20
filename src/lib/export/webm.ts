@@ -16,6 +16,8 @@ import { stepToTime, restorePlayback, computeSequenceDuration } from '@/lib/svg/
 // ── Config ─────────────────────────────────────────────────────
 
 const FPS           = 30
+import { watermarkFrames } from './watermark'
+
 const MAX_EXPORT_PX = 720   // 480 was undersized; 720 gives clean output on retina displays
 const MAX_DURATION  = 10    // seconds — hard cap
 
@@ -30,10 +32,12 @@ export interface WebmExportOptions {
   fps?: number
   /** Export quality 10–100 (default 100): scales resolution and bitrate. */
   quality?: number
+  /** Burn the free-tier mark into every frame. */
+  watermark?: boolean
 }
 
 export async function exportWebm(opts: WebmExportOptions): Promise<Blob> {
-  const { svgEl, onProgress, background = 'transparent', fps: fpsProp, quality: qualityProp } = opts
+  const { svgEl, onProgress, background = 'transparent', fps: fpsProp, quality: qualityProp, watermark } = opts
 
   if (typeof MediaRecorder === 'undefined') {
     throw new Error('MediaRecorder is not available in this browser')
@@ -91,6 +95,9 @@ export async function exportWebm(opts: WebmExportOptions): Promise<Blob> {
   }
 
   // ── Phase 3: Encode as WebM via MediaRecorder ────────────────
+
+  // Stamped before encoding so the mark is part of the pixels, not an overlay.
+  if (watermark) await watermarkFrames(frames)
 
   return encodeWebm(frames, fpsToUse, W, H, bitrate, (p) => {
     onProgress?.(32 + Math.round(p * 68))

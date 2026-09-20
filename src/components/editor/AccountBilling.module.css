@@ -361,14 +361,14 @@
 /* ── Checkout return toast (sits on the app chrome, not in the modal) ── */
 
 /*
- * Top-right, directly under the avatar where Billing lives. The top bar ends at
- * 92px (30px offset + 62px height) with 40px side gutters; the bottom centre is
+ * Top-right, directly under the avatar where Billing lives. The compact app
+ * header is 48px high; the bottom centre is
  * taken by the AI prompt bar, which previously covered this message.
  */
 .toast {
   position: fixed;
-  top: 104px;
-  right: 40px;
+  top: 60px;
+  right: 16px;
   z-index: 60;
   display: flex;
   align-items: center;

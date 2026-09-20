@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/Toast'
 import { sanitizeSvgClient, normalizeSvgElement, extractLayerInfo } from '@/lib/svg/sanitize'
 import { EditorAnalytics } from '@/components/EditorAnalytics'
 import type { CanvasTheme } from './CanvasThemeToggle'
+import modalBackdropStyles from './ModalBackdrop.module.css'
 
 export type AppMode = 'animate' | '3d'
 
@@ -308,7 +309,7 @@ function InfoModal({ onClose }: { onClose: () => void }) {
       className="absolute inset-0 select-none"
       style={{
         zIndex: 80,
-        background: 'rgba(17,17,17,0.70)',
+        background: 'rgba(17,17,17,0.60)',
         backdropFilter: 'blur(7px)',
         WebkitBackdropFilter: 'blur(7px)',
       }}
@@ -331,7 +332,7 @@ function InfoModal({ onClose }: { onClose: () => void }) {
           maxWidth: 'calc(100vw - 124px)',
           borderRadius: 28,
           overflow: 'hidden',
-          background: 'rgba(46,46,46,0.85)',
+          background: '#2E2E2E',
           border: '0.5px solid rgba(36,36,49,0.64)',
           boxShadow: '0 16px 70px rgba(0,0,0,0.5)',
           backdropFilter: 'blur(25px)',
@@ -455,12 +456,9 @@ function InfoModal({ onClose }: { onClose: () => void }) {
 function EmptyStateModal({ onBrowseLibrary, onTryExample, onUpload }: { onBrowseLibrary: () => void; onTryExample: () => void; onUpload: () => void }) {
   return (
     <motion.div
-      className="absolute inset-0 flex items-start justify-center select-none"
+      className={`absolute inset-0 flex items-start justify-center select-none ${modalBackdropStyles.backdrop}`}
       style={{
         zIndex: 35,
-        background: 'rgba(17,17,17,0.70)',
-        backdropFilter: 'blur(7px)',
-        WebkitBackdropFilter: 'blur(7px)',
         paddingTop: 159,
       }}
       initial={{ opacity: 0 }}
