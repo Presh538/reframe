@@ -18,7 +18,8 @@ Designers, developers, and marketers who need animated logos, icons, and illustr
 
 - Product name: Reframe
 - Website: https://reframeo.com
-- Price: Free
+- Price: Free to use, no account required. Paid options: a 25-credit pack at $4.99 (one-off, credits never expire) and Pro at $11.99/month (300 credits a month). One credit buys an AI generation, or removes the watermark from one GIF or WebM export.
+- Watermark: Free GIF and WebM exports carry a small Reframe watermark. Lottie exports are never watermarked.
 - Platform: Web browser (no install)
 - Input: SVG files
 - Output: GIF, WebM, Lottie JSON
@@ -33,4 +34,11 @@ Designers, developers, and marketers who need animated logos, icons, and illustr
 ## Links
 
 - Home / app: https://reframeo.com
+- Animate SVG with AI: https://reframeo.com/animate-svg-with-ai
+- SVG to GIF: https://reframeo.com/svg-to-gif
+- SVG to Lottie: https://reframeo.com/svg-to-lottie
+- Free SVG animator: https://reframeo.com/free-svg-animator
+- Animated SVG logo: https://reframeo.com/animated-svg-logo
+- SVG loading animation: https://reframeo.com/svg-loading-animation
+- Animate an SVG icon: https://reframeo.com/animate-svg-icon
 - Sitemap: https://reframeo.com/sitemap.xml

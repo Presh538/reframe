@@ -130,6 +130,9 @@ const ALL_PAGES: { path: string; label: string }[] = [
   { path: '/svg-to-gif',          label: 'SVG to GIF' },
   { path: '/svg-to-lottie',       label: 'SVG to Lottie' },
   { path: '/free-svg-animator',   label: 'Free SVG animator' },
+  { path: '/animated-svg-logo',   label: 'Animated SVG logo' },
+  { path: '/svg-loading-animation', label: 'SVG loading animation' },
+  { path: '/animate-svg-icon',    label: 'Animate SVG icon' },
 ]
 
 const s = {

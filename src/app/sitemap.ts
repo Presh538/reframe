@@ -7,6 +7,9 @@ const LANDING_PATHS = [
   '/svg-to-gif',
   '/svg-to-lottie',
   '/free-svg-animator',
+  '/animated-svg-logo',
+  '/svg-loading-animation',
+  '/animate-svg-icon',
 ]
 
 export default function sitemap(): MetadataRoute.Sitemap {
