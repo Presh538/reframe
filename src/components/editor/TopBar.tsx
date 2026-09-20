@@ -12,6 +12,7 @@ import {
 import { SPRING } from '@/lib/motion'
 import { CanvasThemeToggle, type CanvasTheme } from './CanvasThemeToggle'
 import { UpgradeModal } from './UpgradeModal'
+import { BillingModal } from './BillingModal'
 import { useEntitlements } from '@/lib/billing/useEntitlements'
 import { useToast } from '@/components/ui/Toast'
 import { CodeSheet } from '@/components/ui/CodeSheet'
@@ -50,6 +51,7 @@ export function TopBar({
 }: TopBarProps) {
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [upgradeOpen,     setUpgradeOpen]     = useState(false)
+  const [billingOpen,     setBillingOpen]     = useState(false)
   const entitlements = useEntitlements()
   // Fails closed: until the account's plan is known, the export is marked.
   const watermark = !entitlements.has('export.watermark_free')
@@ -157,7 +159,7 @@ export function TopBar({
           {canvasTheme && onCanvasThemeChange && (
             <CanvasThemeToggle theme={canvasTheme} onChange={onCanvasThemeChange} />
           )}
-          <PlanControl onClick={() => setUpgradeOpen(true)} />
+          <PlanControl onUpgrade={() => setUpgradeOpen(true)} onBilling={() => setBillingOpen(true)} />
           <motion.button
             type="button"
             onClick={displayCanExport && !isRunning ? () => { setExportModalOpen(true); trackExportModalOpened() } : undefined}
@@ -183,6 +185,10 @@ export function TopBar({
 
       <AnimatePresence>
         {upgradeOpen && <UpgradeModal key="upgrade-modal" onClose={() => setUpgradeOpen(false)} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {billingOpen && <BillingModal key="billing-modal" onClose={() => setBillingOpen(false)} />}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -250,26 +256,35 @@ function ReframeLogo() {
  * Renders nothing until the plan resolves, so a paying customer is never shown
  * "Upgrade" for a frame while the request is in flight.
  */
-function PlanControl({ onClick }: { onClick: () => void }) {
+function PlanControl({ onUpgrade, onBilling }: { onUpgrade: () => void; onBilling: () => void }) {
   const { loading, isPro, credits } = useEntitlements()
 
   if (loading) return null
 
   const count = credits ?? 0
   const creditLabel = `${count} AI ${count === 1 ? 'credit' : 'credits'}`
+  const hasCredits = count > 0
+  // Anyone with something to manage goes to billing; only an account with
+  // neither a plan nor a balance is offered checkout.
+  const onClick = isPro || hasCredits ? onBilling : onUpgrade
 
   if (isPro) {
     return (
-      <span className={topbarStyles.planBadge}>
+      <motion.button
+        type="button"
+        onClick={onBilling}
+        aria-label={`Pro plan, ${creditLabel} remaining. View billing`}
+        whileTap={{ scale: 0.96 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+        className={topbarStyles.planBadge}
+        onMouseEnter={e => (e.currentTarget.style.background = '#161618')}
+        onMouseLeave={e => (e.currentTarget.style.background = '#0E0E0F')}
+      >
         <span className={topbarStyles.upgradeLabel}>Pro</span>
-        <span className={topbarStyles.planBadgeCredits} aria-label={`${creditLabel} remaining`}>
-          {count}
-        </span>
-      </span>
+        <span className={topbarStyles.planBadgeCredits}>{count}</span>
+      </motion.button>
     )
   }
-
-  const hasCredits = count > 0
 
   return (
     <motion.button
@@ -277,7 +292,7 @@ function PlanControl({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       // The label is spelled out because the gradient paints the text with a
       // transparent fill, which some assistive tech skips when naming.
-      aria-label={hasCredits ? `${creditLabel} remaining. Buy more` : 'Upgrade to Pro'}
+      aria-label={hasCredits ? `${creditLabel} remaining. View billing` : 'Upgrade to Pro'}
       whileTap={{ scale: 0.96 }}
       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
       className={topbarStyles.upgradeButton}

@@ -1,10 +1,11 @@
 'use client'
 
 import { SignInButton, useAuth } from '@clerk/nextjs'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { startCheckout } from '@/lib/billing/checkout-client'
 import styles from './UpgradeModal.module.css'
+import { useModalDismiss } from './useModalDismiss'
 import modalBackdropStyles from './ModalBackdrop.module.css'
 
 /**
@@ -84,32 +85,7 @@ export function UpgradeModal({ onClose }: { onClose: () => void }) {
 
   const plan = PLANS.find((candidate) => candidate.id === planId) ?? PLANS[0]
 
-  // Close on Escape, and keep focus inside the dialog while it is open.
-  useEffect(() => {
-    closeRef.current?.focus()
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose()
-        return
-      }
-      if (event.key !== 'Tab') return
-      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-        'button:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
-      )
-      if (!focusable?.length) return
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  useModalDismiss(dialogRef, closeRef, onClose)
 
   const selectPlan = useCallback((id: string) => {
     setPlanId(id)

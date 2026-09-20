@@ -131,15 +131,16 @@
   .upgradeButton { display: none; }
 }
 
-/* Plan badge — the non-interactive state of the plan control, shown when the
-   account is already on Pro. It mirrors .upgradeButton's metrics so swapping
-   between the two never shifts the header layout. */
+/* Plan badge — the Pro state of the plan control, which opens billing. It
+   mirrors .upgradeButton's metrics so swapping between the two never shifts
+   the header layout. */
 .planBadge {
   height: 32px;
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 0 12px;
+  border: 0;
   border-radius: 999px;
   background: #0e0e0f;
   font-family: var(--font-geist-sans), sans-serif;
@@ -147,7 +148,7 @@
   line-height: 18px;
   letter-spacing: 0.028px;
   white-space: nowrap;
-  cursor: default;
+  cursor: pointer;
 }
 
 .planBadgeCredits {
