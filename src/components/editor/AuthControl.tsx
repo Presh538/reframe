@@ -29,18 +29,19 @@ const PILL: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: '16px 28px',
-  borderRadius: 40,
+  height: 32,
+  padding: '0 12px',
+  borderRadius: 999,
   border: 'none',
   background: 'rgba(255,255,255,0.06)',
   backdropFilter: 'blur(17px)',
   WebkitBackdropFilter: 'blur(17px)',
-  boxShadow: 'inset 0px 2px 4px rgba(57,57,57,0.45)',
+  boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.08)',
   cursor: 'pointer',
   transition: 'background 0.15s',
   fontFamily: 'var(--font-geist-sans), sans-serif',
   fontWeight: 400,
-  fontSize: 14,
+  fontSize: 12,
   letterSpacing: 0.028,
   color: '#D06523',
   whiteSpace: 'nowrap',
@@ -59,8 +60,8 @@ function AuthControlInner() {
       <UserButton
         appearance={{
           elements: {
-            // Sized to sit level with the Export pill beside it.
-            userButtonAvatarBox: { width: 46, height: 46 },
+            // Figma 102:1463: compact avatar aligned to the 32px controls.
+            userButtonAvatarBox: { width: 32, height: 32 },
             userButtonTrigger: {
               borderRadius: 40,
               boxShadow: 'inset 0px 2px 4px rgba(57,57,57,0.45)',

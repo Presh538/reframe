@@ -5,7 +5,7 @@ import { and, desc, eq, gt, gte, lt, inArray, isNull, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { recordAudit } from './audit'
 import { grantCredits } from './credits'
-import { PLAN_FEATURES, rebuildAccessSnapshot } from './entitlements'
+import { ENTITLING_STATUSES, PLAN_FEATURES, planForProductKey, rebuildAccessSnapshot } from './entitlements'
 import { acceptSubscriptionState, allowanceWindow, refundedCreditTarget } from './lifecycle-policy'
 import { ALLOWANCE } from './policy'
 import { getDatabase } from '@/lib/db/client'
@@ -21,8 +21,7 @@ export type SubscriptionState = {
   currentPeriodStart: Date; currentPeriodEnd: Date; cancelAtPeriodEnd: boolean
   canceledAt: Date | null; endedAt: Date | null; observedAt?: Date
 }
-const entitledStatuses = ['active', 'trialing', 'past_due']
-const planProduct = (key: string) => key === 'pro_monthly' || key === 'pro_yearly'
+const planProduct = (key: string) => planForProductKey(key) !== null
 
 async function lockAccount(tx: Tx, userId: string) {
   const [account] = await tx.select().from(creditAccounts).where(and(eq(creditAccounts.userId, userId),
@@ -110,7 +109,7 @@ async function syncWithin(tx: Tx, state: SubscriptionState) {
   const until = state.endedAt ?? state.currentPeriodEnd
   await tx.update(entitlementGrants).set({ revokedAt: new Date() }).where(and(eq(entitlementGrants.userId, state.userId),
     eq(entitlementGrants.sourceType, 'subscription'), eq(entitlementGrants.sourceId, state.providerSubscriptionId), isNull(entitlementGrants.revokedAt)))
-  if (entitledStatuses.includes(state.status) && until > new Date()) {
+  if (ENTITLING_STATUSES.includes(state.status) && until > new Date()) {
     for (const featureKey of PLAN_FEATURES.pro) {
       await tx.insert(entitlementGrants).values({ userId: state.userId, featureKey, sourceType: 'subscription', sourceId: state.providerSubscriptionId,
         expiresAt: until, idempotencyKey: `subscription:${state.providerSubscriptionId}:feature:${featureKey}` })

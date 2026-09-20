@@ -1,0 +1,176 @@
+.header {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 30;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: #1b1b1b;
+  color: #f5f5f7;
+  font-family: var(--font-geist-sans), sans-serif;
+}
+
+.leftGroup,
+.rightGroup,
+.brand,
+.uploadButton {
+  display: flex;
+  align-items: center;
+}
+
+.leftGroup { gap: 12px; }
+.rightGroup { gap: 12px; }
+.brand { gap: 8px; opacity: 0.9; }
+
+.beta {
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: #2a2a2c;
+  color: #6e6e73;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 15px;
+  letter-spacing: 0.6172px;
+  text-transform: uppercase;
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.uploadButton {
+  gap: 6px;
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #d06523;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.uploadButton span { text-decoration: underline; }
+.uploadButton img { opacity: 0.72; }
+.uploadButton:hover { background: rgba(255, 255, 255, 0.05); }
+
+.fileName {
+  position: absolute;
+  left: 50%;
+  width: min(192px, 32vw);
+  padding: 4px 8px;
+  overflow: hidden;
+  transform: translateX(-50%);
+  color: #f5f5f7;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: -0.3744px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upgradeButton,
+.exportButton {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  font-family: var(--font-geist-sans), sans-serif;
+  font-size: 14px;
+  line-height: 18px;
+  letter-spacing: 0.028px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.upgradeButton {
+  padding: 0 10px;
+  background: #0e0e0f;
+}
+
+.upgradeLabel {
+  color: #c9d4ff;
+  background-image: linear-gradient(94deg, #9a0000 9.6%, #8098f9 102%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.exportButton {
+  position: relative;
+  min-width: 74px;
+  padding: 0 16px;
+  overflow: hidden;
+  box-shadow: inset 0 2.5px 5px rgba(255, 255, 255, 0.35);
+  transition: background 0.15s;
+}
+
+@media (max-width: 760px) {
+  .beta,
+  .divider,
+  .uploadButton span,
+  .fileName { display: none; }
+
+  .leftGroup,
+  .rightGroup { gap: 8px; }
+
+  .uploadButton { padding: 5px; }
+}
+
+@media (max-width: 470px) {
+  .upgradeButton { display: none; }
+}
+
+/* Plan badge — the Pro state of the plan control, which opens billing. It
+   mirrors .upgradeButton's metrics so swapping between the two never shifts
+   the header layout. */
+.planBadge {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #0e0e0f;
+  font-family: var(--font-geist-sans), sans-serif;
+  font-size: 14px;
+  line-height: 18px;
+  letter-spacing: 0.028px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.planBadgeCredits {
+  color: #8a8a8f;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 860px) {
+  .planBadge { display: none; }
+}
+
+/* Placeholder for the plan control while the account's plan is being read.
+   The control cannot render its real label yet -- showing "Upgrade" to a
+   subscriber would be wrong -- but it can hold the space, so the header does
+   not reflow when the answer arrives. */
+.planSkeleton {
+  height: 32px;
+  width: 76px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+@media (max-width: 860px) {
+  .planSkeleton { display: none; }
+}

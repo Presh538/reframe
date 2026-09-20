@@ -54,6 +54,8 @@ interface GifEncoderInstance {
 // ── Config ────────────────────────────────────────────────────
 
 const FPS           = 24          // Film-standard cadence — motion is smooth rather than stuttery
+import { watermarkFrames } from './watermark'
+
 const MAX_EXPORT_PX = 900         // Scale the longest edge to this — crisp for GIF without OOM risk
 const MAX_FRAMES    = 144         // 24 fps × 6 s hard cap
 const SUPERSAMPLE   = 3           // Render at up to 3× then downscale — bicubic filter eliminates aliasing
@@ -81,10 +83,12 @@ export interface GifExportOptions {
    * Lower values reduce palette accuracy and file size.
    */
   quality?: number
+  /** Burn the free-tier mark into every frame. */
+  watermark?: boolean
 }
 
 export async function exportGif(opts: GifExportOptions): Promise<Blob> {
-  const { svgEl, onProgress, background = 'transparent', fps: fpsProp, quality: qualityProp } = opts
+  const { svgEl, onProgress, background = 'transparent', fps: fpsProp, quality: qualityProp, watermark } = opts
 
   // Dynamic fps with hard clamp
   const fpsToUse   = Math.max(1, Math.min(60, fpsProp ?? FPS))
@@ -151,6 +155,9 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
   if (frames.length === 0) {
     throw new Error('No frames captured — the SVG may not render as a standalone image')
   }
+
+  // Stamped before encoding so the mark is part of the pixels, not an overlay.
+  if (watermark) await watermarkFrames(frames)
 
   // ── Phase 3: Encode ──────────────────────────────────────────
 

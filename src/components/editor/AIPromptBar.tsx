@@ -12,6 +12,7 @@ import {
 import type { AnimateResponse } from '@/app/api/ai-animate/route'
 import type { AnimParams } from '@/types'
 import { buildSceneManifest } from '@/lib/custom-animation/scene'
+import { refreshEntitlements } from '@/lib/billing/useEntitlements'
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -98,6 +99,11 @@ export function AIPromptBar({ isLight = false }: { isLight?: boolean }) {
           },
         }),
       })
+
+      // The balance moved either way: a success spends a credit, and a failure
+      // releases the reservation. Re-read it so the header cannot drift from
+      // the ledger.
+      refreshEntitlements()
 
       if (!res.ok) {
         const { error } = await res.json().catch(() => ({ error: 'Unknown error' }))

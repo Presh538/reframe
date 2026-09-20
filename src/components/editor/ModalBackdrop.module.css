@@ -1,0 +1,7 @@
+/* Shared full-screen editor backdrop. The start screen is the visual source
+   of truth for every modal that obscures the canvas. */
+.backdrop {
+  background: rgba(17, 17, 17, 0.9);
+  backdrop-filter: blur(70%);
+  -webkit-backdrop-filter: blur(70%);
+}

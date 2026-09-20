@@ -121,6 +121,21 @@ it('reads expired entitlements as free even when no cron or revocation webhook r
   await client.query('UPDATE entitlement_grant SET starts_at=$1, expires_at=$2', [new Date(Date.now() - 2 * 86400000), new Date(Date.now() - 86400000)])
   expect((await getAccountAccess(userId)).planKey).toBe('free')
 })
+it('keeps an existing subscriber on their plan when a new feature is added to it', async () => {
+  await fulfillPaidOrder(order())
+  expect((await getAccountAccess(userId)).planKey).toBe('pro')
+  // Simulates shipping a new PLAN_FEATURES entry: every grant this subscriber
+  // holds predates it. Deriving the plan from "holds every feature" demoted
+  // them to free here, silently, until their next renewal re-synced the grants.
+  await client.query(`DELETE FROM entitlement_grant WHERE feature_key = 'export.watermark_free'`)
+  expect((await getAccountAccess(userId)).planKey).toBe('pro')
+})
+it('drops the plan when the subscription keeps no live grant', async () => {
+  await fulfillPaidOrder(order())
+  // The mirror row stays active with a future period; only the grants go.
+  await client.query(`UPDATE entitlement_grant SET revoked_at = now()`)
+  expect((await getAccountAccess(userId)).planKey).toBe('free')
+})
 it('pending order mirrors advance to paid without granting until fulfillment', async () => {
   await recordOrderMirror(order({ paid: false }))
   await recordOrderMirror(order())

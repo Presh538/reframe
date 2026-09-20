@@ -10,11 +10,18 @@ import {
   trackShareLinkCreated,
 } from '@/lib/analytics'
 import { SPRING } from '@/lib/motion'
+import { CanvasThemeToggle, type CanvasTheme } from './CanvasThemeToggle'
+import { UpgradeModal } from './UpgradeModal'
+import { BillingModal } from './BillingModal'
+import { useEntitlements } from '@/lib/billing/useEntitlements'
 import { useToast } from '@/components/ui/Toast'
 import { CodeSheet } from '@/components/ui/CodeSheet'
 import { AuthControl } from '@/components/editor/AuthControl'
 import { computeSequenceDuration } from '@/lib/svg/animate'
 import type { ExportFormat } from '@/types'
+import topbarStyles from './TopBar.module.css'
+import modalBackdropStyles from './ModalBackdrop.module.css'
+import modalSurfaceStyles from './ModalSurface.module.css'
 
 const FORMATS_3D = [
   { value: 'gif'   as const, label: 'Export GIF'  },
@@ -34,14 +41,22 @@ interface TopBarProps {
   onChangeFile3D?: () => void
   onBrowseLibrary?: () => void
   isLibraryOpen?: boolean
+  canvasTheme?: CanvasTheme
+  onCanvasThemeChange?: (theme: CanvasTheme) => void
 }
 
 export function TopBar({
   appMode = 'animate',
   onExport3D, onExportWebM3D, onCopyEmbed3D, canExport3D, asset3dFileName, asset3dKind,
   onChangeFile3D, onBrowseLibrary, isLibraryOpen,
+  canvasTheme, onCanvasThemeChange,
 }: TopBarProps) {
   const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [upgradeOpen,     setUpgradeOpen]     = useState(false)
+  const [billingOpen,     setBillingOpen]     = useState(false)
+  const entitlements = useEntitlements()
+  // Fails closed: until the account's plan is known, the export is marked.
+  const watermark = !entitlements.has('export.watermark_free')
   const [format3d,        setFormat3d]        = useState<Format3D>('gif')
   const [embedCode,       setEmbedCode]       = useState<string | null>(null)
 
@@ -88,7 +103,7 @@ export function TopBar({
       trackExportStarted({ format, quality, fps })
       setExportState({ isRunning: true, progress: 0, error: null })
       await runExport({
-        format, activePresetId, customAnimationPlan, params, quality, fps,
+        format, activePresetId, customAnimationPlan, params, quality, fps, watermark,
         onProgress:  p    => setExportState({ progress: p }),
         onError:     msg  => { setExportState({ error: msg }); toast(msg, 'error') },
         onSuccess:   msg  => toast(msg, 'success'),
@@ -117,121 +132,66 @@ export function TopBar({
 
   return (
     <>
-      <motion.div
-        className="absolute top-0 left-0 right-0 flex items-center justify-between px-10 pt-[30px] pointer-events-none z-30"
+      <motion.header
+        className={topbarStyles.header}
         initial={{ opacity: 0, y: -14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...SPRING.entrance, delay: 0.03 }}
       >
-
-        {/* ── Left: Logo + file pill ── */}
-        <div className="pointer-events-auto">
-          <div
-            className="inline-flex items-center gap-[8px] px-[18px] py-[12px]"
-            style={{
-              width: displayFileName ? 365 : 62,
-              height: 62,
-              borderRadius: 58,
-              background: 'var(--filepanel-bg)',
-              border: 'var(--filepanel-border)',
-              backdropFilter: 'var(--filepanel-blur)',
-              WebkitBackdropFilter: 'var(--filepanel-blur)',
-              overflow: 'hidden',
-            }}
-          >
+        {/* ── Left: brand + upload ── */}
+        <div className={topbarStyles.leftGroup}>
+          <div className={topbarStyles.brand}>
             <ReframeLogo />
-
-            {displayFileName && (
-              <>
-                <button
-                  onClick={handleChangeBtn}
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    height: 38,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 10,
-                    background: 'rgba(255,255,255,0.05)',
-                    borderRadius: 40,
-                    padding: '10px',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--filepanel-inner-hover)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
-                >
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                    <img src="/figma-icons/folder.svg" alt="" width={18} height={18} style={{ flexShrink: 0, opacity: 0.61, filter: 'var(--pill-icon-filter)' }} />
-                    <span style={{
-                      fontFamily: 'var(--font-geist-sans), sans-serif',
-                      fontWeight: 400,
-                      fontSize: 14,
-                      color: '#979797',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}>
-                      {displayFileName}
-                    </span>
-                  </span>
-                  <span style={{
-                    fontFamily: 'var(--font-geist-sans), sans-serif',
-                    fontWeight: 400,
-                    fontSize: 14,
-                    color: '#D06523',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    Change
-                  </span>
-                </button>
-              </>
-            )}
+            <span className={topbarStyles.beta}>Beta</span>
           </div>
+          <span className={topbarStyles.divider} aria-hidden="true" />
+          <button type="button" className={topbarStyles.uploadButton} onClick={handleChangeBtn}>
+            <img src="/figma-icons/folder.svg" alt="" width={14} height={14} />
+            <span>Upload file</span>
+          </button>
         </div>
 
-        {/* ── Right: Sign in + Export ── */}
-        <div className="pointer-events-auto flex items-center gap-[10px]">
-          <AuthControl />
+        {/* The filename stays optically centered even when either side changes. */}
+        <div className={topbarStyles.fileName} title={displayFileName ?? undefined}>
+          {displayFileName ?? 'Untitled showcase'}
+        </div>
+
+        {/* ── Right: Theme + Upgrade + Export + account ── */}
+        <div className={topbarStyles.rightGroup}>
+          {canvasTheme && onCanvasThemeChange && (
+            <CanvasThemeToggle theme={canvasTheme} onChange={onCanvasThemeChange} />
+          )}
+          <PlanControl onUpgrade={() => setUpgradeOpen(true)} onBilling={() => setBillingOpen(true)} />
           <motion.button
+            type="button"
             onClick={displayCanExport && !isRunning ? () => { setExportModalOpen(true); trackExportModalOpened() } : undefined}
             disabled={!displayCanExport || isRunning}
             whileTap={displayCanExport && !isRunning ? { scale: 0.96 } : undefined}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            className={topbarStyles.exportButton}
             style={{
-              position: 'relative',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '16px 32px',
-              borderRadius: 40,
-              border: 'none',
               background: displayCanExport ? '#D06523' : 'rgba(255,255,255,0.06)',
-              backdropFilter: 'blur(17px)',
-              WebkitBackdropFilter: 'blur(17px)',
               cursor: displayCanExport && !isRunning ? 'pointer' : 'not-allowed',
               opacity: displayCanExport ? 1 : 0.42,
-              boxShadow: 'inset 0px 2px 4px rgba(57,57,57,0.45)',
-              transition: 'background 0.15s',
-              overflow: 'hidden',
             }}
             onMouseEnter={e => { if (displayCanExport && !isRunning) e.currentTarget.style.background = '#E07028' }}
             onMouseLeave={e => { e.currentTarget.style.background = displayCanExport ? '#D06523' : 'rgba(255,255,255,0.06)' }}
           >
-            <span style={{
-              fontFamily: 'var(--font-geist-sans), sans-serif',
-              fontWeight: 400,
-              fontSize: 14,
-              letterSpacing: 0.028,
-              color: displayCanExport ? '#FFFFFF' : '#D06523',
-              whiteSpace: 'nowrap',
-            }}>
+            <span style={{ color: displayCanExport ? '#FFFFFF' : '#D06523' }}>
               {isRunning ? `${exportState.progress}%` : 'Export'}
             </span>
           </motion.button>
+          <AuthControl />
         </div>
-      </motion.div>
+      </motion.header>
+
+      <AnimatePresence>
+        {upgradeOpen && <UpgradeModal key="upgrade-modal" onClose={() => setUpgradeOpen(false)} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {billingOpen && <BillingModal key="billing-modal" onClose={() => setBillingOpen(false)} />}
+      </AnimatePresence>
 
       <AnimatePresence>
         {embedCode !== null && (
@@ -267,7 +227,88 @@ export function TopBar({
 }
 
 function ReframeLogo() {
-  return <img src="/figma-icons/platform-logo.svg" alt="" width={26} height={26} style={{ flexShrink: 0, filter: 'var(--pill-icon-filter)' }} />
+  // Mark plus wordmark, per Figma 102:797. The wordmark carries the product
+  // name, so the group is labelled once here and both images stay decorative.
+  return (
+    <span
+      role="img"
+      aria-label="Reframe"
+      style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
+    >
+      <img src="/figma-icons/reframe-mark.svg" alt="" width={26} height={26} style={{ flexShrink: 0, display: 'block' }} />
+      <img src="/figma-icons/reframe-wordmark.svg" alt="" width={50} height={10} style={{ flexShrink: 0, display: 'block' }} />
+    </span>
+  )
+}
+
+/**
+ * Upgrade entry point (Figma 102:1244): a dark pill whose label carries the
+ * plan gradient. `color` is set before the gradient so engines without
+ * background-clip: text still render readable text rather than nothing.
+ */
+/**
+ * The plan control, in one of three states:
+ *
+ *   Pro            -> a badge, not a button. Shows the plan and the remaining
+ *                     allowance; there is nothing useful to buy, and offering
+ *                     checkout would dead-end on "already subscribed".
+ *   Has credits    -> the balance, and clicking tops it up.
+ *   Nothing        -> "Upgrade".
+ *
+ * Renders nothing until the plan resolves, so a paying customer is never shown
+ * "Upgrade" for a frame while the request is in flight.
+ */
+function PlanControl({ onUpgrade, onBilling }: { onUpgrade: () => void; onBilling: () => void }) {
+  const { loading, isPro, credits } = useEntitlements()
+
+  // The plan is only known after the client has hydrated and read
+  // /api/me/access, so the first paint has no answer. Hold the space rather
+  // than rendering nothing: the label cannot be guessed (showing "Upgrade" to
+  // a subscriber would be wrong), but the header should not jump when it lands.
+  if (loading) return <span className={topbarStyles.planSkeleton} aria-hidden="true" />
+
+  const count = credits ?? 0
+  const creditLabel = `${count} AI ${count === 1 ? 'credit' : 'credits'}`
+  const hasCredits = count > 0
+
+  // Anyone with something to manage goes to billing; only an account with
+  // neither a plan nor a balance is offered checkout.
+  if (isPro) {
+    return (
+      <motion.button
+        type="button"
+        onClick={onBilling}
+        aria-label={`Pro plan, ${creditLabel} remaining. View billing`}
+        whileTap={{ scale: 0.96 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+        className={topbarStyles.planBadge}
+        onMouseEnter={e => (e.currentTarget.style.background = '#161618')}
+        onMouseLeave={e => (e.currentTarget.style.background = '#0E0E0F')}
+      >
+        <span className={topbarStyles.upgradeLabel}>Pro</span>
+        <span className={topbarStyles.planBadgeCredits}>{count}</span>
+      </motion.button>
+    )
+  }
+
+  return (
+    <motion.button
+      type="button"
+      onClick={hasCredits ? onBilling : onUpgrade}
+      // The label is spelled out because the gradient paints the text with a
+      // transparent fill, which some assistive tech skips when naming.
+      aria-label={hasCredits ? `${creditLabel} remaining. View billing` : 'Upgrade to Pro'}
+      whileTap={{ scale: 0.96 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      className={topbarStyles.upgradeButton}
+      onMouseEnter={e => (e.currentTarget.style.background = '#161618')}
+      onMouseLeave={e => (e.currentTarget.style.background = '#0E0E0F')}
+    >
+      <span className={topbarStyles.upgradeLabel}>
+        {hasCredits ? creditLabel : 'Upgrade'}
+      </span>
+    </motion.button>
+  )
 }
 
 // ── Export Modal ─────────────────────────────────────────────────
@@ -339,16 +380,11 @@ function ExportModal({
   return (
     <>
       <motion.div
-        className="fixed inset-0 z-40 select-none"
+        className={`fixed inset-0 z-40 select-none ${modalBackdropStyles.backdrop}`}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.18 }}
-        style={{
-          background: 'rgba(17,17,17,0.70)',
-          backdropFilter: 'blur(7px)',
-          WebkitBackdropFilter: 'blur(7px)',
-        }}
         onClick={onClose}
       />
 
@@ -361,6 +397,7 @@ function ExportModal({
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       >
         <div
+          className={modalSurfaceStyles.surface}
           role="dialog"
           aria-modal="true"
           aria-label="Export animation"
@@ -369,29 +406,12 @@ function ExportModal({
             position: 'relative',
             width: 489,
             height: 555,
-            borderRadius: 28,
             overflow: 'hidden',
-            background: 'rgba(46,46,46,0.85)',
-            border: '0.5px solid rgba(36,36,49,0.64)',
-            boxShadow: '0 16px 70px rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(25px)',
-            WebkitBackdropFilter: 'blur(25px)',
-            boxSizing: 'border-box',
           }}
         >
           <h2
-            style={{
-              ...f,
-              position: 'absolute',
-              left: 15.5,
-              top: 15.5,
-              margin: 0,
-              fontSize: 18,
-              lineHeight: '23px',
-              fontWeight: 600,
-              letterSpacing: 0.2,
-              color: '#FFFFFF',
-            }}
+            className={modalSurfaceStyles.title}
+            style={{ position: 'absolute', left: 15.5, top: 15.5 }}
           >
             Export animation
           </h2>
@@ -400,27 +420,9 @@ function ExportModal({
             onClick={onClose}
             aria-label="Close"
             whileTap={{ scale: 0.9 }}
-            style={{
-              position: 'absolute',
-              left: 448.5,
-              top: 15.5,
-              width: 24,
-              height: 24,
-              border: 'none',
-              background: 'transparent',
-              padding: 0,
-              cursor: 'pointer',
-              display: 'grid',
-              placeItems: 'center',
-            }}
+            className={modalSurfaceStyles.close}
           >
-            <img
-              src="/figma-icons/xmark.svg"
-              alt=""
-              width={24}
-              height={24}
-              style={{ display: 'block', width: 24, height: 24, maxWidth: 'none' }}
-            />
+            <img src="/figma-icons/xmark.svg" alt="" width={24} height={24} />
           </motion.button>
 
           <ExportLivePreview />

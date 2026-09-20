@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useState } from 'react'
 import { ExternalLink } from 'lucide-react'
 import styles from './AccountBilling.module.css'
+import { startCheckout, trustedPolarUrl } from '@/lib/billing/checkout-client'
 
 type BillingStatus = {
   plan: string
@@ -102,18 +103,6 @@ function subscriptionMeta(sub: BillingStatus['subscriptions'][number]) {
   return <>Period ends {date}</>
 }
 
-/**
- * Checkout and portal URLs come from our own API, but are still checked before
- * navigating: an https URL on Polar's domain only. Subdomains are accepted so
- * production checkout works whichever Polar host it is served from.
- */
-function trustedPolarUrl(raw: unknown): string {
-  const url = new URL(String(raw))
-  const polarHost = url.hostname === 'polar.sh' || url.hostname.endsWith('.polar.sh')
-  if (url.protocol !== 'https:' || !polarHost) throw new Error('Invalid billing destination.')
-  return url.toString()
-}
-
 // Marks a trip to the Polar portal, so the return can trigger one repair sync.
 const PORTAL_VISIT_KEY = 'rf-billing-portal-visit'
 
@@ -210,16 +199,7 @@ export function AccountBilling() {
     setError('')
     setAnnouncement(`Opening checkout for ${label}…`)
     try {
-      const response = await fetch('/api/billing/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // One key per click: a double-submit reuses the same checkout.
-        body: JSON.stringify({ productKey, idempotencyKey: crypto.randomUUID() }),
-      })
-      const body = await response.json().catch(() => ({}))
-      // 409 carries a customer-readable reason (e.g. already subscribed).
-      if (!response.ok) throw new Error(body.error ?? 'We couldn’t start checkout. Please try again.')
-      window.location.assign(trustedPolarUrl(body.checkoutUrl))
+      await startCheckout(productKey)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'We couldn’t start checkout.')
       setCanRetry(false)

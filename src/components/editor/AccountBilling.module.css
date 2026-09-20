@@ -360,15 +360,20 @@
 
 /* ── Checkout return toast (sits on the app chrome, not in the modal) ── */
 
+/*
+ * Top-right, directly under the avatar where Billing lives. The compact app
+ * header is 48px high; the bottom centre is
+ * taken by the AI prompt bar, which previously covered this message.
+ */
 .toast {
   position: fixed;
-  left: 50%;
-  bottom: 24px;
-  z-index: 50;
+  top: 60px;
+  right: 16px;
+  z-index: 60;
   display: flex;
   align-items: center;
   gap: 16px;
-  width: min(480px, calc(100vw - 32px));
+  width: min(400px, calc(100vw - 80px));
   padding: 12px 12px 12px 16px;
   border-radius: 12px;
   border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.12));
@@ -376,7 +381,6 @@
   color: var(--text, #fff);
   font-size: 13.5px;
   line-height: 1.45;
-  transform: translateX(-50%);
 }
 
 .toastText {
