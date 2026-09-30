@@ -101,7 +101,7 @@ export async function beginAiGeneration(
 /** Converts the reservation into a consumed credit. Never throws into the route. */
 export async function settleAiGeneration(
   meter: AiMeter,
-  usage?: { inputTokens?: number; outputTokens?: number; providerRequestId?: string },
+  usage?: { inputTokens?: number; outputTokens?: number; estimatedCostMicros?: number; providerRequestId?: string },
 ): Promise<void> {
   if (meter.mode !== 'user') {
     if (meter.mode === 'guest') await persistGuestCookie(meter.guestCookie)

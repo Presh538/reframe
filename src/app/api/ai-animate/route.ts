@@ -22,6 +22,7 @@ import {
   settleAiGeneration,
   type AiMeter,
 } from '@/lib/billing/ai-metering'
+import { AI_ANIMATE_MODEL, estimateCostMicros } from '@/lib/billing/ai-pricing'
 import { AnimationPlanSchema, SceneManifestSchema, constrainPlanToScene } from '@/lib/custom-animation/schema'
 
 export const dynamic = 'force-dynamic'
@@ -309,7 +310,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const { output: generated, usage, response } = await generateText({
-      model: anthropic('claude-haiku-4-5'),
+      model: anthropic(AI_ANIMATE_MODEL),
       output: Output.object({ schema: AnimateResponseSchema }),
       system: SYSTEM,
       prompt: userMessage,
@@ -334,6 +335,9 @@ export async function POST(request: NextRequest) {
     await settleAiGeneration(meter, {
       inputTokens:  usage?.inputTokens,
       outputTokens: usage?.outputTokens,
+      // Recorded per generation so margin can be measured rather than assumed:
+      // the allowance is what a subscription costs to serve.
+      estimatedCostMicros: estimateCostMicros(AI_ANIMATE_MODEL, usage?.inputTokens, usage?.outputTokens),
       providerRequestId: response?.id,
     })
 
