@@ -18,7 +18,7 @@ Designers, developers, and marketers who need animated logos, icons, and illustr
 
 - Product name: Reframe
 - Website: https://reframeo.com
-- Price: Free to use, no account required. Paid options: a 25-credit pack at $4.99 (one-off, credits never expire) and Pro at $11.99/month (300 credits a month). One credit buys an AI generation, or removes the watermark from one GIF or WebM export.
+- Price: Free to use, no account required. Paid options: a 25-credit pack at $2.99 (one-off, credits never expire) and Pro at $4.99/month (300 credits a month). One credit buys an AI generation, or removes the watermark from one GIF or WebM export.
 - Watermark: Free GIF and WebM exports carry a small Reframe watermark. Animated SVG and Lottie exports are never watermarked — they are vector formats with no frames to stamp.
 - Platform: Web browser (no install)
 - Input: SVG files

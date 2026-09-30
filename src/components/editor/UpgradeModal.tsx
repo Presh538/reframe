@@ -45,7 +45,7 @@ const PLANS: Plan[] = [
     chip: 'PRO ✦ Plan',
     title: 'Upgrade to',
     lede: 'Keep animating without running out. Pro gives you 300 AI generations every month.',
-    price: '$11.99',
+    price: '$4.99',
     meta: ['per month', 'billed monthly'],
     features: [
       '300 AI generations or watermark-free exports a month',
@@ -63,7 +63,7 @@ const PLANS: Plan[] = [
     chip: '25 CREDITS',
     title: 'Top up with',
     lede: 'A one-off pack for when you just need a few more generations. No subscription.',
-    price: '$4.99',
+    price: '$2.99',
     meta: ['one-time', 'no renewal'],
     features: [
       '25 AI generations, or watermark-free exports',
