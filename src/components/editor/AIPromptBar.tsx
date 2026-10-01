@@ -27,6 +27,7 @@ export function AIPromptBar({ isLight = false }: { isLight?: boolean }) {
   const [suggestionsOpen, setSuggestionsOpen] = useState(false)
   const [aiActive, setAiActive]         = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const conversationIdRef = useRef<string | null>(null)
 
   // Store selectors
   const activePresetId  = useEditorStore(s => s.activePresetId)
@@ -81,12 +82,15 @@ export function AIPromptBar({ isLight = false }: { isLight?: boolean }) {
       const scene = liveSvgRef.current ? buildSceneManifest(liveSvgRef.current) : null
       // One key per submission, so a retried request cannot be billed twice.
       const idempotencyKey = crypto.randomUUID()
+      const conversationId = conversationIdRef.current ?? crypto.randomUUID()
+      conversationIdRef.current = conversationId
       const res = await fetch('/api/ai-animate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt,
           idempotencyKey,
+          conversationId,
           context: {
             currentPresetId: activePresetId,
             currentPlan: customAnimationPlan,

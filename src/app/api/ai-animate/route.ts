@@ -12,6 +12,7 @@ import { after, type NextRequest } from 'next/server'
 import { NextResponse }            from 'next/server'
 import { generateText, Output }    from 'ai'
 import { anthropic }               from '@ai-sdk/anthropic'
+import { withTracing }             from '@posthog/ai'
 import { z }                       from 'zod'
 import { getPostHogClient }        from '@/lib/posthog-server'
 import { checkRateLimit, RateLimitUnavailableError } from '@/lib/rate-limit'
@@ -83,6 +84,8 @@ const RequestSchema = z.object({
   prompt: z.string().min(1).max(500),
   /** Per-submission key. Repeats must not charge a second credit. */
   idempotencyKey: z.string().uuid().optional(),
+  /** Groups AI turns from the same editor session. */
+  conversationId: z.string().uuid().optional(),
   context: z.object({
     currentPresetId: z.string().nullable(),
     currentPlan: AnimationPlanSchema.nullable().default(null),
@@ -263,7 +266,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { prompt, context } = parsed.data
+  const { prompt, context, conversationId } = parsed.data
 
   // Reserve billing capacity BEFORE spending anything upstream. A denial here
   // must never fall through to an unmetered generation.
@@ -309,8 +312,21 @@ export async function POST(request: NextRequest) {
   ].join('\n')
 
   try {
+    const posthog = getPostHogClient()
+    const model = posthog
+      ? withTracing(anthropic(AI_ANIMATE_MODEL), posthog, {
+          posthogDistinctId: meter.mode === 'user' ? meter.userId : undefined,
+          posthogTraceId: randomUUID(),
+          posthogProperties: {
+            $ai_session_id: conversationId ?? parsed.data.idempotencyKey ?? randomUUID(),
+          },
+          posthogPrivacyMode: false,
+          posthogCaptureImmediate: true,
+        })
+      : anthropic(AI_ANIMATE_MODEL)
+
     const { output: generated, usage, response } = await generateText({
-      model: anthropic(AI_ANIMATE_MODEL),
+      model,
       output: Output.object({ schema: AnimateResponseSchema }),
       system: SYSTEM,
       prompt: userMessage,

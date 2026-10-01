@@ -18,6 +18,7 @@
     "@clerk/nextjs": "^7.9.4",
     "@polar-sh/nextjs": "^0.9.6",
     "@polar-sh/sdk": "^0.47.1",
+    "@posthog/ai": "^8.13.4",
     "@types/three": "^0.176.0",
     "@upstash/ratelimit": "^2.1.0",
     "@upstash/redis": "^1.38.4",
@@ -50,7 +51,9 @@
     "zustand": "^4.5.4"
   },
   "overrides": {
-    "posthog-js": { "fflate": "^0.4.9" }
+    "posthog-js": {
+      "fflate": "^0.4.9"
+    }
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
