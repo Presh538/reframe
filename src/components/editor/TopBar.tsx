@@ -13,7 +13,7 @@ import { SPRING } from '@/lib/motion'
 import { CanvasThemeToggle, type CanvasTheme } from './CanvasThemeToggle'
 import { UpgradeModal } from './UpgradeModal'
 import { BillingModal } from './BillingModal'
-import { beginMeteredExport, finishMeteredExport } from '@/lib/billing/export-credit-client'
+import { beginMeteredExport, exportFeedback, finishMeteredExport } from '@/lib/billing/export-credit-client'
 import { useEntitlements } from '@/lib/billing/useEntitlements'
 import { useToast } from '@/components/ui/Toast'
 import { CodeSheet } from '@/components/ui/CodeSheet'
@@ -113,6 +113,12 @@ export function TopBar({
         onEmbedCode: html => setEmbedCode(html),
       })
       await finishMeteredExport(permit, succeeded ? 'succeeded' : 'failed')
+      // Only once a file actually exists -- a failed export has nothing to
+      // explain, and the error toast already said what went wrong.
+      if (succeeded) {
+        const note = exportFeedback(permit)
+        if (note) toast(note.message, note.type)
+      }
       setExportState({ isRunning: false, progress: 0 })
     } else {
       if (!canExport3D) return
