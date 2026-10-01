@@ -70,7 +70,13 @@ const nextConfig = {
     // Avatars rendered by <UserButton>.
     const clerkImg     = clerkOrigin ? ' https://img.clerk.com' : ''
     // Cloudflare Turnstile, used by Clerk's bot protection on sign-up.
-    const clerkFrame   = clerkOrigin ? ' https://challenges.cloudflare.com' : ''
+    //
+    // Needed in BOTH script-src and frame-src. Turnstile loads its own script
+    // from this origin and that script then creates the challenge iframe, so
+    // allowing only the frame blocks the widget before it can render -- the
+    // sign-up form reports "The CAPTCHA failed to load" and no account can be
+    // created, while every other page looks fine.
+    const turnstile    = clerkOrigin ? ' https://challenges.cloudflare.com' : ''
 
     // In development Next.js uses eval() for HMR / source maps, so we must
     // allow 'unsafe-eval'. In production we omit it for a tighter policy.
@@ -78,7 +84,7 @@ const nextConfig = {
     // include ws://localhost:* in development.
     const scriptSrc = (isDev
       ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:"
-      : "script-src 'self' 'unsafe-inline' blob:") + clerkScript
+      : "script-src 'self' 'unsafe-inline' blob:") + clerkScript + turnstile
 
     const connectSrc = (isDev
       ? "connect-src 'self' ws://localhost:* wss://localhost:*"
@@ -120,7 +126,7 @@ const nextConfig = {
               connectSrc,
               "font-src 'self'",
               "worker-src 'self' blob:",
-              `frame-src 'self'${clerkFrame}`,
+              `frame-src 'self'${turnstile}`,
               "frame-ancestors 'none'",
               "object-src 'none'",
               "base-uri 'self'",
