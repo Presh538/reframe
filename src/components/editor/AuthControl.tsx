@@ -3,6 +3,7 @@
 import { SignInButton, UserButton, useAuth } from '@clerk/nextjs'
 import { CreditCard } from 'lucide-react'
 import { AccountBilling, CheckoutFeedback } from './AccountBilling'
+import { SignUpWelcome } from './SignUpWelcome'
 
 /**
  * Sign-in affordance for the TopBar.
@@ -57,6 +58,9 @@ function AuthControlInner() {
     return (
       <>
       <CheckoutFeedback />
+      {/* Mounted here so it can only run with ClerkProvider above it and a
+          resolved session -- the greeting depends on both. */}
+      <SignUpWelcome />
       <UserButton
         appearance={{
           elements: {

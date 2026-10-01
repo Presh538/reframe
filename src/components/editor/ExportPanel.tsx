@@ -5,7 +5,7 @@ import { useEditorStore, selectCanExport } from '@/lib/store/editor'
 import { runExport } from '@/lib/export/runExport'
 import { useToast } from '@/components/ui/Toast'
 import type { ExportFormat } from '@/types'
-import { beginMeteredExport, finishMeteredExport } from '@/lib/billing/export-credit-client'
+import { beginMeteredExport, exportFeedback, finishMeteredExport } from '@/lib/billing/export-credit-client'
 
 const FORMAT_OPTIONS: { value: ExportFormat; label: string; tier: 'free' | 'pro' }[] = [
   { value: 'gif',  label: 'GIF',  tier: 'free' },
@@ -53,6 +53,12 @@ export function ExportPanel() {
       onSuccess:  (msg) => toast(msg, 'success'),
     })
     await finishMeteredExport(permit, succeeded ? 'succeeded' : 'failed')
+    // Only once a file actually exists -- a failed export has nothing to
+    // explain, and the error toast already said what went wrong.
+    if (succeeded) {
+      const note = exportFeedback(permit)
+      if (note) toast(note.message, note.type)
+    }
     setExportState({ isRunning: false, progress: 0 })
   }
 

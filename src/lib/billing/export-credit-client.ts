@@ -70,3 +70,28 @@ export async function finishMeteredExport(
   // The balance moved either way, so the header should stop showing the old one.
   refreshEntitlements()
 }
+
+/**
+ * What to tell someone about an export that just finished.
+ *
+ * The watermark decision was previously silent: the same button produced a
+ * marked file one time and a clean one the next, with nothing to explain why.
+ * That reads as a bug, and it hides the one moment where paying obviously buys
+ * something.
+ *
+ * Returns null when there is nothing worth saying -- a Pro export, or a format
+ * that was never going to be stamped. Pro paid not to think about this.
+ *
+ * No credit balance in the message: the header already shows it and refreshes
+ * after every export, and a number quoted here could be stale by the time it
+ * is read.
+ */
+export function exportFeedback(permit: ExportPermit): { message: string; type: 'success' | 'info' } | null {
+  if (permit.operationId) {
+    return { message: 'Exported watermark-free — 1 credit used', type: 'success' }
+  }
+  if (permit.watermark) {
+    return { message: 'Exported with a Reframe watermark. Credits or Pro remove it.', type: 'info' }
+  }
+  return null
+}
