@@ -2,6 +2,21 @@ import { z } from 'zod'
 
 const finiteNumber = z.number().finite()
 
+/**
+ * Scale is clamped rather than rejected. A "pop in" naturally starts at 0, and
+ * scale(0) is degenerate, so the floor stays -- but refusing the value threw
+ * away an otherwise good generation and showed the user a failure. Pulling it
+ * to the nearest legal value keeps the choreography the model intended.
+ */
+const MIN_SCALE = 0.05
+const MAX_SCALE = 10
+const scale = z.preprocess(
+  value => (typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(MAX_SCALE, Math.max(MIN_SCALE, value))
+    : value),
+  finiteNumber.min(MIN_SCALE).max(MAX_SCALE),
+)
+
 export const SceneNodeSchema = z.object({
   id: z.string().regex(/^rf-node-\d+$/),
   tag: z.enum(['g', 'path', 'circle', 'rect', 'ellipse', 'line', 'polyline', 'polygon', 'text']),
@@ -28,8 +43,8 @@ export const CustomKeyframeSchema = z.object({
   x: finiteNumber.min(-2000).max(2000).optional(),
   y: finiteNumber.min(-2000).max(2000).optional(),
   rotate: finiteNumber.min(-1080).max(1080).optional(),
-  scaleX: finiteNumber.min(0.05).max(10).optional(),
-  scaleY: finiteNumber.min(0.05).max(10).optional(),
+  scaleX: scale.optional(),
+  scaleY: scale.optional(),
   opacity: finiteNumber.min(0).max(1).optional(),
 }).strict()
 

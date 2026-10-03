@@ -44,6 +44,21 @@ describe('Custom animation plan safety', () => {
     expect(AnimationPlanSchema.safeParse(unsafe).success).toBe(false)
   })
 
+  test('clamps a pop-in from scale 0 instead of rejecting the plan', () => {
+    const popIn = structuredClone(PLAN)
+    popIn.tracks[0].keyframes[0] = { offset: 0, scaleX: 0, scaleY: 0, opacity: 0 }
+    popIn.tracks[0].keyframes[2] = { offset: 1, scaleX: 40, scaleY: 1 }
+    const parsed = AnimationPlanSchema.parse(popIn)
+    expect(parsed.tracks[0].keyframes[0]).toMatchObject({ scaleX: 0.05, scaleY: 0.05 })
+    expect(parsed.tracks[0].keyframes[2]).toMatchObject({ scaleX: 10, scaleY: 1 })
+  })
+
+  test('still rejects a scale that is not a number', () => {
+    const invalid = structuredClone(PLAN) as unknown as { tracks: Array<{ keyframes: Array<Record<string, unknown>> }> }
+    invalid.tracks[0].keyframes[0].scaleX = 'big'
+    expect(AnimationPlanSchema.safeParse(invalid).success).toBe(false)
+  })
+
   test('rejects unordered keyframe offsets', () => {
     const invalid = structuredClone(PLAN)
     invalid.tracks[0].keyframes[1].offset = 0
