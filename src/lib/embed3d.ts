@@ -95,9 +95,19 @@ const group   = new THREE.Group()
 let   hasGeom = false
 
 function isWhite(c) { return c && c.r > 0.98 && c.g > 0.98 && c.b > 0.98 }
+// Skip faint backdrop paths, and keep the whole depth stagger within 2 units
+// (see SceneRenderer: isVisible / zStep).
+function isVisible(p) {
+  const s = (p.userData && p.userData.style) || {}
+  const n = v => (typeof v === 'number' && isFinite(v) ? v : 1)
+  return n(s.fillOpacity) * n(s.opacity) >= 0.15
+}
+const zStep = n => Math.min(0.3, 2 / Math.max(1, n))
+const visible = svgData.paths.filter(isVisible)
+const step = zStep(visible.filter(p => p.color && !isWhite(p.color)).length)
 
 let pathZ = 0
-for (const path of svgData.paths) {
+for (const path of visible) {
   const raw   = path.color
   const color = (!raw || isWhite(raw)) ? null : raw.clone()
   if (!color) continue
@@ -111,7 +121,7 @@ for (const path of svgData.paths) {
     })
     const mesh = new THREE.Mesh(geo, ${materialSrc})
     mesh.position.z = pathZ
-    pathZ += 0.3
+    pathZ += step
     group.add(mesh)
     hasGeom = true
   }
@@ -120,7 +130,8 @@ for (const path of svgData.paths) {
 // Fallback: render with accent colour if all paths had fill="none"
 if (!hasGeom) {
   let fz = 0
-  for (const path of svgData.paths) {
+  const fstep = zStep(visible.length)
+  for (const path of visible) {
     for (const shape of SVGLoader.createShapes(path)) {
       const geo = new THREE.ExtrudeGeometry(shape, {
         depth: DEPTH, bevelEnabled: true,
@@ -128,7 +139,7 @@ if (!hasGeom) {
         bevelSize: Math.max(0.2, DEPTH * 0.012), bevelSegments: 3,
       })
       const mesh = new THREE.Mesh(geo, new THREE.MeshToonMaterial({ color: ACCENT, side: THREE.FrontSide }))
-      mesh.position.z = fz; fz += 0.3
+      mesh.position.z = fz; fz += fstep
       group.add(mesh)
     }
   }

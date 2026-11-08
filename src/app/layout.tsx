@@ -4,7 +4,6 @@ import { GeistMono } from 'geist/font/mono'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import { ToastProvider }     from '@/components/ui/Toast'
-import { MobileGate }         from '@/components/ui/MobileGate'
 import { PostHogProvider }    from '@/components/providers/PostHogProvider'
 import { AuthProvider }       from '@/components/providers/AuthProvider'
 import './globals.css'
@@ -13,7 +12,7 @@ const APP_URL  = process.env.NEXT_PUBLIC_APP_URL ?? 'https://reframeo.com'
 const APP_NAME = 'Reframe'
 const TITLE    = 'Reframe — Free AI SVG Animator Online'
 const DESCRIPTION =
-  'Reframe is a free online SVG animator with AI. Describe the motion you want in plain English and let AI animate it, or pick from 30+ presets, fine-tune speed and easing, then export as GIF, WebM, or Lottie JSON. No code, no After Effects — instant motion in seconds.'
+  'Free online SVG animator with AI. Describe the motion in plain English or pick a preset, then export GIF, WebM or Lottie JSON. No code, no After Effects.'
 
 // One-line summary used for AI answer engines and social cards.
 const TAGLINE = 'Free AI-powered SVG animator: type a prompt or pick a preset, then export to GIF, WebM, or Lottie.'
@@ -308,7 +307,6 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        <MobileGate />
         <AuthProvider>
           <PostHogProvider>
             <ToastProvider>{children}</ToastProvider>

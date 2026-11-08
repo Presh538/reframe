@@ -18,7 +18,8 @@ const APP_NAME = 'Reframe'
 
 // ── Metadata ──────────────────────────────────────────────────────
 export const metadata: Metadata = {
-  title:       `Animation Preview — ${APP_NAME}`,
+  // The root layout's title template adds the brand.
+  title:       'Animation Preview',
   description: `View an animation created with ${APP_NAME}. Links expire after ${SHARE_TTL_DAYS} days.`,
   robots:      { index: false, follow: false },
   openGraph: {

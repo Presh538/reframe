@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
+import { SliderDotGrid } from '@/components/ui/SliderDotGrid'
 import { useEditorStore, selectCanExport, selectSvgReady, liveSvgRef } from '@/lib/store/editor'
 import { runExport } from '@/lib/export/runExport'
 import {
@@ -15,10 +16,12 @@ import { UpgradeModal } from './UpgradeModal'
 import { BillingModal } from './BillingModal'
 import { beginMeteredExport, exportFeedback, finishMeteredExport } from '@/lib/billing/export-credit-client'
 import { useEntitlements } from '@/lib/billing/useEntitlements'
+import { useUpgradeRequests } from '@/lib/billing/upgrade-prompt'
 import { useToast } from '@/components/ui/Toast'
 import { CodeSheet } from '@/components/ui/CodeSheet'
 import { AuthControl } from '@/components/editor/AuthControl'
 import { computeSequenceDuration } from '@/lib/svg/animate'
+import { LOTTIE_LOSSY_PRESETS } from '@/lib/export/lottie'
 import type { ExportFormat } from '@/types'
 import topbarStyles from './TopBar.module.css'
 import modalBackdropStyles from './ModalBackdrop.module.css'
@@ -57,6 +60,9 @@ export function TopBar({
   const [billingOpen,     setBillingOpen]     = useState(false)
   const [format3d,        setFormat3d]        = useState<Format3D>('gif')
   const [embedCode,       setEmbedCode]       = useState<string | null>(null)
+
+  // Other surfaces (the AI bar on a 402) ask for the upgrade modal here.
+  useUpgradeRequests(useCallback(() => setUpgradeOpen(true), []))
 
   const format         = useEditorStore(s => s.format)
   const exportState    = useEditorStore(s => s.export)
@@ -155,7 +161,7 @@ export function TopBar({
             <span className={topbarStyles.beta}>Beta</span>
           </div>
           <span className={topbarStyles.divider} aria-hidden="true" />
-          <button type="button" className={topbarStyles.uploadButton} onClick={handleChangeBtn}>
+          <button type="button" className={topbarStyles.uploadButton} onClick={handleChangeBtn} aria-label="Upload file">
             <img src="/figma-icons/folder.svg" alt="" width={14} height={14} />
             <span>Upload file</span>
           </button>
@@ -354,6 +360,11 @@ function ExportModal({
 }) {
   const [quality, setQuality] = useState(100)
   const [fps, setFps] = useState(25)
+  const activePresetId = useEditorStore(s => s.activePresetId)
+  // Lottie ignores quality and frame rate, so that row explains instead what
+  // the file will lose for presets the exporter cannot fully translate.
+  const lottieLossy = appMode === 'animate' && format === 'lottie'
+    && activePresetId !== null && LOTTIE_LOSSY_PRESETS.has(activePresetId)
 
   // ── Share button state ─────────────────────────────────────────
   type ShareState = 'idle' | 'loading' | 'copied'
@@ -462,6 +473,20 @@ function ExportModal({
             </div>
           </div>
 
+          {lottieLossy ? (
+            <p
+              role="note"
+              style={{
+                ...f, position: 'absolute', left: 15.5, top: 403.5, width: 457, margin: 0,
+                padding: '10px 12px', borderRadius: 10, background: 'rgba(208,101,35,0.10)',
+                border: '1px solid rgba(208,101,35,0.35)', color: '#E8B48F',
+                fontSize: 13, lineHeight: '18px', letterSpacing: 0.026,
+              }}
+            >
+              Lottie keeps movement, fades and scale, but this preset&apos;s main effect
+              (drawing, blur, clipping or colour) won&apos;t carry over. Export GIF or WebM to keep it.
+            </p>
+          ) : (<>
           <div style={{ position: 'absolute', left: 15.5, top: 403.5, width: 222 }}>
             <ControlLabel>Quality</ControlLabel>
             <ExportSlider value={quality} steps={QUALITY_STEPS} displayValue={`${quality}%`} onChange={setQuality} disabled={appMode === 'animate' && format === 'lottie'} />
@@ -471,6 +496,7 @@ function ExportModal({
             <ControlLabel>Frame Rate</ControlLabel>
             <ExportSlider value={fps} steps={FPS_STEPS} displayValue={`${fps} FPS`} onChange={setFps} disabled={appMode === 'animate' && format === 'lottie'} />
           </div>
+          </>)}
 
           {isRunning && (
             <div style={{
@@ -773,24 +799,7 @@ function ExportSlider({
       onPointerDown={handlePointerDown}
       style={{ position: 'relative', width: '100%', height: 34, borderRadius: 8, overflow: 'hidden', background: '#0E0E0F', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1 }}
     >
-      <img
-        src="/figma-icons/slider-grid.svg"
-        alt=""
-        width={528}
-        height={481}
-        draggable={false}
-        style={{
-          position: 'absolute',
-          left: 'calc(50% - 16.5px)',
-          top: 'calc(50% + 0.5px)',
-          width: 528,
-          height: 481,
-          maxWidth: 'none',
-          transform: 'translate(-50%, -50%)',
-          pointerEvents: 'none',
-          userSelect: 'none',
-        }}
-      />
+      <SliderDotGrid offsetX={-16.5} />
       <div style={{
         position: 'absolute',
         left: 0,

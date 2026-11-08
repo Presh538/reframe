@@ -13,6 +13,8 @@ import type { AnimateResponse } from '@/app/api/ai-animate/route'
 import type { AnimParams } from '@/types'
 import { buildSceneManifest } from '@/lib/custom-animation/scene'
 import { refreshEntitlements } from '@/lib/billing/useEntitlements'
+import { requestUpgrade } from '@/lib/billing/upgrade-prompt'
+import { useToast } from '@/components/ui/Toast'
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -28,6 +30,7 @@ export function AIPromptBar({ isLight = false }: { isLight?: boolean }) {
   const [aiActive, setAiActive]         = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const conversationIdRef = useRef<string | null>(null)
+  const { toast } = useToast()
 
   // Store selectors
   const activePresetId  = useEditorStore(s => s.activePresetId)
@@ -110,8 +113,15 @@ export function AIPromptBar({ isLight = false }: { isLight?: boolean }) {
       refreshEntitlements()
 
       if (!res.ok) {
-        const { error } = await res.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(error || `HTTP ${res.status}`)
+        const body: { error?: string; reason?: string } =
+          await res.json().catch(() => ({ error: 'Unknown error' }))
+        // Out of AI allowance: the next step is signing in or buying, so open
+        // the upgrade modal (it offers sign-in to guests) instead of only
+        // flashing a message.
+        if (res.status === 402) {
+          requestUpgrade(body.reason === 'insufficient_credits' ? 'ai_out_of_credits' : 'ai_guest_limit')
+        }
+        throw new Error(body.error || `HTTP ${res.status}`)
       }
 
       const data: AnimateResponse = await res.json()
@@ -136,15 +146,20 @@ export function AIPromptBar({ isLight = false }: { isLight?: boolean }) {
       trackAiPromptSucceeded({ presetId: data.kind === 'preset' ? data.presetId : 'custom', promptLength: prompt.length })
       setExplanation(data.explanation)
       setStatus('success')
+      // Close the helper overlay so the user can see the result on the artwork.
+      setAiActive(false)
       setTimeout(() => setStatus('idle'), 3000)
 
     } catch (err) {
       console.error('[AIPromptBar]', err)
       const reason = err instanceof Error ? err.message : 'Something went wrong'
       trackAiPromptFailed({ reason })
-      setExplanation(reason)
-      setStatus('error')
-      setTimeout(() => setStatus('idle'), 4000)
+      // Give the prompt back so a retry is one keypress, not a retype. The
+      // error goes to a toast because the placeholder is hidden while the
+      // input holds text.
+      setValue(current => current || prompt)
+      setStatus('idle')
+      toast(reason, 'error')
     }
   }
 
@@ -210,6 +225,7 @@ export function AIPromptBar({ isLight = false }: { isLight?: boolean }) {
             <input
               ref={inputRef}
               className="ai-prompt-input"
+              aria-label="Describe how the animation should move"
               value={value}
               onFocus={() => {
                 setAiActive(true)
@@ -242,7 +258,12 @@ export function AIPromptBar({ isLight = false }: { isLight?: boolean }) {
 
           {/* Send / loading button */}
           <motion.button
+            type="button"
             onClick={isLoading ? undefined : handleSubmit}
+            // Icon-only: name it for screen readers. An empty prompt opens the
+            // suggestions instead of sending, so the label says which.
+            aria-label={isLoading ? 'Applying animation' : isActive ? 'Send prompt' : 'Show suggestions'}
+            aria-busy={isLoading}
             animate={{
               backgroundColor: isLoading
                 ? 'rgba(208, 101, 35, 0.35)'

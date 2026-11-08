@@ -273,7 +273,7 @@ export function PreviewStage() {
     // Quick structural check before touching the DOM
     const probe = new DOMParser().parseFromString(source, 'image/svg+xml')
     if (probe.querySelector('parsererror')) { toast('Could not parse SVG', 'error'); return }
-    if (!probe.querySelector('svg')) { toast('No <svg> element found', 'error'); return }
+    if (!probe.querySelector('svg')) { toast('This doesn’t look like an SVG file', 'error'); return }
 
     // innerHTML injection is far more reliable than DOMParser + appendChild:
     //   • <style> blocks apply correctly (same document context)

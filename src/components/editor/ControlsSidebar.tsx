@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
+import { SliderDotGrid } from '@/components/ui/SliderDotGrid'
 import { useEditorStore, selectCanPlay } from '@/lib/store/editor'
 import { SPRING } from '@/lib/motion'
 import type { AnimParams, EasingType } from '@/types'
@@ -619,20 +620,7 @@ function Slider({ value, min, max, step, displayValue, onChange }: {
       aria-valuenow={localValue}
       style={{ position: 'relative', width: 266, height: 34, cursor: 'pointer', background: 'var(--slider-track-bg)', borderRadius: 8, overflow: 'hidden', outline: 'none' }}
     >
-      <img
-        src="/figma-icons/slider-grid.svg"
-        alt=""
-        width={528}
-        height={481}
-        draggable={false}
-        style={{
-          position: 'absolute',
-          left: 'calc(50% - 17px)', top: 'calc(50% + 0.5px)',
-          width: 528, height: 481, maxWidth: 'none',
-          transform: 'translate(-50%, -50%)',
-          pointerEvents: 'none', userSelect: 'none',
-        }}
-      />
+      <SliderDotGrid offsetX={-17} />
       <div style={{
         position: 'absolute', left: 0, top: -4,
         width: `calc(${pct} * (100% - ${THUMB_W}px) + ${THUMB_W / 2}px)`,

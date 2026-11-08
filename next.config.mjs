@@ -24,6 +24,9 @@ const nextConfig = {
     const host = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? ''
     const assetHost = host.replace('us.i.', 'us-assets.i.')
     return [
+      // Browsers and crawlers request /favicon.ico without reading <link
+      // rel=icon>; serve the PNG instead of a 404.
+      { source: '/favicon.ico',          destination: '/favicon-96.png'         },
       { source: '/ingest/static/:path*', destination: `${assetHost}/static/:path*` },
       { source: '/ingest/array/:path*',  destination: `${assetHost}/array/:path*`  },
       { source: '/ingest/:path*',        destination: `${host}/:path*`             },

@@ -1,35 +1,25 @@
 import type { MetadataRoute } from 'next'
+import { HOME_UPDATED, LANDING_PAGES, LEGAL_PAGES } from '@/lib/seo/pages'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://reframeo.com'
 
-const LANDING_PATHS = [
-  '/animate-svg-with-ai',
-  '/svg-to-gif',
-  '/svg-to-lottie',
-  '/free-svg-animator',
-  '/animated-svg-logo',
-  '/svg-loading-animation',
-  '/animate-svg-icon',
-]
-
 export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date()
   return [
     {
       url: APP_URL,
-      lastModified: now,
+      lastModified: HOME_UPDATED,
       changeFrequency: 'weekly',
       priority: 1,
     },
-    ...LANDING_PATHS.map((path) => ({
+    ...LANDING_PAGES.map(({ path, updated }) => ({
       url: `${APP_URL}${path}`,
-      lastModified: now,
+      lastModified: updated,
       changeFrequency: 'monthly' as const,
       priority: 0.8,
     })),
-    ...['/privacy', '/terms'].map((path) => ({
+    ...LEGAL_PAGES.map(({ path, updated }) => ({
       url: `${APP_URL}${path}`,
-      lastModified: now,
+      lastModified: updated,
       changeFrequency: 'yearly' as const,
       priority: 0.2,
     })),

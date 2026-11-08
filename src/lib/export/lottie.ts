@@ -23,6 +23,20 @@ import { stepToTime, restorePlayback, computeSequenceDuration } from '@/lib/svg/
 import type { Preset, AnimParams } from '@/types'
 import { triggerDownload } from './css'
 
+/**
+ * Presets whose signature effect lives in a property this exporter does not
+ * sample (stroke-dashoffset, clip-path, filter, fill/colour). Their Lottie
+ * file keeps any opacity/transform motion but loses the effect itself, so the
+ * export dialog warns before the user downloads one.
+ */
+export const LOTTIE_LOSSY_PRESETS: ReadonlySet<string> = new Set([
+  'path-in', 'draw-on', 'checkmark-draw', 'typewriter', 'cascade',  // stroke drawing
+  'loading-spin',                                                   // rotates, but the dash arc is lost
+  'fill-reveal', 'liquid-morph',                                    // clip / shape
+  'glow-pulse', 'blur-rise', 'fade-blur',                           // filter
+  'color-pop', 'hue-sweep',                                         // colour
+])
+
 // ── Types ─────────────────────────────────────────────────────
 
 export interface LottieDocument {

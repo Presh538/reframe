@@ -103,6 +103,28 @@ function isWhite(c: THREE.Color) {
 }
 
 /**
+ * Paths below this effective opacity are backdrop or ghost detail (a faint
+ * grid behind a logo, say). Extruding them at full strength turned them into
+ * solid blocks that buried the real mark.
+ */
+const MIN_VISIBLE_OPACITY = 0.15
+
+function isVisible(path: { userData?: { style?: Record<string, unknown> } }) {
+  const style = path.userData?.style ?? {}
+  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 1)
+  return num(style.fillOpacity) * num(style.opacity) >= MIN_VISIBLE_OPACITY
+}
+
+/**
+ * Per-path depth offset, enough to stop overlapping shapes z-fighting. A fixed
+ * 0.3 per path pushed a 64-cell grid ~19 units deep, and perspective then
+ * skewed the rows out of line. The whole stack now spans at most 2 units.
+ */
+function zStep(count: number) {
+  return Math.min(0.3, 2 / Math.max(1, count))
+}
+
+/**
  * Build extruded meshes from SVG source.
  * Uses 6-segment bevels for smooth, rounded extruded edges.
  */
@@ -115,11 +137,13 @@ function buildSvgMeshes(
   const svgData = loader.parse(svgSource)
   const group   = new THREE.Group()
   const meshes: THREE.Mesh[] = []
+  const visible = svgData.paths.filter(isVisible)
+  const coloured = visible.filter(p => p.color && !isWhite(p.color))
   let pathZ = 0
+  const step = zStep(coloured.length)
 
-  for (const path of svgData.paths) {
+  for (const path of coloured) {
     const rawColor = path.color
-    if (!rawColor || isWhite(rawColor)) continue
 
     for (const shape of SVGLoader.createShapes(path)) {
       const geometry = new THREE.ExtrudeGeometry(shape, {
@@ -133,7 +157,7 @@ function buildSvgMeshes(
       mesh.castShadow    = true
       mesh.receiveShadow = true
       mesh.position.z    = pathZ
-      pathZ += 0.3
+      pathZ += step
       group.add(mesh)
       meshes.push(mesh)
     }
@@ -142,8 +166,8 @@ function buildSvgMeshes(
   // Fallback for fill-less SVGs
   if (meshes.length === 0) {
     let fz = 0
-    const d2 = new SVGLoader()
-    for (const path of d2.parse(svgSource).paths) {
+    const fstep = zStep(visible.length)
+    for (const path of visible) {
       for (const shape of SVGLoader.createShapes(path)) {
         const geometry = new THREE.ExtrudeGeometry(shape, {
           depth,
@@ -155,7 +179,7 @@ function buildSvgMeshes(
         const mesh = new THREE.Mesh(geometry, makeMaterial(materialStyle, FALLBACK_COLOR.clone()))
         mesh.castShadow    = true
         mesh.receiveShadow = true
-        mesh.position.z    = fz; fz += 0.3
+        mesh.position.z    = fz; fz += fstep
         group.add(mesh)
         meshes.push(mesh)
       }

@@ -2,9 +2,10 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import dynamic from 'next/dynamic'
+import { SCULPT_3D } from '@/lib/features'
 import { AnimatePresence } from 'motion/react'
 import { motion } from 'motion/react'
-import { useEditorStore, selectSvgReady, undoEditor, redoEditor } from '@/lib/store/editor'
+import { useEditorStore, selectSvgReady, selectCanPlay, undoEditor, redoEditor } from '@/lib/store/editor'
 import { LibraryBrowser } from './LibraryBrowser'
 import { KeyboardShortcutsOverlay } from '@/components/ui/KeyboardShortcutsOverlay'
 import { ControlsSidebar } from './ControlsSidebar'
@@ -108,12 +109,34 @@ export function EditorLayout() {
       if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undoEditor(); return }
       if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redoEditor(); return }
 
-      if (e.key === '1') { setAppMode('animate'); setActivePanel(null); return }
-      if (e.key === '2') { setAppMode('3d');      setActivePanel(null); return }
+      // Everything below is a bare-key shortcut. Without this guard Cmd+2
+      // (switching browser tabs) also flipped the editor into 3D mode.
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+
+      if (SCULPT_3D && e.key === '1') { setAppMode('animate'); setActivePanel(null); return }
+      if (SCULPT_3D && e.key === '2') { setAppMode('3d');      setActivePanel(null); return }
 
       if (appMode !== 'animate') return
 
-      if ((e.key === 'r' || e.key === 'R') && !e.metaKey && !e.ctrlKey) { restartAnimation(); return }
+      // Space and H used to live in BottomBar, which is no longer rendered, so
+      // both stopped working while the shortcuts overlay still listed them.
+      if (e.code === 'Space') {
+        // A focused button already activates on Space; toggling playback too
+        // would fire two actions from one key press.
+        if (e.repeat || (e.target instanceof Element && e.target.closest('button, [role="button"], a, select'))) return
+        const editor = useEditorStore.getState()
+        if (!selectCanPlay(editor)) return   // inert until there is something to play
+        e.preventDefault()                    // no page scroll
+        editor.setPlaying(!editor.isPlaying)
+        return
+      }
+      if (e.key === 'h' || e.key === 'H') {
+        const editor = useEditorStore.getState()
+        editor.setPanMode(!editor.isPanMode)
+        return
+      }
+
+      if (e.key === 'r' || e.key === 'R') { restartAnimation(); return }
       if (e.key === '0') { resetView(); return }
 
       if (e.key === '[') {
@@ -269,7 +292,7 @@ function InfoButton({ onClick }: { onClick: () => void }) {
   return (
     <motion.button
       onClick={onClick}
-      aria-label="About Reframeo"
+      aria-label="About Reframe"
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.94 }}
       style={{
@@ -482,17 +505,24 @@ function EmptyStateModal({ onBrowseLibrary, onTryExample, onUpload }: { onBrowse
             overflow: 'hidden',
           }}
         >
-          <img
-            src="/figma-icons/start-modal-preview.png"
-            alt=""
-            width={538}
-            height={344}
-            style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
-          />
+          {/* The largest paint on first visit: a 2x AVIF (87 KB) with a WebP
+              fallback, replacing a 3.4 MB full-resolution PNG. */}
+          <picture>
+            <source srcSet="/figma-icons/start-modal-preview.avif" type="image/avif" />
+            <img
+              src="/figma-icons/start-modal-preview.webp"
+              alt=""
+              width={538}
+              height={344}
+              fetchPriority="high"
+              decoding="async"
+              style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          </picture>
         </div>
 
         <div style={{ position: 'absolute', left: 16, top: 368, width: 435 }}>
-          <h1 style={{
+          <h2 style={{
             margin: 0,
             fontFamily: 'var(--font-geist-sans), sans-serif',
             fontSize: 22,
@@ -502,7 +532,7 @@ function EmptyStateModal({ onBrowseLibrary, onTryExample, onUpload }: { onBrowse
             color: '#FFFFFF',
           }}>
             Turn static SVGs into motion in seconds
-          </h1>
+          </h2>
           <p style={{
             margin: '4px 0 0',
             fontFamily: 'var(--font-geist-sans), sans-serif',
