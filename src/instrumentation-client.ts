@@ -1,4 +1,4 @@
-import posthog from 'posthog-js'
+import { loadedPostHog } from '@/lib/posthog-client'
 
 /**
  * Keeps the app alive when something outside React rearranges its DOM.
@@ -25,7 +25,8 @@ function report(method: string, parent: Node, child: Node | null) {
       : node.nodeType === Node.TEXT_NODE ? '#text'
       : `${node.nodeName.toLowerCase()}${node instanceof Element && node.className && typeof node.className === 'string' ? '.' + node.className.split(' ')[0] : ''}`
   try {
-    if (posthog.__loaded) {
+    const posthog = loadedPostHog()
+    if (posthog) {
       posthog.capture('dom_mismatch_recovered', {
         method,
         parent: describe(parent),

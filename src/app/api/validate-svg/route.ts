@@ -26,7 +26,10 @@ export const runtime = 'nodejs'
 
 // ── Request schema ────────────────────────────────────────────
 const RequestSchema = z.object({
-  svg: z.string().min(1).max(50 * 1024 * 1024), // 50 MB — matches client-side file size cap
+  // Messages are shown to the user verbatim, so they say what to do.
+  svg: z.string({ required_error: 'No file was received. Try uploading it again.' })
+    .min(1, 'This file is empty.')
+    .max(50 * 1024 * 1024, 'This SVG is larger than 50 MB.'), // matches client-side file size cap
 })
 
 // ── Forbidden patterns (server-side defence) ──────────────────
@@ -90,7 +93,7 @@ export async function POST(request: Request) {
 
   // ── Basic structural validation ───────────────────────────────
   if (!sanitized.trim().toLowerCase().includes('<svg')) {
-    return error('No <svg> element found', 400)
+    return error('This doesn’t look like an SVG file. Export it as SVG and try again.', 400)
   }
 
   // ── Layer extraction (regex-based, no DOM available in Node) ──

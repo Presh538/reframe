@@ -179,6 +179,19 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       }),
       // Limit history to 40 steps to keep memory bounded
       limit: 40,
+      // Record a step only when tracked state really changed. zundo records
+      // every set() by default, so ephemeral updates (playback, export state)
+      // pushed identical snapshots and one preset change took six Cmd+Z
+      // presses to undo. Params is compared by value; the rest by reference,
+      // which keeps a multi-MB svgSource out of any deep comparison.
+      equality: (past, current) =>
+        past.svgSource === current.svgSource &&
+        past.svgFileName === current.svgFileName &&
+        past.svgLayers === current.svgLayers &&
+        past.activePresetId === current.activePresetId &&
+        past.customAnimationPlan === current.customAnimationPlan &&
+        past.isFragmented === current.isFragmented &&
+        sameParams(past.params, current.params),
     }),
     {
       name: 'reframe-editor',
@@ -193,6 +206,12 @@ export const useEditorStore = create<EditorState & EditorActions>()(
 )
 
 // ── Temporal (undo/redo) helpers ──────────────────────────────
+
+function sameParams(a: AnimParams, b: AnimParams): boolean {
+  if (a === b) return true
+  const keys = Object.keys(a) as (keyof AnimParams)[]
+  return keys.length === Object.keys(b).length && keys.every(k => a[k] === b[k])
+}
 // Call directly from event handlers (outside React render).
 export const undoEditor = () => useEditorStore.temporal.getState().undo()
 export const redoEditor = () => useEditorStore.temporal.getState().redo()

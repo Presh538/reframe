@@ -9,7 +9,7 @@
  */
 
 import { Component, type ReactNode, type ErrorInfo } from 'react'
-import posthog from 'posthog-js'
+import { withPostHog } from '@/lib/posthog-client'
 
 interface Props {
   children: ReactNode
@@ -42,14 +42,11 @@ export class ErrorBoundary extends Component<Props, State> {
     // and component stack — not just visible in a session recording. This is
     // what lets us tell an internal bug (e.g. framer-motion) from an external
     // one (e.g. a browser extension mutating the DOM).
-    try {
-      posthog.captureException(
-        error instanceof Error ? error : new Error(String(error)),
-        { componentStack: info.componentStack },
-      )
-    } catch {
-      /* PostHog not initialised — non-fatal */
-    }
+    // Queued if PostHog has not loaded yet, so an early crash still reports.
+    withPostHog(posthog => posthog.captureException(
+      error instanceof Error ? error : new Error(String(error)),
+      { componentStack: info.componentStack },
+    ))
   }
 
   handleReset = () => {

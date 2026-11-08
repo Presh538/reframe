@@ -14,6 +14,7 @@
 
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { LANDING_PAGES } from '@/lib/seo/pages'
 
 const APP_URL  = process.env.NEXT_PUBLIC_APP_URL ?? 'https://reframeo.com'
 const APP_NAME = 'Reframe'
@@ -60,7 +61,9 @@ export interface LandingConfig {
 export function buildLandingMetadata(c: LandingConfig): Metadata {
   const pageUrl = `${APP_URL}${c.path}`
   return {
-    title:       c.title,
+    // Absolute: the config title already ends in "| Reframe", and the root
+    // layout's template would append "— Reframe" a second time.
+    title:       { absolute: c.title },
     description: c.description,
     alternates:  { canonical: pageUrl },
     openGraph: {
@@ -69,13 +72,13 @@ export function buildLandingMetadata(c: LandingConfig): Metadata {
       siteName:    APP_NAME,
       title:       c.title,
       description: c.description,
-      images:      [{ url: OG_IMAGE, width: 1200, height: 630, alt: `${c.breadcrumbName} — ${APP_NAME}` }],
+      // images come from the route's opengraph-image.tsx (a per-page card).
     },
     twitter: {
       card:        'summary_large_image',
       title:       c.title,
       description: c.description,
-      images:      [OG_IMAGE],
+      // No images: X falls back to og:image, the per-page card.
     },
     robots: { index: true, follow: true },
   }
@@ -125,15 +128,7 @@ function buildJsonLd(c: LandingConfig) {
 }
 
 /** Related-link set rendered in the footer for internal linking (SEO). */
-const ALL_PAGES: { path: string; label: string }[] = [
-  { path: '/animate-svg-with-ai', label: 'Animate SVG with AI' },
-  { path: '/svg-to-gif',          label: 'SVG to GIF' },
-  { path: '/svg-to-lottie',       label: 'SVG to Lottie' },
-  { path: '/free-svg-animator',   label: 'Free SVG animator' },
-  { path: '/animated-svg-logo',   label: 'Animated SVG logo' },
-  { path: '/svg-loading-animation', label: 'SVG loading animation' },
-  { path: '/animate-svg-icon',    label: 'Animate SVG icon' },
-]
+const ALL_PAGES = LANDING_PAGES
 
 const s = {
   page: { height: '100dvh', overflowY: 'auto' as const, background: 'var(--bg)', color: 'var(--text)' },

@@ -49,6 +49,42 @@ interface GifEncoderInstance {
   stream(): { pages: Uint8Array[]; cursor: number }
   /** The 768-byte RGB palette built by NeuQuant after the first addFrame call. */
   colorTab: Uint8Array | null
+  // Internals used by installPaletteCache.
+  pixels: Uint8Array | null
+  indexedPixels: Uint8Array
+  usedEntry: boolean[]
+  indexPixels: () => void
+  findClosestRGB: (r: number, g: number, b: number, used?: boolean) => number
+}
+
+/**
+ * Memoises colour -> palette index for an encoder with a fixed palette.
+ *
+ * With a global palette gif.js maps every pixel by scanning all 256 entries:
+ * a 900x900 frame is ~200M distance checks, and a 6 s export repeats that for
+ * ~145 frames on the main thread -- the bulk of GIF export time. SVG frames
+ * hold a few thousand distinct colours at most (flat fills plus anti-aliased
+ * edges), so each colour only needs to be resolved once per export. The
+ * result is identical; only the repeated searches are skipped.
+ */
+function installPaletteCache(encoder: GifEncoderInstance): void {
+  const cache = new Map<number, number>()
+  encoder.indexPixels = function (this: GifEncoderInstance) {
+    const px = this.pixels!
+    const count = px.length / 3
+    const out = new Uint8Array(count)
+    for (let j = 0, k = 0; j < count; j++, k += 3) {
+      const key = (px[k] << 16) | (px[k + 1] << 8) | px[k + 2]
+      let index = cache.get(key)
+      if (index === undefined) {
+        index = this.findClosestRGB(px[k], px[k + 1], px[k + 2])
+        cache.set(key, index)
+      }
+      this.usedEntry[index] = true
+      out[j] = index
+    }
+    this.indexedPixels = out
+  }
 }
 
 // ── Config ────────────────────────────────────────────────────
@@ -61,6 +97,7 @@ const MAX_FRAMES    = 144         // 24 fps × 6 s hard cap
 const SUPERSAMPLE   = 3           // Render at up to 3× then downscale — bicubic filter eliminates aliasing
 const MAX_SS_PX     = 1800        // Hard cap on hi-res canvas edge — prevents OOM on tiny SVGs scaled up
 const BATCH_SIZE    = 8           // Frames rendered in parallel per batch — limits peak canvas RAM
+const PROBE_MAX_PX  = 2_000_000   // Pixel budget for the palette-learning composite
 
 // Chroma key — fully-saturated magenta is vanishingly unlikely in real SVGs.
 const CHROMA_KEY_NUM = 0xFF00FF
@@ -159,6 +196,10 @@ export async function exportGif(opts: GifExportOptions): Promise<Blob> {
   // Stamped before encoding so the mark is part of the pixels, not an overlay.
   if (watermark) await watermarkFrames(frames)
 
+  // Chroma-keyed only after the watermark: the mark is translucent, and
+  // stamping it onto frames already filled with opaque magenta turned it pink.
+  if (transparent) for (const frame of frames) applyChromaKey(frame)
+
   // ── Phase 3: Encode ──────────────────────────────────────────
 
   onProgress?.(70)
@@ -201,9 +242,8 @@ function yieldToMain(): Promise<void> {
  *
  * Transparent mode (transparent=true):
  *   Draws on a CLEAR hi-res canvas so SVG edges composite against nothing
- *   (not against magenta), preventing pink fringing. After downscaling:
- *   - alpha < 128  → replaced with fully-opaque magenta (chroma key)
- *   - alpha >= 128 → kept as-is with alpha forced to 255
+ *   (not against magenta), preventing pink fringing. The frame keeps its
+ *   alpha here; applyChromaKey flattens it after the watermark is stamped.
  *
  * Solid mode (transparent=false):
  *   Fills hi-res canvas with the background colour then draws the SVG on top
@@ -264,26 +304,6 @@ function svgStringToCanvas(
         hiRes.width  = 0
         hiRes.height = 0
 
-        if (transparent) {
-          // Walk the pixel buffer: replace fully-transparent pixels with the
-          // chroma key so the GIF encoder can mark them as the transparent index.
-          const id = ctx.getImageData(0, 0, W, H)
-          const d  = id.data
-          for (let i = 0; i < d.length; i += 4) {
-            if (d[i + 3] < 128) {
-              // Transparent pixel → chroma key (fully opaque for the encoder)
-              d[i]     = 0xFF
-              d[i + 1] = 0x00
-              d[i + 2] = 0xFF
-              d[i + 3] = 0xFF
-            } else {
-              // Opaque pixel → force full opacity (GIF has no partial alpha)
-              d[i + 3] = 0xFF
-            }
-          }
-          ctx.putImageData(id, 0, 0)
-        }
-
         URL.revokeObjectURL(url)
         resolve(canvas)
       }
@@ -300,6 +320,26 @@ function svgStringToCanvas(
       resolve(null)
     }
   })
+}
+
+/**
+ * Flattens a frame for GIF's 1-bit transparency, in place: pixels under
+ * alpha 128 become the opaque chroma key (#FF00FF), which the encoder marks
+ * as the transparent index; everything else is forced fully opaque.
+ */
+function applyChromaKey(canvas: HTMLCanvasElement): void {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!
+  const id = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  const d  = id.data
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 128) {
+      d[i]     = 0xFF
+      d[i + 1] = 0x00
+      d[i + 2] = 0xFF
+    }
+    d[i + 3] = 0xFF
+  }
+  ctx.putImageData(id, 0, 0)
 }
 
 /**
@@ -363,15 +403,23 @@ async function encodeGif(
     }
     sampleIndices[sampleIndices.length - 1] = frames.length - 1
 
-    // Tile samples: up to 4 cols × 4 rows (covers 16 samples)
+    // Tile samples: up to 4 cols × 4 rows (covers 16 samples). Each tile is
+    // shrunk so the composite stays under PROBE_MAX_PX: NeuQuant at quality 1
+    // learns from every pixel, and 16 full 900px frames is 13M of them. The
+    // shrink is nearest-neighbour, which drops pixels rather than blending
+    // them, so every colour the palette sees is one the frames really contain.
     const cols   = Math.min(sampleCount, 4)
     const rows   = Math.ceil(sampleCount / cols)
+    const shrink = Math.min(1, Math.sqrt(PROBE_MAX_PX / (W * H * cols * rows)))
+    const tW     = Math.max(1, Math.round(W * shrink))
+    const tH     = Math.max(1, Math.round(H * shrink))
     const tiled  = document.createElement('canvas')
-    tiled.width  = W * cols
-    tiled.height = H * rows
+    tiled.width  = tW * cols
+    tiled.height = tH * rows
     const tCtx   = tiled.getContext('2d')!
+    tCtx.imageSmoothingEnabled = false
     sampleIndices.forEach((idx, n) => {
-      tCtx.drawImage(frames[idx], (n % cols) * W, Math.floor(n / cols) * H, W, H)
+      tCtx.drawImage(frames[idx], (n % cols) * tW, Math.floor(n / cols) * tH, tW, tH)
     })
 
     const probe = new GIFEncoder(tiled.width, tiled.height)
@@ -386,6 +434,7 @@ async function encodeGif(
       palette[766] = 0x00                    // G
       palette[767] = 0xFF                    // B
       encoder.setGlobalPalette(palette)
+      installPaletteCache(encoder)
     } else {
       // Fallback: per-frame NeuQuant (colour may drift but at least renders)
       encoder.setQuality(quality)

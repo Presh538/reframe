@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
+import { SCULPT_3D } from '@/lib/features'
 
 interface ShortcutRow {
   keys: string[]
@@ -36,8 +37,12 @@ const SHORTCUTS: { group: string; rows: ShortcutRow[] }[] = [
   {
     group: 'App',
     rows: [
-      { keys: ['1'],          label: 'Switch to Flow mode' },
-      { keys: ['2'],          label: 'Switch to Sculpt mode' },
+      ...(SCULPT_3D
+        ? [
+            { keys: ['1'], label: 'Switch to Flow mode' },
+            { keys: ['2'], label: 'Switch to Sculpt mode' },
+          ]
+        : []),
       { keys: ['?'],          label: 'Toggle this overlay' },
     ],
   },

@@ -1,0 +1,38 @@
+// Content for free-svg-animator, shared by the page and its social image.
+import type { LandingConfig } from '@/components/seo/Landing'
+
+export const config: LandingConfig = {
+  path: '/free-svg-animator',
+  eyebrow: 'Free SVG Animator',
+  title: 'Free SVG Animator — Online, No Sign-Up | Reframe',
+  description:
+    'A free online SVG animator. Animate any SVG with AI or presets, tune speed and easing, then export GIF, WebM or Lottie. No account, no install.',
+  h1: 'A free SVG animator that runs in your browser',
+  heroSubhead:
+    'Reframe is a free online SVG animator. Upload any SVG, animate it with an AI prompt or a one-click preset, fine-tune the motion, and export to GIF, WebM, or Lottie — all without an account, install, or After Effects.',
+  primaryCta: 'Start animating free →',
+  howHeading: 'How to animate an SVG for free',
+  howSubhead: 'No sign-up, no download — just open it and go.',
+  steps: [
+    ['Upload your SVG', 'Drag and drop any SVG file, or start from a built-in example. Everything runs in your browser.'],
+    ['Animate with AI or a preset', 'Describe the motion in plain English for the AI, or pick from 30+ hand-crafted presets.'],
+    ['Fine-tune the motion', 'Adjust speed, easing, delay, and which elements animate until it feels right.'],
+    ['Export or share', 'Export to GIF, WebM, or Lottie JSON, or copy a shareable preview link. Free GIF and WebM exports carry a small Reframe watermark, removed by a credit or a Pro plan.'],
+  ],
+  whyHeading: 'A genuinely free SVG animation tool',
+  whyParagraphs: [
+    'Most animation tools either cost money, gate exports behind a paywall, or demand a steep learning curve in software like After Effects. Reframe is different: it’s free to use, runs entirely in the browser, and asks for no account before you export your work.',
+    'It’s built for designers, developers, and creators who want polished motion without the overhead — logos, icons, illustrations, and UI graphics animated in seconds. Add AI prompts, 30+ presets, fine-grained speed and easing control, and export to GIF, WebM, or Lottie, and you have a complete SVG animation workflow. The editor is free to use; free GIF and WebM exports carry a small watermark, which Pro removes.',
+  ],
+  faqs: [
+    ['Is Reframe really free?', 'Yes — upload an SVG, animate it and export, with no account and no payment. Credits are what you pay for: one buys an AI generation, or removes the watermark from a GIF or WebM export. Pro includes 300 a month and removes the watermark from every export.'],
+    ['What can I animate with it?', 'Any SVG — logos, icons, illustrations, and UI graphics. Use an AI prompt or pick from 30+ presets, then fine-tune speed and easing.'],
+    ['What formats can I export to?', 'GIF (including transparent background), WebM video, and Lottie JSON, with adjustable quality and frame rate. CSS export is coming soon.'],
+    ['Do I need to install anything or sign up?', 'No. Reframe runs entirely in your browser with no install and no account — just open it and start animating.'],
+  ],
+  finalHeading: 'Animate your SVG for free',
+  finalSubhead: 'No account, no install, no cost. Upload an SVG and bring it to life.',
+  breadcrumbName: 'Free SVG animator',
+  howToName: 'How to animate an SVG for free',
+  howToDescription: 'Animate any SVG free in the browser with AI or presets, then export.',
+}

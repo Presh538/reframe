@@ -4,11 +4,16 @@
  * Every product event goes through this module. No raw `posthog.capture`
  * calls anywhere else — this gives us one place to audit, rename, or mock events.
  *
- * All calls are no-ops until PostHog initialises (the `posthog-js` queue
- * buffers them automatically, so call order doesn't matter).
+ * Calls made before PostHog has loaded are queued and replayed in order,
+ * so call order doesn't matter.
  */
 
-import posthog from 'posthog-js'
+import { withPostHog } from '@/lib/posthog-client'
+
+/** Queued until PostHog loads (see posthog-client), then sent in order. */
+function capture(event: string, props?: Record<string, unknown>) {
+  withPostHog(posthog => posthog.capture(event, props))
+}
 
 // ── SVG / Upload ──────────────────────────────────────────────────
 
@@ -20,7 +25,7 @@ export function trackSvgUploaded(props: {
   groups:     number
   hasText:    boolean
 }) {
-  posthog.capture('svg_uploaded', props)
+  capture('svg_uploaded', props)
 }
 
 // ── Preset ───────────────────────────────────────────────────────
@@ -29,14 +34,14 @@ export function trackSvgUploaded(props: {
 export function trackPresetApplied(props: {
   presetId: string
 }) {
-  posthog.capture('preset_applied', props)
+  capture('preset_applied', props)
 }
 
 // ── Export modal ─────────────────────────────────────────────────
 
 /** Fired when the export modal is opened. */
 export function trackExportModalOpened() {
-  posthog.capture('export_modal_opened')
+  capture('export_modal_opened')
 }
 
 /** Fired the moment the user clicks "Export to file". */
@@ -45,7 +50,7 @@ export function trackExportStarted(props: {
   quality?:  number
   fps?:      number
 }) {
-  posthog.capture('export_started', props)
+  capture('export_started', props)
 }
 
 /** Fired when the export pipeline completes successfully. */
@@ -53,7 +58,7 @@ export function trackExportCompleted(props: {
   format:      string
   durationMs:  number
 }) {
-  posthog.capture('export_completed', props)
+  capture('export_completed', props)
 }
 
 /** Fired when the export pipeline throws or reports an error. */
@@ -61,19 +66,19 @@ export function trackExportFailed(props: {
   format:  string
   reason:  string
 }) {
-  posthog.capture('export_failed', props)
+  capture('export_failed', props)
 }
 
 // ── Share ─────────────────────────────────────────────────────────
 
 /** Fired when a share token is successfully created and copied. */
 export function trackShareLinkCreated() {
-  posthog.capture('share_link_created')
+  capture('share_link_created')
 }
 
 /** Fired when a visitor opens a /s/[token] preview page. */
 export function trackSharePreviewViewed() {
-  posthog.capture('share_preview_viewed')
+  capture('share_preview_viewed')
 }
 
 // ── AI Prompt Bar ─────────────────────────────────────────────────
@@ -83,7 +88,7 @@ export function trackAiPromptSubmitted(props: {
   promptLength:    number
   hasActivePreset: boolean
 }) {
-  posthog.capture('ai_prompt_submitted', props)
+  capture('ai_prompt_submitted', props)
 }
 
 /** Fired when the AI returns a successful preset and parameter set. */
@@ -91,14 +96,14 @@ export function trackAiPromptSucceeded(props: {
   presetId:    string
   promptLength: number
 }) {
-  posthog.capture('ai_prompt_succeeded', props)
+  capture('ai_prompt_succeeded', props)
 }
 
 /** Fired when the AI request fails or returns an error. */
 export function trackAiPromptFailed(props: {
   reason: string
 }) {
-  posthog.capture('ai_prompt_failed', props)
+  capture('ai_prompt_failed', props)
 }
 
 // ── Library ───────────────────────────────────────────────────────
@@ -110,7 +115,7 @@ export function trackLibraryItemSelected(props: {
   category: string
   source:   'editor' | '3d'
 }) {
-  posthog.capture('library_item_selected', props)
+  capture('library_item_selected', props)
 }
 
 // ── 3D mode ───────────────────────────────────────────────────────
@@ -120,19 +125,19 @@ export function trackThreedAssetUploaded(props: {
   assetKind: 'svg' | 'image'
   fileName:  string
 }) {
-  posthog.capture('threed_asset_uploaded', props)
+  capture('threed_asset_uploaded', props)
 }
 
 /** Fired when a 3D export render begins. */
 export function trackThreedExportStarted(props: {
   format: 'gif' | 'webm'
 }) {
-  posthog.capture('threed_export_started', props)
+  capture('threed_export_started', props)
 }
 
 /** Fired when a 3D export finishes and the file is downloaded. */
 export function trackThreedExportCompleted(props: {
   format: 'gif' | 'webm'
 }) {
-  posthog.capture('threed_export_completed', props)
+  capture('threed_export_completed', props)
 }

@@ -1,53 +1,32 @@
 'use client'
 
 /**
- * PostHogProvider — initialises posthog-js and provides the React context.
+ * PostHogProvider — schedules the deferred PostHog load and sends page views.
  *
- * Split into two components so useSearchParams() is isolated in its own
- * Suspense boundary, which Next.js App Router requires.
+ * posthog-js itself is loaded lazily by @/lib/posthog-client once the page is
+ * idle, so it stays out of the first-load bundle. Page views fired before then
+ * are queued and replayed in order.
  *
- * Usage: wrap children in layout.tsx.
+ * useSearchParams() lives in its own Suspense boundary, which the App Router
+ * requires.
  */
 
-import posthog            from 'posthog-js'
-import { PostHogProvider as PHProvider } from 'posthog-js/react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, Suspense }          from 'react'
-
-// ── Init ─────────────────────────────────────────────────────────
+import { schedulePostHog, withPostHog } from '@/lib/posthog-client'
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
-  useEffect(() => {
-    const key = process.env.NEXT_PUBLIC_POSTHOG_KEY
-
-    if (!key) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('[PostHog] NEXT_PUBLIC_POSTHOG_KEY is not set — analytics disabled')
-      }
-      return
-    }
-
-    posthog.init(key, {
-      api_host:            '/ingest',
-      ui_host:             'https://us.posthog.com',
-      capture_pageview:    false,  // handled manually below (SPA)
-      capture_pageleave:   true,
-      person_profiles:     'identified_only',  // no anonymous profiles by default
-      autocapture:         false,              // explicit events only — no noisy click noise
-    })
-  }, [])
+  useEffect(() => { schedulePostHog() }, [])
 
   return (
-    <PHProvider client={posthog}>
+    <>
       <Suspense fallback={null}>
         <PageViewTracker />
       </Suspense>
       {children}
-    </PHProvider>
+    </>
   )
 }
-
-// ── Page view tracker (needs Suspense boundary) ───────────────────
 
 function PageViewTracker() {
   const pathname     = usePathname()
@@ -55,9 +34,10 @@ function PageViewTracker() {
 
   useEffect(() => {
     if (!pathname) return
+    // Resolved now, not at replay time, so a queued view keeps its own URL.
     const url = window.location.origin + pathname +
       (searchParams?.toString() ? '?' + searchParams.toString() : '')
-    posthog.capture('$pageview', { $current_url: url })
+    withPostHog(posthog => posthog.capture('$pageview', { $current_url: url }))
   }, [pathname, searchParams])
 
   return null

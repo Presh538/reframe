@@ -1,49 +1,29 @@
-# Allow all crawlers by default
+# Every crawler is welcome, including AI search and answer engines.
+#
+# One group on purpose: a crawler obeys only the most specific group that
+# names it, so separate per-bot groups would each need their own Disallow
+# lines and drift apart. /api/ is JSON for the editor, never a page.
 User-agent: *
-Allow: /
-Sitemap: https://reframeo.com/sitemap.xml
-
-# ── AI search crawlers — explicitly welcomed ──────────────────
-
 # ChatGPT / OpenAI
 User-agent: GPTBot
-Allow: /
-
 User-agent: ChatGPT-User
-Allow: /
-
 User-agent: OAI-SearchBot
-Allow: /
-
 # Perplexity
 User-agent: PerplexityBot
-Allow: /
-
 # Anthropic / Claude
 User-agent: anthropic-ai
-Allow: /
-
 User-agent: Claude-Web
-Allow: /
-
 User-agent: ClaudeBot
-Allow: /
-
-# Common Crawl (used by many AI training sets)
+# Common Crawl
 User-agent: CCBot
-Allow: /
-
-# Google AI / Bard / Gemini
+# Google AI (Gemini)
 User-agent: Google-Extended
-Allow: /
-
 # Apple (Siri / Spotlight)
 User-agent: Applebot
-Allow: /
-
 # Microsoft Bing / Copilot
 User-agent: bingbot
-Allow: /
-
 User-agent: msnbot
 Allow: /
+Disallow: /api/
+
+Sitemap: https://reframeo.com/sitemap.xml

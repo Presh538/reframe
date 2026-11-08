@@ -9,6 +9,7 @@ import {
 } from '@/lib/billing/credits'
 import { consumeGuestAiTrial, GuestTrialUnavailableError, persistGuestCookie } from '@/lib/billing/guest-trial'
 import { integrationStatus } from '@/lib/env'
+import { ALLOWANCE } from '@/lib/billing/policy'
 
 /**
  * A single AI generation's billing handle.
@@ -61,7 +62,7 @@ export async function beginAiGeneration(
           reason: trial.reason,
           error:
             trial.reason === 'guest_allowance_exhausted'
-              ? 'You’ve used today’s free AI generations. Sign in to get 10 more.'
+              ? `You’ve used today’s free AI generations. Sign in to get ${ALLOWANCE.freeAccountAiCredits} more.`
               : 'The free AI allowance for this network is used up for today. Sign in to keep going.',
         })
       }

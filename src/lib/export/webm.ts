@@ -50,11 +50,16 @@ export async function exportWebm(opts: WebmExportOptions): Promise<Blob> {
   const vb   = svgEl.viewBox?.baseVal
   const srcW = vb?.width  ?? svgEl.clientWidth  ?? 400
   const srcH = vb?.height ?? svgEl.clientHeight ?? 400
-  // Target longest edge scales with quality; never upscale past native (cap at 1).
+  // Target longest edge scales with quality. SVG is vector, so small
+  // viewBoxes scale UP to the target like the GIF exporter does: capping at
+  // native size turned a 48- or 144-unit icon into a 144px video.
   const targetEdge = Math.max(16, MAX_EXPORT_PX * qFraction)
-  const scale = Math.min(targetEdge / Math.max(srcW, srcH), 1)
-  const W = Math.max(2, Math.round(srcW * scale))
-  const H = Math.max(2, Math.round(srcH * scale))
+  const scale = targetEdge / Math.max(srcW, srcH)
+  // Even dimensions: VP8/VP9 encoders subsample chroma 2:1 and some players
+  // reject or crop odd sizes.
+  const even = (n: number) => Math.max(2, Math.round(n / 2) * 2)
+  const W = even(srcW * scale)
+  const H = even(srcH * scale)
 
   // Bitrate scales with quality: 8 Mbps at 100 % down to ~0.8 Mbps at 10 %.
   const bitrate = Math.max(500_000, Math.round(8_000_000 * qFraction))
