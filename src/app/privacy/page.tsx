@@ -14,7 +14,7 @@ export default function PrivacyPage() {
   return (
     <LegalPage
       title="Privacy Policy"
-      summary="Your SVGs stay in your browser unless you share them or use AI. We never see your card details, we don't sell your data, and we don't show ads."
+      summary="We check your SVGs for safety but don't keep them, unless you create a share link. We never see your card details, we don't sell your data, and we don't show ads."
     >
       <p>
         This policy explains what information {LEGAL.product} (“we”, “us”), operated by {LEGAL.operator}, collects

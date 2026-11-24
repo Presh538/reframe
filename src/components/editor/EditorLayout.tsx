@@ -382,8 +382,8 @@ function InfoModal({ onClose }: { onClose: () => void }) {
             >
               Precious Ogar
             </a>
-            . Upload any SVG, describe the motion in plain English or pick from 30+ presets,
-            then export to GIF, WebM, CSS, or Lottie JSON — no code, no installs, no learning curve.
+            . Upload any SVG, describe the motion in plain English or pick a preset,
+            then export to animated SVG, GIF, WebM, or Lottie JSON — no code, no installs, no learning curve.
           </p>
 
           {/* Divider */}
@@ -396,7 +396,7 @@ function InfoModal({ onClose }: { onClose: () => void }) {
           <ol style={{ margin: 0, padding: '0 0 0 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {[
               ['Upload your SVG', 'Drag and drop any SVG — or start with an example.'],
-              ['Animate with AI or a preset', 'Type how you want it to move, or pick from 30+ motion presets.'],
+              ['Animate with AI or a preset', 'Type how you want it to move, or pick a one-click preset.'],
               ['Fine-tune speed and easing', 'Adjust timing until it feels right.'],
               ['Export or share', 'Download as GIF, WebM, CSS, or Lottie — or copy a share link.'],
             ].map(([title, desc]) => (
