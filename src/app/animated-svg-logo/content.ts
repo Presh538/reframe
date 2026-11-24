@@ -15,7 +15,7 @@ export const config: LandingConfig = {
   howSubhead: 'From a static SVG to a moving logo in about a minute.',
   steps: [
     ['Upload your logo', 'Drop in your SVG. It is processed in your browser and never stored on a server.'],
-    ['Describe the motion', 'Type something like “draw the logo on, then settle” — or start from one of 30+ presets built for logos, icons and illustrations.'],
+    ['Describe the motion', 'Type something like “draw the logo on, then settle” — or start from a one-click preset. The AI chooses from 35 animation styles built for logos, icons, illustrations and UI.'],
     ['Tune the timing', 'Adjust speed, easing, delay and direction, and choose whether whole groups or individual paths move.'],
     ['Export it', 'GIF with a transparent background for slides and email, WebM for video, or Lottie JSON for web and app.'],
   ],
@@ -28,6 +28,7 @@ export const config: LandingConfig = {
     ['How do I make an animated logo from an SVG?', 'Upload your SVG logo to Reframe, describe the motion in plain English or pick a preset, adjust the timing, then export to GIF, WebM, or Lottie JSON.'],
     ['Can I export a logo animation with a transparent background?', 'Yes. GIF export supports a transparent background, so the animation sits on any colour in a slide, email or page.'],
     ['Do I need After Effects to animate a logo?', 'No. Reframe animates and exports entirely in the browser — no After Effects, no Bodymovin plugin, no install.'],
+    ['Can I use the animated logo commercially?', 'Yes. You keep all rights to the SVGs you upload and the animations you create, so you can use them in commercial work, client projects and products you sell, as long as you have the rights to the original SVG. Reframe doesn’t claim ownership or ask for credit. That covers client logos, brand sites and ads.'],
     ['Is it free to animate my logo?', 'Yes, and no account is required. GIF and WebM exports carry a small Reframe watermark on the free tier. One AI credit removes it from an export, and Pro removes it from every export. Lottie exports are never watermarked.'],
   ],
   finalHeading: 'Animate your logo',

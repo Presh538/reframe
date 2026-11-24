@@ -14,8 +14,8 @@ export const config: LandingConfig = {
   howHeading: 'How to convert an SVG to a GIF',
   howSubhead: 'Animate first, then export — all in the browser.',
   steps: [
-    ['Upload your SVG', 'Drag and drop any SVG file into Reframe. Nothing is installed and the file stays in your browser.'],
-    ['Add motion', 'Describe the animation in plain English for the AI to apply, or pick from 30+ presets. A static SVG works too if you just want a clean loop.'],
+    ['Upload your SVG', 'Drag and drop any SVG file into Reframe. Nothing to install. The file is checked and cleaned for safety, and we don’t keep a copy.'],
+    ['Add motion', 'Describe the animation in plain English for the AI to apply, or pick a one-click preset. A static SVG works too if you just want a clean loop.'],
     ['Set quality and frame rate', 'Choose your export quality (10–100%) and frame rate (5–50 FPS). Higher values give smoother, sharper GIFs; lower values keep file size down.'],
     ['Export the GIF', 'Export to GIF — with an optional transparent background — and download instantly.'],
   ],

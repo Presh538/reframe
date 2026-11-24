@@ -55,6 +55,24 @@ export interface LandingConfig {
   /** HowTo schema name + description. */
   howToName: string
   howToDescription: string
+  /**
+   * Optional code walkthrough, rendered between "How" and "Why". Used by guide
+   * pages; each block is a short explanation, a snippet, and an optional note.
+   */
+  codeHeading?: string
+  codeSections?: { heading: string; body: string; code: string; note?: string }[]
+  /**
+   * Optional side-by-side table for comparison pages, rendered right after the
+   * hero. Rows are [feature, Reframe, competitor]. Every competitor claim must
+   * come from one of `sources`, checked on `checkedOn`.
+   */
+  comparison?: {
+    heading: string
+    competitor: string
+    rows: [string, string, string][]
+    checkedOn: string
+    sources: [string, string][]
+  }
 }
 
 /** Build Next.js Metadata for a landing page from its config. */
@@ -180,6 +198,43 @@ export function LandingPage({ config: c }: { config: LandingConfig }) {
         </div>
       </section>
 
+      {/* ── Comparison table (comparison pages only) ────────────── */}
+      {c.comparison && (
+        <section style={{ ...s.wrap, padding: '72px 24px 0' }}>
+          <h2 style={{ margin: '0 0 24px', fontSize: 28, fontWeight: 600, letterSpacing: -0.2 }}>{c.comparison.heading}</h2>
+          <div className="scrollbar-thin" style={{ overflowX: 'auto', border: '1px solid var(--border-strong)', borderRadius: 10 }}>
+            <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 14.5, lineHeight: 1.5 }}>
+              <thead>
+                <tr style={{ background: 'var(--surface)' }}>
+                  <th scope="col" style={{ textAlign: 'left', padding: '12px 16px', fontWeight: 600, color: 'var(--text-soft)', width: '28%' }}></th>
+                  <th scope="col" style={{ textAlign: 'left', padding: '12px 16px', fontWeight: 600, color: 'var(--accent)' }}>Reframe</th>
+                  <th scope="col" style={{ textAlign: 'left', padding: '12px 16px', fontWeight: 600 }}>{c.comparison.competitor}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {c.comparison.rows.map(([feature, ours, theirs]) => (
+                  <tr key={feature} style={{ borderTop: '1px solid var(--border)' }}>
+                    <th scope="row" style={{ textAlign: 'left', verticalAlign: 'top', padding: '12px 16px', fontWeight: 500 }}>{feature}</th>
+                    <td style={{ verticalAlign: 'top', padding: '12px 16px', color: 'var(--text-soft)' }}>{ours}</td>
+                    <td style={{ verticalAlign: 'top', padding: '12px 16px', color: 'var(--text-soft)' }}>{theirs}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p style={{ margin: '14px 0 0', fontSize: 13, lineHeight: 1.6, color: 'var(--text-faint)' }}>
+            {c.comparison.competitor} details checked on {c.comparison.checkedOn} from:{' '}
+            {c.comparison.sources.map(([label, url], i) => (
+              <span key={url}>
+                {i > 0 && ', '}
+                <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-soft)' }}>{label}</a>
+              </span>
+            ))}
+            . Plans change, so check their site before you decide.
+          </p>
+        </section>
+      )}
+
       {/* ── How it works ────────────────────────────────────────── */}
       <section style={{ ...s.wrap, padding: '72px 24px' }}>
         <h2 style={{ margin: '0 0 8px', fontSize: 28, fontWeight: 600, letterSpacing: -0.2 }}>{c.howHeading}</h2>
@@ -196,6 +251,34 @@ export function LandingPage({ config: c }: { config: LandingConfig }) {
           ))}
         </ol>
       </section>
+
+      {/* ── Code walkthrough (guides only) ─────────────────────── */}
+      {c.codeSections && c.codeSections.length > 0 && (
+        <section style={{ borderTop: '1px solid var(--border)' }}>
+          <div style={{ ...s.wrap, padding: '72px 24px' }}>
+            {c.codeHeading && (
+              <h2 style={{ margin: '0 0 36px', fontSize: 28, fontWeight: 600, letterSpacing: -0.2 }}>{c.codeHeading}</h2>
+            )}
+            <div style={{ display: 'grid', gap: 48 }}>
+              {c.codeSections.map(sec => (
+                <div key={sec.heading}>
+                  <h3 style={{ margin: '0 0 8px', fontSize: 19, fontWeight: 600 }}>{sec.heading}</h3>
+                  <p style={{ margin: '0 0 16px', fontSize: 15, lineHeight: 1.6, color: 'var(--text-soft)' }}>{sec.body}</p>
+                  <pre
+                    className="scrollbar-thin"
+                    style={{ margin: 0, padding: '18px 20px', overflowX: 'auto', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 10, fontSize: 13.5, lineHeight: 1.6, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', color: 'var(--text)' }}
+                  >
+                    <code>{sec.code}</code>
+                  </pre>
+                  {sec.note && (
+                    <p style={{ margin: '12px 0 0', fontSize: 14, lineHeight: 1.55, color: 'var(--text-soft)' }}>{sec.note}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── Why ─────────────────────────────────────────────────── */}
       <section style={{ borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>

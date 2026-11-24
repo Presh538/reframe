@@ -78,7 +78,7 @@ export async function POST(request: Request) {
   // causing the next call to start scanning mid-string and miss leading matches.
   FORBIDDEN_ELEMENTS.lastIndex = 0
   if (FORBIDDEN_ELEMENTS.test(svg)) {
-    return error('SVG contains forbidden elements (script, foreignObject, image, animate, etc.)', 400)
+    return error('This SVG contains something Reframe can’t open yet: an embedded image, a script, or animation of its own. Export it as plain vector shapes and try again.', 400)
   }
 
   let sanitized = svg

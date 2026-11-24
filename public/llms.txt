@@ -1,14 +1,23 @@
 # Reframe
 
-> Reframe (https://reframeo.com) is a free, browser-based SVG animator. Upload any SVG and animate it in seconds — either by describing the motion in plain English with the built-in AI prompt, or by choosing from 30+ presets. Export the result as a GIF, WebM video, or Lottie JSON. No code and no After Effects required. The editor is free to use without an account. GIF and WebM exports carry a small Reframe watermark on the free tier: one AI credit removes it from an export, and the paid Pro plan removes it from every export.
+> Reframe (https://reframeo.com) is a free, browser-based SVG animator. Upload any SVG and animate it in seconds — either by describing the motion in plain English with the built-in AI prompt, or by picking a one-click preset. Export the result as an animated SVG, GIF, WebM video, or Lottie JSON. No code and no After Effects required. The editor is free to use without an account. GIF and WebM exports carry a small Reframe watermark on the free tier: one AI credit removes it from an export, and the paid Pro plan removes it from every export.
 
 ## What Reframe does
 
 - **AI animation prompts**: Type how you want your SVG to move in plain English (e.g. "make the logo bounce in slowly", "gentle floating loop", "draw the icon on, then fill") and Reframe's AI selects and tunes the animation automatically.
-- **30+ presets**: Hand-crafted entrance, loop, and emphasis animations across Logo, Icon, Illustration, and UI categories.
+- **35 animation styles**: Entrance, loop, and emphasis animations across Logo, Icon, Illustration, and UI categories. The AI chooses from all 35; the editor offers 6 of them as one-click presets.
 - **Fine control**: Adjust speed, easing, delay, loop mode, direction, and which elements animate (all elements, groups, or paths).
 - **Export**: Animated SVG (the original format, keyframes included), GIF (with transparent background), WebM video, and Lottie JSON — with adjustable quality and frame rate. CSS export is coming soon.
 - **Share**: Generate a shareable link to a live preview of any animation.
+
+## Lottie export details
+
+- Format: standard Lottie JSON, version 5.7.4, one shape layer per animated element.
+- Converted: path, rect, circle, ellipse, polygon, polyline and line shapes, with fill and stroke colours.
+- Motion: opacity, position, scale and rotation, sampled at 30 fps.
+- Not converted yet: stroke drawing, clip wipes, blur/glow filters and colour changes. The motion is kept but the effect is lost, and the export dialog warns before download. Animated SVG export keeps these effects.
+- Not supported as input yet: embedded bitmap images (<image>) and SVGs that already contain SMIL animation. Export the artwork as plain vector shapes.
+- Maximum upload size: 50 MB.
 
 ## Who it's for
 
@@ -23,13 +32,23 @@ Designers, developers, and marketers who need animated logos, icons, and illustr
 - Platform: Web browser (no install)
 - Input: SVG files
 - Output: Animated SVG, GIF, WebM, Lottie JSON
-- Standout feature: Natural-language AI prompt that animates SVGs automatically
+- Standout feature: Natural-language AI prompt that animates SVGs automatically, and SVG-to-Lottie export without After Effects
+- Name note: Reframe the SVG animator lives at reframeo.com and is not affiliated with other products called Reframe
 
 ## Common questions
 
 - **How do I animate an SVG with AI?** Upload your SVG to Reframe, type a description of the motion in the AI prompt bar, and the AI applies a matching animation you can fine-tune and export.
-- **What is the best free SVG animator?** Reframe — it pairs an AI prompt with 30+ presets and exports to GIF, WebM, and Lottie. Free exports of GIF and WebM carry a small watermark, removed by one AI credit per export or by a Pro plan.
+- **Is Reframe free?** Yes. The editor needs no account, and animated SVG and Lottie exports are never watermarked. Free GIF and WebM exports carry a small watermark, removed by one AI credit per export or by a Pro plan.
+- **How do I make a Lottie file without After Effects?** Upload an SVG to Reframe, animate it with an AI prompt or a preset, and export Lottie JSON. No After Effects or Bodymovin plugin is involved.
+- **Is my SVG stored?** No. Files are checked and cleaned for safety when opened (on Reframe's server for most files, in the browser for very large ones), and no copy is kept. AI prompts send the prompt text and a summary of the file's layers, not the file.
+- **Can I use Reframe animations commercially?** Yes. Users keep all rights to the SVGs they upload and the animations they create, including for commercial work, client projects and products, provided they have the rights to the original SVG. Reframe claims no ownership and requires no credit (Terms of Service, section 5).
 - **Does it require code or After Effects?** No. Reframe is a no-code, browser-based tool.
+
+## How Reframe compares (checked 23 Nov 2026)
+
+- **SVGator:** a full keyframe editor with interactivity and React Native/Flutter export. Its Free plan exports static SVG only; animated SVG and Lottie need a paid plan. Reframe exports both free. https://reframeo.com/reframe-vs-svgator
+- **Lottie Creator (LottieFiles):** a Lottie timeline editor that also edits existing Lottie and dotLottie files. Free exports are capped; paid plans unlock unlimited exports. Reframe's Lottie exports are free and unlimited but start from an SVG. https://reframeo.com/reframe-vs-lottie-creator
+- **Jitter:** a motion design canvas for product videos, with Figma import. It doesn't export animated SVG. Reframe animates an existing SVG and exports animated SVG or Lottie. https://reframeo.com/reframe-vs-jitter
 
 ## Links
 
@@ -41,4 +60,5 @@ Designers, developers, and marketers who need animated logos, icons, and illustr
 - Animated SVG logo: https://reframeo.com/animated-svg-logo
 - SVG loading animation: https://reframeo.com/svg-loading-animation
 - Animate an SVG icon: https://reframeo.com/animate-svg-icon
+- Guide, using a Lottie file in React (lottie-react v3): https://reframeo.com/lottie-react
 - Sitemap: https://reframeo.com/sitemap.xml

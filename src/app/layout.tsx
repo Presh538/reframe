@@ -50,11 +50,9 @@ export const metadata: Metadata = {
     // Export formats
     'SVG to GIF',
     'SVG to Lottie',
-    'SVG to CSS animation',
     'SVG to WebM',
     'Lottie JSON export',
     'GIF export',
-    'CSS animation generator',
     'Lottie creator',
     // Use cases
     'no-code animation',
@@ -180,7 +178,7 @@ const jsonLd = {
       logo:       `${APP_URL}/logo.svg`,
       featureList: [
         'AI animation prompts — describe the motion in plain English and AI applies it',
-        '30+ hand-crafted animation presets',
+        '6 hand-tuned presets, plus 35 animation styles the AI chooses from',
         'Export animated SVG as GIF',
         'Export as WebM video',
         'Export as CSS animation (coming soon)',
@@ -227,7 +225,7 @@ const jsonLd = {
           '@type': 'HowToStep',
           position: 2,
           name: 'Describe it with AI or choose a preset',
-          text: 'Type how you want it to move in plain English and let AI animate it, or pick from 30+ presets.',
+          text: 'Type how you want it to move in plain English and let AI animate it, or pick one of the presets.',
         },
         {
           '@type': 'HowToStep',
@@ -259,10 +257,10 @@ const jsonLd = {
         },
         {
           '@type': 'Question',
-          name: 'What is the best free online SVG animator?',
+          name: 'What is Reframe?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Reframe (reframeo.com) is a free online SVG animator. It combines an AI prompt, 30+ presets, and fine-grained speed/easing controls, then exports to GIF, WebM, or Lottie — no code or After Effects required.',
+            text: 'Reframe (reframeo.com) is a free online SVG animator. It combines an AI prompt that chooses from 35 animation styles, one-click presets, and fine-grained speed/easing controls, then exports to GIF, WebM, or Lottie — no code or After Effects required.',
           },
         },
         {
@@ -279,6 +277,14 @@ const jsonLd = {
           acceptedAnswer: {
             '@type': 'Answer',
             text: 'Reframe exports as an animated SVG file, GIF (including transparent background), WebM video, and Lottie JSON, with adjustable quality and frame rate. CSS export is coming soon.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Can I use animations made with Reframe commercially?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Yes. You keep all rights to the SVGs you upload and the animations you create, so you can use them in commercial work, client projects and products you sell, as long as you have the rights to the original SVG. Reframe doesn’t claim ownership or ask for credit.',
           },
         },
         {
