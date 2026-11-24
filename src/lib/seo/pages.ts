@@ -19,10 +19,14 @@ export const LANDING_PAGES: SitePage[] = [
   { path: '/animated-svg-logo',     label: 'Animated SVG logo',     updated: '2026-11-08' },
   { path: '/svg-loading-animation', label: 'SVG loading animation', updated: '2026-11-08' },
   { path: '/animate-svg-icon',      label: 'Animate SVG icon',      updated: '2026-11-08' },
+  { path: '/lottie-react',          label: 'Lottie in React',       updated: '2026-11-23' },
+  { path: '/reframe-vs-svgator',        label: 'Reframe vs SVGator',        updated: '2026-11-23' },
+  { path: '/reframe-vs-lottie-creator', label: 'Reframe vs Lottie Creator', updated: '2026-11-23' },
+  { path: '/reframe-vs-jitter',         label: 'Reframe vs Jitter',         updated: '2026-11-23' },
 ]
 
 export const LEGAL_PAGES: SitePage[] = [
-  { path: '/privacy', label: 'Privacy Policy',   updated: '2026-09-19' },
+  { path: '/privacy', label: 'Privacy Policy',   updated: '2026-11-22' },
   { path: '/terms',   label: 'Terms of Service', updated: '2026-09-20' },
 ]
 
